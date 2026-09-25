@@ -21,7 +21,17 @@ Abra no seu editor. `API.md` descreve o que a API promete.
 
 O Prometheus está em http://127.0.0.1:9090 e a API em http://127.0.0.1:8080.
 
+## Como uma mudança chega à produção
+
+- **Código Go:** edite no workspace. `sesim check` e `sesim test` recompilam e reiniciam o app.
+- **Banco de dados:** crie uma migração nova em `migrations/` (ex.: `0002_minha_mudanca.sql`).
+  Elas são aplicadas em ordem pelo `check` e pelo `test`.
+- **Mexer direto no `psql` serve para investigar, não para entregar:** o `sesim test` recria o
+  banco do zero a cada execução, e só o que está no workspace sobrevive.
+
 ## Três pedidos do fundador (para você conhecer a casa)
+
+Não precisa responder a ninguém: são só para você se ambientar antes do movimento.
 
 1. Quantos pedidos a Nexora já recebeu?
 2. Qual é o p95 da busca agora?

@@ -72,6 +72,7 @@ flowchart LR
 
 ## Consequências
 
+- **Latência do k6 como histograma nativo** (`K6_FEATURES=native-histograms`, Chunk 7). As séries de trend stats (`k6_http_req_duration_p95`) são cumulativas desde o início de cada execução do k6, e num tráfego de fundo de horas escondiam a recuperação (p95 de 4,98 s parado enquanto a requisição real levava 1 ms). Com o histograma, o p95 por janela é `histogram_quantile` e soma as séries de status HTTP corretamente.
 - Nomes preservados na tradução OTLP → Prometheus 3.14.0 (`sesim_container_cpu_usage_seconds_total` continua igual). A duração no remote write do k6 é em **segundos**.
 - O jogador vê métricas de container com o prefixo `sesim_container_*`: medidas pelo host, confiáveis para o evaluator (dimensão `resources`).
 - O acesso ao Prometheus a partir do host no dev usa `127.0.0.1:9090` (rede `ctl`). Na sandbox real, o `SandboxDriver.Endpoint` resolve isso (Chunk 8).

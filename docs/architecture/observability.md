@@ -1,6 +1,6 @@
 # Observabilidade
 
-> Status: Chunk 1, proposta. Stack de métricas: ADR-0007.
+> Status: Chunk 1, proposta; coleta implementada no Chunk 5 e eventos de produto no Chunk 7 (`internal/events`, `workspace/.sesim/events.jsonl`; a tabela do §4 lista o que o código emite hoje). Stack de métricas: ADR-0007.
 
 Há **três** coisas diferentes chamadas "observabilidade" neste produto. Misturá-las é o erro mais fácil de cometer.
 
@@ -62,14 +62,17 @@ Local por padrão (`data-model.md` §3). Exportação só com `sesim telemetry e
 |---|---|---|
 | `install_first_run` | os, arch, docker_version, cores, mem | H7 |
 | `doctor_failed` | check | H7 |
-| `scenario_started` | scenario, seed | funil |
-| `onboarding_completed` | duração | H2 |
-| `quick_check_run` | build_ms, restart_ms, total_ms | H4 |
+| `scenario_started` / `scenario_resumed` | seed / fase | funil |
+| `growth_event` | calm_seconds (implementado no lugar de `onboarding_completed`) | H2 |
+| `status_viewed`, `shell_opened` | fase | como a pessoa investiga |
+| `quick_check_run` | build_ms, migrate_ms, restart_ms, total_ms | H4 |
+| `quick_check_failed` | stage (build/migrate/restart) | fricção |
 | `production_test_run` | duração, runs | — |
 | `test_passed` / `test_failed` / `test_inconclusive` | dimensões | H1, H5 |
 | `hint_requested` | nível | H1 |
 | `hypothesis_recorded` | nº de evidências | `time_to_first_hypothesis` |
 | `scenario_reset` | nível (dados/completo/hard) | fricção |
 | `canonical_state_adopted` | scenario | campanha |
-| `scenario_completed` | duração, nº de testes, maior nível de dica | H1, H6 |
+| `scenario_completed` | total_minutes, incident_minutes, tests, checks, hints | H1, H6 |
+| `session_paused` | fase | abandono |
 | `debrief_viewed` | tempo na tela | H3 (proxy fraco; a entrevista é o dado real) |

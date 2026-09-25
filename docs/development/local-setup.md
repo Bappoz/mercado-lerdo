@@ -56,6 +56,16 @@ Perfis em `workloads/nexora/`: modelo aberto (arrival rate), sequência de inten
 
 Usuários do seed: `user00001@nexora.test` … `user05000@nexora.test`, todos com a senha `nexora-demo` (credencial de demonstração, só existe no banco local).
 
+## Jogar (C1, terminal)
+
+```bash
+just build              # gera bin/sesim
+bin/sesim play          # cria workspace/, sobe a Nexora, mostra o briefing e liga o tráfego
+bin/sesim help          # status, next, check, test, hint, shell, stop
+```
+
+O workspace do jogador é `workspace/` (fora do git do projeto; é um repositório git próprio, com a tag do início do cenário). O progresso fica em `workspace/.sesim/state.json` e os eventos em `workspace/.sesim/events.jsonl`. Para recomeçar do zero: `bin/sesim stop && rm -rf workspace`. Protocolo do playtest: [`../product/playtest-1.md`](../product/playtest-1.md).
+
 ## Avaliação (evaluator)
 
 ```bash

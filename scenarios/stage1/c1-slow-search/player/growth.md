@@ -9,5 +9,7 @@ O tráfego subiu uns 4× e continua chegando gente.
 
 **Produção degradada. Investigue.**
 
+(`sesim status` mostra a produção agora.)
+
 Quando achar que resolveu, `sesim check` dá uma ideia rápida.
 O que vale é `sesim test`.
