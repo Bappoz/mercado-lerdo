@@ -33,7 +33,7 @@ sleep 5 # let the last remote-write/OTLP batches land
 w="$(( end - start ))s"
 testid=$(ls -t .runs/*-flash-sale.json | head -1 | xargs basename | sed 's/\.json$//')
 
-p95=$(query "max_over_time(k6_http_req_duration_p95{testid=\"$testid\",name=\"search\"}[$w])" "$end")
+p95=$(query "histogram_quantile(0.95, sum(rate(k6_http_req_duration_seconds{testid=\"$testid\",name=\"search\"}[$w])))" "$end")
 cpu=$(query "max_over_time((rate(sesim_container_cpu_usage_seconds_total{container=\"postgres\"}[10s]) / on(container) sesim_container_cpu_quota_cores{container=\"postgres\"})[$w:2s])" "$end")
 thr=$(query "increase(sesim_container_cpu_throttled_periods_total{container=\"postgres\"}[$w]) / increase(sesim_container_cpu_periods_total{container=\"postgres\"}[$w])" "$end")
 wait=$(query "sum(increase(nexora_db_pool_empty_acquire_wait_seconds_total[$w]))" "$end")

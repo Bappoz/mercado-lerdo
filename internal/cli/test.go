@@ -15,6 +15,7 @@ import (
 
 	"github.com/Bappoz/software-engineering-simulator/internal/devstack"
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
+	"github.com/Bappoz/software-engineering-simulator/internal/play"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 	"github.com/Bappoz/software-engineering-simulator/internal/workspace"
 )
@@ -45,7 +46,9 @@ func (f *evalFlags) load(stderr io.Writer) (*scenario.Pack, *devstack.Stack, *sl
 	return pack, devstack.New(f.root, log), log, true
 }
 
-// runTest: sesim test — Production Test of one workspace.
+// runTest: sesim test — Production Test of one workspace. Inside a game (a
+// session in ./workspace and no explicit --workspace) it also pauses the
+// story's traffic, records events and shows the debrief on PASS.
 func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -54,6 +57,13 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	ws := fs.String("workspace", "nexora", "the app to evaluate")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	explicit := false
+	fs.Visit(func(f *flag.Flag) { explicit = explicit || f.Name == "workspace" })
+	if !explicit {
+		if _, err := play.LoadSession(defaultWorkspace); err == nil {
+			return runPlayerTest(ctx, ef, stdout, stderr)
+		}
 	}
 	pack, stack, log, ok := ef.load(stderr)
 	if !ok {
@@ -65,15 +75,83 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "sesim:", err)
 		return 1
 	}
+	return reportTest(rep, ef.root, stdout)
+}
+
+func reportTest(rep evaluator.Report, root string, stdout io.Writer) int {
 	rep.WriteTable(stdout)
-	if path, err := saveJSON(ef.root, "eval", rep); err == nil {
+	if path, err := saveJSON(root, "eval", rep); err == nil {
 		fmt.Fprintln(stdout, "report:", path)
 	}
+	if !allPass(rep) {
+		return 3
+	}
+	return 0
+}
+
+func allPass(rep evaluator.Report) bool {
 	for _, v := range rep.Dimensions {
 		if v != evaluator.Pass {
-			return 3
+			return false
 		}
 	}
+	return len(rep.Dimensions) > 0
+}
+
+func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) int {
+	g, code := openGame("test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
+	if g == nil {
+		return code
+	}
+	defer g.stack.Close()
+	if ef.runs > 0 {
+		g.pack.Manifest.Test.Runs = ef.runs
+	}
+	m := g.pack.Manifest.Test
+	fmt.Fprintf(stdout, "Production Test: %d execuções de %s até %d req/s, cada uma a partir do banco original + as suas migrações.\n",
+		m.Runs, m.Profile, m.Rate)
+	fmt.Fprintln(stdout, "O tráfego do dia fica pausado enquanto isso. Leva alguns minutos.")
+	if err := g.stack.StopBackground(ctx); err != nil {
+		return g.fail(err)
+	}
+	log := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	start := time.Now()
+	rep, err := evaluator.Evaluate(ctx, g.stack, g.pack, g.session.Workspace, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+	if bgErr := g.startBackground(ctx); bgErr != nil {
+		fmt.Fprintln(stderr, "sesim: não consegui retomar o tráfego:", bgErr)
+	}
+	g.session.Tests++
+	g.save()
+	if err != nil {
+		g.event("production_test_failed_to_run", nil)
+		return g.fail(err)
+	}
+	dims := map[string]string{}
+	for d, v := range rep.Dimensions {
+		dims[d] = string(v)
+	}
+	g.event("production_test_run", map[string]any{"seconds": int(time.Since(start).Seconds()), "dimensions": dims})
+	code = reportTest(rep, ef.root, stdout)
+	if code != 0 {
+		fmt.Fprintln(stdout, "\nAinda não. As dimensões acima dizem o que falta. `sesim hint` se precisar.")
+		return code
+	}
+	if g.session.Phase != play.Completed {
+		g.session.Phase, g.session.DoneAt = play.Completed, time.Now().UTC()
+		g.save()
+		props := map[string]any{"tests": g.session.Tests, "checks": g.session.Checks, "hints": g.session.HintsShown,
+			"total_minutes": int(g.session.DoneAt.Sub(g.session.StartedAt).Minutes())}
+		if !g.session.IncidentAt.IsZero() {
+			props["incident_minutes"] = int(g.session.DoneAt.Sub(g.session.IncidentAt).Minutes())
+		}
+		g.event("scenario_completed", props)
+	}
+	fmt.Fprintln(stdout, "\nPASS em todas as dimensões.")
+	fmt.Fprintln(stdout)
+	if err := g.printFile(g.pack.Manifest.Player.Debrief); err != nil {
+		return g.fail(err)
+	}
+	g.event("debrief_viewed", nil)
 	return 0
 }
 

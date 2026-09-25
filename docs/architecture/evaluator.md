@@ -109,7 +109,7 @@ Execuções em que o gerador ficou limitado (drops com VUs livres) têm as medid
   | prefixo | 10–12 | 0 | 0,23–0,29 |
   | full-text | 10–14 | 0 | 0,35–0,39 |
 
-  **Célula frágil:** `resources` do trigram. O pior valor (0,61) ficou a 2 pontos da fronteira de PASS (0,70 × 0,9 = 0,63). Zero inversão *nesta máquina* não garante estabilidade em máquinas mais lentas. Decisão pendente: afrouxar o objetivo (ex.: `below: 0.80`) ou aceitar INCONCLUSIVE em hardware fraco. A regra do Chunk 1 de "≥5× entre quebrado e corrigido" não se aplica a medidas limitadas a 1 como CPU/quota; aqui a distância é de ~1,6×.
+  **Célula frágil:** `resources` do trigram. O pior valor (0,61) ficou a 2 pontos da fronteira de PASS (0,70 × 0,9 = 0,63). Zero inversão *nesta máquina* não garante estabilidade em máquinas mais lentas. **Decidido em 2026-09-25: `below: 0.80`.** A fronteira de PASS vai para 0,72 (trigram tem 11 pontos de folga), e o quebrado (≥ 0,97) continua FAIL (> 0,88), com base nas mesmas 9 execuções. A regra do Chunk 1 de "≥5× entre quebrado e corrigido" não se aplica a medidas limitadas a 1 como CPU/quota; aqui a distância é de ~1,6×.
 - Evidência inicial de ruído: o throttling de quota de CPU gerou dispersão de ~7× na mesma query (`sandbox.md` §7, medições do Chunk 3).
 - O autor do cenário é obrigado (linter + harness) a manter o estado quebrado e as referências longe do limiar. Essa é a principal proteção contra ruído, mais importante que a estatística.
 

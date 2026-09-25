@@ -54,7 +54,7 @@ Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomei
   - (c) busca por prefixo + B-tree: rápida, mas **falha em corretude**, porque o requisito é "em qualquer posição do nome";
   - (d) full-text search (`tsvector`): rápida, mas **falha em corretude**, porque casa palavras e não substrings (`ette` não acha "Kettle"). *Mudança em relação ao Chunk 1, que a listava como válida.*
   - Um cache ingênuo na frente ficou fora das referências por enquanto. Com a cauda longa dos termos, a expectativa é melhora parcial, mas isso ainda não foi medido.
-- **Objetivos** (`scenario.yaml`): corretude (9 casos de oráculo, esperado regenerado da seed), p95 da busca < 300 ms, taxa de erro < 1 %, p90 da CPU do banco < 70 % da quota. Margem de 10 % nos três últimos. Production Test: Flash Sale até 60 req/s, 3 execuções.
+- **Objetivos** (`scenario.yaml`): corretude (9 casos de oráculo, esperado regenerado da seed), p95 da busca < 300 ms, taxa de erro < 1 %, p90 da CPU do banco < 80 % da quota (era 70 %; mudado pela H5). Margem de 10 % nos três últimos. Production Test: Flash Sale até 60 req/s, 3 execuções.
 
 ### C2 — Connection Pressure
 
@@ -135,7 +135,8 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 4 | Gerador de carga + perfis | Flash Sale imprime p50/p95/p99/erros |
 | 5 | Telemetria: Prometheus, exporters, medição fora do app | séries temporais consultáveis de uma execução |
 | 6 | Evaluator (CLI) + C1 ponta a ponta + **teste de estabilidade (H5)** | `sesim test` → PASS/FAIL por dimensão, estável |
-| 7 | **Playtest #1** (C1 só no terminal, 3–5 pessoas) | relatório; go/no-go |
+| 7 | Preparação do Playtest #1: fluxo do jogador no terminal (`sesim play/next/status/check/test/hint`), conteúdo PT-BR, eventos, protocolo | C1 jogável de ponta a ponta; [`playtest-1.md`](playtest-1.md) |
+| 7b | **Playtest #1** (C1 só no terminal, 3–5 pessoas), conduzido por você | relatório; go/no-go |
 | 8 | Driver de sandbox programático: ciclo de vida, limites, reset/snapshot, testes de limpeza | create/health/exec/destroy/verify-cleanup |
 | 9 | UI web mínima: briefing, dashboard, terminal, resultados, debrief | C1 jogável no navegador |
 | 10 | Spec de topologia + C2 + C3 + injetor de falhas | Stage 1 completo |

@@ -19,6 +19,14 @@ test:
 
 oracle: oracle/cases.yaml
 
+# What the player sees and the background traffic of each phase (sesim play/next).
+player:
+  workspaceBase: nexora
+  calm:   {profile: normal-day, rate: 10, briefing: player/calm.md}
+  growth: {profile: flash-sale, rate: 40, briefing: player/growth.md}
+  hints: player/hints.yaml
+  debrief: player/debrief.md
+
 # Properties only. Nothing here knows about indexes, caches or search engines.
 objectives:
   - id: search-matches-contract
@@ -38,7 +46,9 @@ objectives:
   - id: db-headroom
     dimension: resources
     measure: db_cpu_p90
-    below: 0.70
+    # 0.80 (not 0.70): at 0.70 the trigram reference peaked 2 points from the
+    # PASS boundary in H5. See docs/architecture/evaluator.md §4.
+    below: 0.80
     margin: 0.10
 
 # The untouched scenario start.

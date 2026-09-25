@@ -22,6 +22,7 @@ type Pack struct {
 	Dir      string
 	Manifest Manifest
 	Oracle   []OracleCase
+	Hints    []Hint // empty when the pack has no player section
 }
 
 // Manifest is scenario.yaml.
@@ -35,6 +36,8 @@ type Manifest struct {
 	// Objectives are properties of the running system. They never mention a
 	// technology: the loader rejects any measure it does not know.
 	Objectives []Objective `yaml:"objectives"`
+	// Player is what the player sees (sesim play); optional for harness-only packs.
+	Player *Player `yaml:"player"`
 	// Broken is the expected verdict of the untouched scenario start.
 	Broken     Expect      `yaml:"broken"`
 	References []Reference `yaml:"references"`
@@ -87,6 +90,29 @@ type Reference struct {
 	Expect Expect `yaml:"expect"`
 }
 
+// Player describes the playable side of a scenario.
+type Player struct {
+	WorkspaceBase string `yaml:"workspaceBase"` // repo-relative app copied into the player's workspace
+	Calm          Phase  `yaml:"calm"`
+	Growth        Phase  `yaml:"growth"`
+	Hints         string `yaml:"hints"`
+	Debrief       string `yaml:"debrief"`
+}
+
+// Phase is one step of the story: a briefing and the background traffic.
+type Phase struct {
+	Profile  string `yaml:"profile"`
+	Rate     int    `yaml:"rate"`
+	Briefing string `yaml:"briefing"`
+}
+
+// Hint is one rung of the hint ladder.
+type Hint struct {
+	Level int    `yaml:"level"`
+	Kind  string `yaml:"kind"`
+	Text  string `yaml:"text"`
+}
+
 // OracleCase is one correctness probe of the search contract.
 type OracleCase struct {
 	Q     string `yaml:"q"`
@@ -122,6 +148,21 @@ func Load(dir string) (*Pack, error) {
 	for _, r := range m.References {
 		if _, err := os.Stat(filepath.Join(dir, r.Patch)); err != nil {
 			return nil, fmt.Errorf("scenario %s: reference %s: %w", dir, r.Name, err)
+		}
+	}
+	if pl := m.Player; pl != nil {
+		for _, f := range []string{pl.Calm.Briefing, pl.Growth.Briefing, pl.Debrief} {
+			if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+				return nil, fmt.Errorf("scenario %s: player: %w", dir, err)
+			}
+		}
+		if err := readYAML(filepath.Join(dir, pl.Hints), &p.Hints); err != nil {
+			return nil, err
+		}
+		for i, h := range p.Hints {
+			if h.Level != i+1 || h.Text == "" {
+				return nil, fmt.Errorf("scenario %s: hints must be levels 1..n in order, each with text", dir)
+			}
 		}
 	}
 	return p, nil
@@ -187,6 +228,16 @@ func (m Manifest) Validate() error {
 	// "Many valid solutions" is enforced by the format.
 	if passing < 2 {
 		fail("need at least 2 references expected to PASS every dimension, got %d", passing)
+	}
+	if pl := m.Player; pl != nil {
+		if pl.WorkspaceBase == "" || pl.Hints == "" || pl.Debrief == "" {
+			fail("player needs workspaceBase, hints and debrief")
+		}
+		for name, ph := range map[string]Phase{"calm": pl.Calm, "growth": pl.Growth} {
+			if ph.Profile == "" || ph.Rate <= 0 || ph.Briefing == "" {
+				fail("player.%s needs profile, rate > 0 and briefing", name)
+			}
+		}
 	}
 	if len(m.Broken) == 0 || m.Broken.AllPass() {
 		fail("broken: the scenario start must be expected to FAIL at least one dimension")

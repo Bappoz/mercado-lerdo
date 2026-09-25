@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -56,19 +57,161 @@ func (s *Stack) HTTP() *http.Client { return s.http }
 // Prepare builds the app from workspace, makes sure the pristine dataset
 // template exists, and starts pushing container stats to Prometheus.
 func (s *Stack) Prepare(ctx context.Context, workspace string) error {
+	if err := s.SetWorkspace(workspace); err != nil {
+		return err
+	}
+	if err := s.Build(ctx); err != nil {
+		return err
+	}
+	if err := s.EnsureTemplate(ctx); err != nil {
+		return err
+	}
+	return s.startStats(ctx)
+}
+
+// SetWorkspace selects the app every later build/up uses.
+func (s *Stack) SetWorkspace(workspace string) error {
 	abs, err := filepath.Abs(workspace)
 	if err != nil {
 		return fmt.Errorf("devstack: workspace: %w", err)
 	}
 	s.workspace = abs
-	s.Log.Info("building app", "workspace", abs)
-	if _, err := s.compose(ctx, true, "build", "app"); err != nil {
+	return nil
+}
+
+// Build builds the app image from the workspace.
+func (s *Stack) Build(ctx context.Context) error {
+	s.Log.Info("building app", "workspace", s.workspace)
+	_, err := s.compose(ctx, true, "build", "app")
+	return err
+}
+
+// Up starts the whole dev stack (building the app from the workspace) and waits until healthy.
+func (s *Stack) Up(ctx context.Context) error {
+	_, err := s.compose(ctx, true, "up", "-d", "--build", "--wait")
+	return err
+}
+
+// Migrate applies pending workspace migrations to the live database, keeping its data.
+func (s *Stack) Migrate(ctx context.Context) error {
+	if _, err := s.compose(ctx, true, "run", "--rm", "--no-deps", "-T", "seed", "-migrations", "/migrations"); err != nil {
+		return fmt.Errorf("devstack: workspace migrations: %w", err)
+	}
+	return nil
+}
+
+// RestartApp recreates the app from the last built image and waits until the
+// app process answers. It does not wait for "healthy": under load the app's
+// /healthz fails while the database is saturated, and that is the situation
+// the player is debugging.
+func (s *Stack) RestartApp(ctx context.Context) error {
+	if _, err := s.compose(ctx, true, "up", "-d", "--no-deps", "--force-recreate", "app"); err != nil {
 		return err
 	}
-	if err := s.ensureTemplate(ctx); err != nil {
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		if code, err := s.healthStatus(ctx); err == nil && (code == http.StatusOK || code == http.StatusServiceUnavailable) {
+			return nil // 503 comes from the app itself ("database unavailable"): it is up
+		}
+		if time.Now().After(deadline) {
+			return errors.New("devstack: the app did not come up within 60s (see `docker compose logs app`)")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (s *Stack) healthStatus(ctx context.Context) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.BaseURL+"/healthz", nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := s.http.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode, nil
+}
+
+// backgroundName is the fixed name of the long-running traffic container.
+const backgroundName = "nexora-dev-background"
+
+// StartBackground replaces the story's background traffic with profile at rate.
+// Its metrics carry testid=id in Prometheus.
+func (s *Stack) StartBackground(ctx context.Context, profile string, rate int, id string) error {
+	if err := s.StopBackground(ctx); err != nil {
 		return err
 	}
-	return s.startStats(ctx)
+	env := []string{fmt.Sprintf("RATE=%d", rate), "DURATION=12h", "RAMP=20s", "RUN_ID=" + id}
+	_, err := s.composeEnv(ctx, false, env, "run", "-d", "--no-deps", "--name", backgroundName,
+		"-e", "RATE", "-e", "DURATION", "-e", "RAMP", "-e", "RUN_ID",
+		"k6", "run", "-q", "--no-color", "-o", "experimental-prometheus-rw", "--tag", "testid="+id,
+		"/workloads/nexora/"+profile+".js")
+	return err
+}
+
+// StopBackground removes the background traffic container if it exists.
+func (s *Stack) StopBackground(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "docker", "rm", "-f", backgroundName)
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	if err := cmd.Run(); err != nil && !strings.Contains(errb.String(), "No such container") {
+		return fmt.Errorf("devstack: stop background: %w: %s", err, errb.String())
+	}
+	return nil
+}
+
+// CPU returns each container's average CPU use over window as a fraction of
+// its quota (0 when unlimited), measured from two Docker stats samples.
+func (s *Stack) CPU(ctx context.Context, window time.Duration) (map[string]float64, error) {
+	dc, err := docker.New()
+	if err != nil {
+		return nil, err
+	}
+	defer dc.Close()
+	const label = "com.docker.compose.project=nexora-dev"
+	a, err := dc.Stats(ctx, label)
+	if err != nil {
+		return nil, err
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(window):
+	}
+	b, err := dc.Stats(ctx, label)
+	if err != nil {
+		return nil, err
+	}
+	before := map[string]float64{}
+	for _, r := range a {
+		before[fmt.Sprintf("%s#%d", r.Component, r.Replica)] = r.CPUUsageSeconds
+	}
+	out := map[string]float64{}
+	for _, r := range b {
+		prev, ok := before[fmt.Sprintf("%s#%d", r.Component, r.Replica)]
+		if !ok || r.CPUQuotaCores == 0 {
+			continue
+		}
+		out[r.Component] = (r.CPUUsageSeconds - prev) / window.Seconds() / r.CPUQuotaCores
+	}
+	return out, nil
+}
+
+// Shell opens an interactive shell in the toolbox container.
+func (s *Stack) Shell(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
+	cmd := s.cmd(ctx, false, nil, "exec", "toolbox", "bash")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
+	return cmd.Run()
+}
+
+// QueryVector runs an instant PromQL query and returns every sample.
+func (s *Stack) QueryVector(ctx context.Context, promql string, at time.Time) ([]telemetry.Series, error) {
+	return telemetry.QueryVector(ctx, s.http, s.Prometheus, promql, at)
 }
 
 // Close stops the container-stats bridge.
@@ -78,10 +221,10 @@ func (s *Stack) Close() {
 	}
 }
 
-// ensureTemplate creates nexora_seed, the pristine scenario-start dataset every
+// EnsureTemplate creates nexora_seed, the pristine scenario-start dataset every
 // run is cloned from. It is seeded with the repository's migrations, not the
 // workspace's: reference solutions must not leak into the baseline.
-func (s *Stack) ensureTemplate(ctx context.Context) error {
+func (s *Stack) EnsureTemplate(ctx context.Context) error {
 	out, err := s.psql(ctx, "postgres", "SELECT count(*) FROM pg_database WHERE datname = 'nexora_seed'")
 	if err != nil {
 		return err
