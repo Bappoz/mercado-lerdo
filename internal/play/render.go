@@ -10,9 +10,15 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 )
 
-// RenderBriefing fills the placeholders of a briefing.
-func RenderBriefing(md, workspace string) string {
-	return strings.ReplaceAll(md, "{{workspace}}", workspace)
+// RenderBriefing fills {{name}} placeholders; unknown ones become "(indisponível)".
+func RenderBriefing(md string, vars map[string]string) string {
+	for k, v := range vars {
+		if v == "" {
+			v = "(indisponível)"
+		}
+		md = strings.ReplaceAll(md, "{{"+k+"}}", v)
+	}
+	return md
 }
 
 // NextHint returns the next hint after shown ones, or false when none are left.

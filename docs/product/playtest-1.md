@@ -31,12 +31,13 @@ A **mesma máquina do facilitador** é o caminho mais controlado para a primeira
 ### Antes de cada participante
 
 ```bash
-bin/sesim stop                   # se houver tráfego de uma sessão anterior
-rm -rf workspace                 # workspace da pessoa anterior (guarde o events.jsonl antes, se houver consentimento)
-just build                       # bin/sesim atualizado
+bin/sesim stop --down            # desliga a Nexora da pessoa anterior
+rm -rf workspace                 # workspace dela (guarde o events.jsonl antes, se houver consentimento)
+bin/sesim sandbox gc --all       # garante que nenhum sandbox ficou para trás
+just images && just build        # imagens e bin/sesim atualizados
 ```
 
-Não é preciso resetar o banco: `sesim play` num workspace novo parte do estado original do cenário.
+Não é preciso resetar nada à mão: `sesim play` num workspace novo cria um sandbox novo a partir do estado original do cenário.
 
 ### O que entregar à pessoa
 
@@ -138,5 +139,6 @@ O que ele **validou** foram três problemas de clareza, corrigidos antes do play
 - Só terminal; sem gráficos. O `sesim status` é um retrato de 10 s.
 - A fase calma não tem tour guiado: são três perguntas no briefing, e o jogo não confere as respostas.
 - `sesim shell` exige um terminal interativo.
+- Só Linux: a API e o Prometheus são alcançados pelo IP dos containers.
 - O Quick Check sob incidente pode passar de 90 s quando a mudança cria um índice com o banco saturado (medido: 110 s). Isso é realista, mas afeta a H4.
 - O resultado do `sesim test` sai em inglês técnico (tabela), e o resto em PT-BR.

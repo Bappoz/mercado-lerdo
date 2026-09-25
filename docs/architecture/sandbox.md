@@ -1,6 +1,6 @@
 # Sandbox
 
-> Status: implementado no Chunk 8 (`internal/sandbox`, `internal/sandbox/docker`, `internal/stack`, `sesim sandbox …`). O jogo (`play`/`test`/`verify`) ainda usa o compose de dev; a migração para o driver é o Chunk 8b. Decisões: ADR-0005 (driver), ADR-0013/0014 (zonas). Threat model: `../security/threat-model.md`.
+> Status: implementado no Chunk 8 (`internal/sandbox`, `internal/sandbox/docker`, `internal/stack`, `sesim sandbox …`). Desde o Chunk 8b, o jogo (`play`/`test`/`verify`) roda sobre o driver; o compose ficou só como ferramenta de desenvolvimento do app. Decisões: ADR-0005 (driver), ADR-0013/0014 (zonas). Threat model: `../security/threat-model.md`.
 
 ### O que existe hoje (Chunk 8)
 
@@ -15,6 +15,10 @@
 Diferenças em relação ao esboço do §3: `Endpoint` virou `Addr` (IP do container na rede; no Linux o host alcança redes `internal` direto, no Docker Desktop não), `Health` virou `WaitHealthy`, entrou `RunOnce`, e `Kill`/`Update`/`Snapshot`/`Restore` **ainda não existem**. Kill e Update entram com o C3 e com eventos de crescimento; snapshot, quando o reset por template não bastar.
 
 **Medido (2026-09-25, cache de build quente):** `sandbox up` em 26 s. Create 1,0 s, build 0,8 s, Postgres 4,9 s, seed do template 6,3 s, reset 2,2 s, serviços 11,3 s. O aceite completo (`just sandbox-check`, 18 verificações, incluindo matar o sesim no meio de um `up`) leva ~40 s.
+
+**Chunk 8b (2026-09-25):** o k6 roda como container da própria run (`RunOnce` no Production Test, `Launch` no tráfego de fundo), nas redes `ingress` + `telemetry`. O `test` e o `verify` fora de uma partida sobem um sandbox efêmero e o destroem no fim. A partida guarda o id do sandbox; `sesim stop --down` o destrói e o `play` sobe outro. Medido: Quick Check 68 s (quebrado) / 89 s (criando índice sob carga), contra 75 s / 110 s no compose; Production Test 2m44s; `verify --runs 1` com 5 casos em 5,5 min.
+
+**Permissões:** root com `cap_drop: ALL` não lê um workspace privado do usuário (diretório `0700`, arquivo `0600`). O `seed` roda com o uid:gid do host; o `builder` ganha só `DAC_OVERRIDE` (necessário para gravar nos volumes de cache e de binário). Testado com um workspace `0700`/`0600`.
 
 **Armadilha encontrada:** na primeira inicialização, o entrypoint do Postgres sobe um servidor temporário só no socket e depois o derruba. `pg_isready` pelo socket dava "pronto" cedo demais, e o seed era derrubado ("terminating connection due to administrator command"). O health check agora usa TCP (`-h 127.0.0.1`), aqui e no compose.
 

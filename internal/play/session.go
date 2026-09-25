@@ -39,6 +39,7 @@ type Session struct {
 	Checks     int       `json:"checks"`
 	Tests      int       `json:"tests"`
 	Background string    `json:"background"` // testid of the running background traffic
+	Sandbox    string    `json:"sandbox"`    // run id of this game's sandbox
 	LastCheck  *Signals  `json:"last_check,omitempty"`
 }
 

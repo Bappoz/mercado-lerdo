@@ -167,12 +167,12 @@ dev-smoke:
     scripts/dev-smoke.sh
 
 # Production Test of a workspace against a scenario (dev stack). Extra args go to `sesim test`.
-eval *args:
+eval *args: images
     go build -o bin/sesim ./cmd/sesim
     bin/sesim test {{args}}
 
 # Scenario harness: broken start + every reference must give the expected verdicts. Extra args: --rounds N --only a,b --runs N
-verify *args:
+verify *args: images
     go build -o bin/sesim ./cmd/sesim
     bin/sesim scenario verify {{args}}
 

@@ -11,7 +11,7 @@ just check      # gate completo: fmt-check → lint → typecheck → test → b
 just fmt        # formata Go e web
 just build-all  # cross-compile para dist/
 just doctor     # toolchain + Docker
-just dev-up | dev-psql | dev-reset          # stack de dev (compose); reset apaga o banco
+just images && just build && bin/sesim play # o jogo, sobre o driver; compose (`just dev-*`) é só para desenvolver o app
 just dev-load normal-day                    # carga k6 (normal-day | flash-sale); RATE/DURATION/RAMP/SEED via env
 just dev-smoke | dev-telemetry-check        # aceite dos Chunks 3 e 5
 just eval | verify --only trigram-index --runs 1   # Production Test do C1 | harness das referências
@@ -25,9 +25,9 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 - `internal/sandbox/docker` → único pacote que pode importar `github.com/moby/moby` (depguard garante).
 - `web/` → SPA; só será embutida no Chunk 9.
 - `nexora/` → app demo, **módulo Go separado** (`module nexora`) com `vendor/` commitado; é o workspace que o jogador edita. Contrato em `nexora/API.md`.
-- `scenarios/stage1/c1-slow-search/` → pacote do C1. `internal/scenario` lê; `internal/evaluator` julga; `internal/devstack` conduz o compose para o jogo até o Chunk 8b trocar por `internal/stack` (Nexora no driver `internal/sandbox/docker`; spec + hardening em `internal/sandbox`).
+- `scenarios/stage1/c1-slow-search/` → pacote do C1. `internal/scenario` lê; `internal/evaluator` julga; `internal/stack` roda a Nexora no driver `internal/sandbox/docker` (spec + hardening em `internal/sandbox`) para `play`/`test`/`verify`.
 - `internal/seed` + `cmd/nexora-seed` → dataset determinístico; `internal/observer` + `cmd/observer-svc` → gateway de pagamento emulado (zona observadora).
-- `deploy/dev/compose.yml` → stack de dev que espelha redes/limites da sandbox; não é a sandbox do jogo.
+- `deploy/dev/compose.yml` → só ferramenta de dev do app; o jogo não usa. Os configs em `deploy/dev/{nginx,prometheus,initdb}` são montados pelos dois (mudou um, mudou o jogo).
 - `docs/` → produto, arquitetura, threat model e ADRs (`docs/adr/README.md`). Decisão nova ou alterada = ADR novo.
 
 ## Convenções (não-negociáveis)

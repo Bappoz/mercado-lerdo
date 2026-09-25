@@ -247,47 +247,129 @@ func (c *Client) WaitHealthy(ctx context.Context, run sandbox.RunID, component s
 }
 
 // RunOnce runs ct to completion as a throwaway container of the run and
-// returns its exit code and combined output (for seeds, builds, migrations).
-func (c *Client) RunOnce(ctx context.Context, run sandbox.RunID, spec sandbox.Spec, ct sandbox.Container) (int, string, error) {
-	if err := (sandbox.Spec{Networks: spec.Networks, Volumes: spec.Volumes, Containers: []sandbox.Container{ct}}).Validate(); err != nil {
-		return 0, "", fmt.Errorf("docker: invalid one-shot container: %w", err)
-	}
-	if err := c.requireImages(ctx, sandbox.Spec{Containers: []sandbox.Container{ct}}); err != nil {
-		return 0, "", err
-	}
-	name := resourceName(run, ct.Component, "once", strconv.FormatInt(time.Now().UnixNano()%1e9, 36))
-	id, err := c.createContainer(ctx, run, spec, ct, name, map[string]string{labelOneShot: "true"})
+// returns its exit code and full output (for builds, seeds, load tests).
+func (c *Client) RunOnce(ctx context.Context, run sandbox.RunID, spec sandbox.Spec, ct sandbox.Container) (ExecResult, error) {
+	id, name, err := c.launch(ctx, run, spec, ct, true)
 	if err != nil {
-		return 0, "", err
+		return ExecResult{}, err
 	}
 	defer func() {
 		// Cleanup must happen even if ctx was canceled mid-run.
 		_, _ = c.api.ContainerRemove(context.WithoutCancel(ctx), id, client.ContainerRemoveOptions{Force: true, RemoveVolumes: true})
 	}()
-	wait := c.api.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: container.WaitConditionNextExit})
-	if _, err := c.api.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
-		return 0, "", fmt.Errorf("docker: start %s: %w", name, err)
-	}
+	wait := c.api.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: container.WaitConditionNotRunning})
 	select {
 	case res := <-wait.Result:
-		return int(res.StatusCode), c.tail(ctx, id, 200), nil
+		stdout, stderr := c.output(ctx, id, "all")
+		return ExecResult{ExitCode: int(res.StatusCode), Stdout: stdout, Stderr: stderr}, nil
 	case err := <-wait.Error:
-		return 0, "", fmt.Errorf("docker: wait %s: %w", name, err)
+		return ExecResult{}, fmt.Errorf("docker: wait %s: %w", name, err)
 	case <-ctx.Done():
-		return 0, "", ctx.Err()
+		return ExecResult{}, ctx.Err()
 	}
 }
 
-// tail returns the last n lines of a container's output (best effort).
-func (c *Client) tail(ctx context.Context, id string, n int) string {
-	logs, err := c.api.ContainerLogs(ctx, id, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Tail: strconv.Itoa(n)})
+// Launch starts ct in the background as part of the run (e.g. long-running
+// load). RemoveComponent stops it; Destroy removes it with the run.
+func (c *Client) Launch(ctx context.Context, run sandbox.RunID, spec sandbox.Spec, ct sandbox.Container) error {
+	_, _, err := c.launch(ctx, run, spec, ct, false)
+	return err
+}
+
+func (c *Client) launch(ctx context.Context, run sandbox.RunID, spec sandbox.Spec, ct sandbox.Container, oneShot bool) (id, name string, err error) {
+	if err := (sandbox.Spec{Networks: spec.Networks, Volumes: spec.Volumes, Containers: []sandbox.Container{ct}}).Validate(); err != nil {
+		return "", "", fmt.Errorf("docker: invalid container: %w", err)
+	}
+	if err := c.requireImages(ctx, sandbox.Spec{Containers: []sandbox.Container{ct}}); err != nil {
+		return "", "", err
+	}
+	name = resourceName(run, ct.Component, strconv.Itoa(ct.Replica))
+	var extra map[string]string
+	if oneShot {
+		name = resourceName(run, ct.Component, "once", strconv.FormatInt(time.Now().UnixNano()%1e9, 36))
+		extra = map[string]string{labelOneShot: "true"}
+	}
+	id, err = c.createContainer(ctx, run, spec, ct, name, extra)
 	if err != nil {
-		return ""
+		return "", "", err
+	}
+	if _, err := c.api.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
+		_, _ = c.api.ContainerRemove(context.WithoutCancel(ctx), id, client.ContainerRemoveOptions{Force: true})
+		return "", "", fmt.Errorf("docker: start %s: %w", name, err)
+	}
+	return id, name, nil
+}
+
+// RemoveComponent force-removes every container of component (idempotent).
+func (c *Client) RemoveComponent(ctx context.Context, run sandbox.RunID, component string) error {
+	list, err := c.containers(ctx, run, component)
+	if err != nil {
+		return err
+	}
+	for _, s := range list {
+		if _, err := c.api.ContainerRemove(ctx, s.ID, client.ContainerRemoveOptions{Force: true, RemoveVolumes: true}); err != nil && !isNotFound(err) {
+			return fmt.Errorf("docker: remove %s: %w", component, err)
+		}
+	}
+	return nil
+}
+
+// Stop stops every replica of component.
+func (c *Client) Stop(ctx context.Context, run sandbox.RunID, component string) error {
+	return c.each(ctx, run, component, func(id string) error {
+		_, err := c.api.ContainerStop(ctx, id, client.ContainerStopOptions{})
+		return err
+	})
+}
+
+// Restart restarts every replica of component.
+func (c *Client) Restart(ctx context.Context, run sandbox.RunID, component string) error {
+	return c.each(ctx, run, component, func(id string) error {
+		_, err := c.api.ContainerRestart(ctx, id, client.ContainerRestartOptions{})
+		return err
+	})
+}
+
+func (c *Client) each(ctx context.Context, run sandbox.RunID, component string, f func(id string) error) error {
+	list, err := c.containers(ctx, run, component)
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		return fmt.Errorf("docker: run %s has no %s container", run, component)
+	}
+	for _, s := range list {
+		if s.Labels[labelOneShot] != "" {
+			continue
+		}
+		if err := f(s.ID); err != nil {
+			return fmt.Errorf("docker: %s: %w", component, err)
+		}
+	}
+	return nil
+}
+
+// ContainerName is the Docker name of a long-running container of the run.
+func ContainerName(run sandbox.RunID, component string, replica int) string {
+	return resourceName(run, component, strconv.Itoa(replica))
+}
+
+// output returns a container's stdout and stderr ("all" or the last n lines), best effort.
+func (c *Client) output(ctx context.Context, id, tail string) (stdout, stderr string) {
+	logs, err := c.api.ContainerLogs(ctx, id, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Tail: tail})
+	if err != nil {
+		return "", ""
 	}
 	defer logs.Close()
-	var out bytes.Buffer
-	_, _ = stdcopy.StdCopy(&out, &out, logs)
-	return strings.TrimSpace(out.String())
+	var out, errb bytes.Buffer
+	_, _ = stdcopy.StdCopy(&out, &errb, logs)
+	return out.String(), errb.String()
+}
+
+// tail returns the last n lines of a container's combined output (best effort).
+func (c *Client) tail(ctx context.Context, id string, n int) string {
+	out, errb := c.output(ctx, id, strconv.Itoa(n))
+	return strings.TrimSpace(out + errb)
 }
 
 // ExecResult is the outcome of a non-interactive exec.

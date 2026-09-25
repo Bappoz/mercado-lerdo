@@ -15,8 +15,8 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/workload"
 )
 
-// Env is what the evaluator needs from a running sandbox. The dev stack
-// implements it today (internal/devstack); the SandboxDriver will in Chunk 8.
+// Env is what the evaluator needs from a running sandbox (implemented by
+// internal/stack on the sandbox driver).
 type Env interface {
 	Prepare(ctx context.Context, workspace string) error
 	ResetData(ctx context.Context) error

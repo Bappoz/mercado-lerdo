@@ -31,7 +31,7 @@ O grupo `docker` equivale a root no host (threat model, premissas). Para adicion
 sudo usermod -aG docker "$USER"   # depois: novo login (ou reiniciar a sessão gráfica)
 ```
 
-## Stack de desenvolvimento do Nexora
+## Stack de desenvolvimento do Nexora (compose; só para desenvolver o app)
 
 ```bash
 just dev-up      # build das imagens, Postgres, migrações + seed, app, nginx; espera tudo healthy
@@ -59,10 +59,13 @@ Usuários do seed: `user00001@nexora.test` … `user05000@nexora.test`, todos co
 ## Jogar (C1, terminal)
 
 ```bash
-just build              # gera bin/sesim
-bin/sesim play          # cria workspace/, sobe a Nexora, mostra o briefing e liga o tráfego
-bin/sesim help          # status, next, check, test, hint, shell, stop
+just images && just build   # imagens locais + bin/sesim
+bin/sesim play              # cria workspace/, sobe a Nexora (sandbox pela Docker API), briefing e tráfego
+bin/sesim help              # status, next, check, test, hint, shell, stop
+bin/sesim stop --down       # desliga a Nexora; workspace e progresso ficam
 ```
+
+O jogo não usa o compose. Os endereços da API e do Prometheus aparecem no briefing: são IPs dos containers, alcançáveis só no Linux (Docker Desktop ainda não suportado).
 
 O workspace do jogador é `workspace/` (fora do git do projeto; é um repositório git próprio, com a tag do início do cenário). O progresso fica em `workspace/.sesim/state.json` e os eventos em `workspace/.sesim/events.jsonl`. Para recomeçar do zero: `bin/sesim stop && rm -rf workspace`. Protocolo do playtest: [`../product/playtest-1.md`](../product/playtest-1.md).
 
