@@ -8,7 +8,7 @@
 | Node | 22 (ver `.node-version`) | npm incluso |
 | just | ≥ 1.x | executor canônico de comandos |
 | gitleaks | 8.30.x | usado pelo hook `pre-commit` e por `just secrets` |
-| Docker | Engine 29+ | só a partir do Chunk 3; `just doctor` avisa se faltar |
+| Docker | Engine 29+ com Compose v2 | usuário precisa de acesso ao socket (grupo `docker`, ver abaixo) |
 | gcc | qualquer | necessário para `go test -race` (o binário final não usa cgo) |
 
 ## Primeira vez
@@ -22,6 +22,35 @@ just check
 ```
 
 O hook `pre-commit` com gitleaks entra pelo `init.templateDir` global. Num clone novo sem o template, instale manualmente: copie `~/.config/git/template/hooks/pre-commit` para `.git/hooks/`.
+
+### Acesso ao Docker
+
+O grupo `docker` equivale a root no host (threat model, premissas). Para adicionar:
+
+```bash
+sudo usermod -aG docker "$USER"   # depois: novo login (ou reiniciar a sessão gráfica)
+```
+
+## Stack de desenvolvimento do Nexora
+
+```bash
+just dev-up      # build das imagens, Postgres, migrações + seed, app, nginx; espera tudo healthy
+curl -s '127.0.0.1:8080/search?q=lamp&limit=3' | jq
+just dev-psql    # psql como role nexora (dono do banco, não superuser)
+just dev-hash    # hash do dataset: mesma seed → mesmo hash
+just dev-reset   # apaga o banco; o próximo dev-up refaz o seed
+```
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `PG_CPUS` | `0.25` | CPU do Postgres (física escalada) |
+| `PG_MAX_CONNECTIONS` | `50` | `max_connections` |
+| `APP_CPUS` | `0.5` | CPU do app |
+| `NEXORA_DB_MAX_CONNS` | `10` | tamanho do pool do app |
+| `SEED` | `4242` | seed do dataset (só vale num banco vazio) |
+| `NEXORA_DEV_PORT` | `8080` | porta em `127.0.0.1` |
+
+Usuários do seed: `user00001@nexora.test` … `user05000@nexora.test`, todos com a senha `nexora-demo` (credencial de demonstração, só existe no banco local).
 
 ## Rotina
 
@@ -37,6 +66,7 @@ O hook `pre-commit` com gitleaks entra pelo `init.templateDir` global. Num clone
 
 - `tools/go.mod`: `govulncheck` e `go-licenses` via diretiva `tool`.
 - `tools/lint/go.mod`: `golangci-lint` isolado, como recomenda a própria documentação, para não compartilhar dependências.
+- `just tools` compila os três em `bin/tools/` (o cache do Go torna isso rápido); todas as receitas usam esses binários, inclusive dentro de `nexora/`.
 - Política de licenças (ADR-0009): allowlist em `justfile` (Go) e `web/scripts/check-licenses.mjs` (npm). **Mantenha as duas iguais.**
 
 ## CI

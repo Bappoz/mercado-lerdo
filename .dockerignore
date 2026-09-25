@@ -1,0 +1,8 @@
+.git
+bin
+dist
+docs
+web
+nexora
+tools
+**/node_modules
