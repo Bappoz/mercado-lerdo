@@ -164,6 +164,22 @@ Dar superuser ao `nexora` é uma decisão que o jogador pode tomar (via SQL como
   1. cores e memória disponíveis ao Docker (`docker info`);
   2. microbenchmark de CPU num container com quota fixa: verifica se a quota é de fato entregue (host sobrecarregado = quota não atingida);
   3. capacidade do gerador: um k6 curto contra um endpoint estático do observer-svc confirma que a taxa do perfil é sustentável (`dropped_iterations == 0`) antes de culpar o sistema do jogador.
+### Primeiras medições (Chunk 3, 2026-09-25)
+
+Máquina de desenvolvimento: Linux, Docker 29.7.2, cgroup v2, 12 CPUs. Stack de `deploy/dev/compose.yml` com `PG_CPUS=0.25`, sem carga. Medições pontuais, não benchmark.
+
+| O quê | Valor |
+|---|---|
+| Seed completo (5k usuários, 100k produtos, 20k pedidos) a 1 CPU | 13,7 s |
+| `just dev-up` a frio (build das imagens + seed) | 88 s |
+| `just dev-determinism` (2× reset + seed) | 106 s; hash igual nas duas execuções e no primeiro `dev-up` |
+| Tabela `products` | 26 MB; busca `lamp` casa 2.183 linhas; plano = Seq Scan + top-N heapsort, tudo em `shared hit` |
+| `EXPLAIN ANALYZE` da busca (5×) | 57, 409, 62, 125, 118 ms |
+| `GET /search?q=lamp` via nginx (5×) | 0,29–0,69 s |
+| `GET /products/42` via nginx (3×) | 1–2 ms |
+
+**Achado:** com quota de 0,25 CPU (25 ms a cada período de 100 ms do CFS), uma query que precisa de ~15–60 ms de CPU atravessa vários períodos, e a latência vira uma função de *onde* ela cai no ciclo de throttling. A dispersão (57–409 ms para a mesma query) é ruído que o evaluator precisa absorver (`evaluator.md` §4). Candidatos a investigar no Chunk 4–6: `cpu.cfs_period_us` menor (via `--cpu-period`), `cpuset` dedicado em vez de quota, ou limiares calibrados sobre a distribuição e não sobre execuções isoladas.
+
 - A calibração **não** substitui a folga dos limiares: cada cenário é autorado com ≥5× de distância entre quebrado e corrigido (ver `evaluator.md`).
 - O resultado da calibração entra no relatório e na tupla de reprodutibilidade.
 
