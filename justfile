@@ -43,6 +43,14 @@ lint: tools
     cd nexora && {{golangci}} run ./...
     npm --prefix web run check
 
+# Fail if any vendored file is git-ignored (CI builds from a clean clone)
+vendor-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ignored=$(git ls-files --others --ignored --exclude-standard nexora/vendor)
+    if [ -n "$ignored" ]; then echo "git-ignored files inside nexora/vendor:"; echo "$ignored"; exit 1; fi
+    cd nexora && go mod verify >/dev/null && go build -mod=vendor ./... && echo "vendor ok"
+
 # Type-check Go and TypeScript
 typecheck:
     go vet ./...
@@ -89,8 +97,8 @@ secrets:
     if git rev-parse --verify -q HEAD >/dev/null; then gitleaks git --no-banner --redact; fi
     gitleaks dir --no-banner --redact .
 
-# Full quality gate: format → lint → typecheck → test → build → licenses → vuln → secrets
-check: fmt-check lint typecheck test build licenses vuln secrets
+# Full quality gate: vendor → format → lint → typecheck → test → build → licenses → vuln → secrets
+check: vendor-check fmt-check lint typecheck test build licenses vuln secrets
 
 # Report local toolchain and Docker availability
 doctor:
