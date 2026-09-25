@@ -54,7 +54,8 @@ services:
     mem_limit: ${PG_MEMORY:-256m}
     pids_limit: 256
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d nexora"]
+      # TCP: the entrypoint's temporary init server listens on the socket only.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d nexora"]
       interval: 3s
       timeout: 3s
       retries: 20

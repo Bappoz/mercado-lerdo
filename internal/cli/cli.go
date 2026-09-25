@@ -27,6 +27,7 @@ Playing (output in PT-BR):
   stop           stop the background traffic
 
 Tools:
+  sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes via the Docker API
   scenario verify  run the broken start and every reference; report unexpected verdicts
   load-summary     read a k6 summary (JSON) on stdin and print per-endpoint stats
   dev              developer commands for the local dev stack
@@ -76,6 +77,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runScenarioVerify(ctx, args[2:], stdout, stderr)
 	case "dev":
 		return runDev(ctx, args[1:], stdout, stderr)
+	case "sandbox":
+		return runSandbox(ctx, args[1:], stdout, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usage)
 		return 0

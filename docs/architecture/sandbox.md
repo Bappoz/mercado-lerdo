@@ -1,6 +1,22 @@
 # Sandbox
 
-> Status: Chunk 1, proposta. Decisões: ADR-0005 (driver), ADR-0013 (zonas). Threat model: `../security/threat-model.md`.
+> Status: implementado no Chunk 8 (`internal/sandbox`, `internal/sandbox/docker`, `internal/stack`, `sesim sandbox …`). O jogo (`play`/`test`/`verify`) ainda usa o compose de dev; a migração para o driver é o Chunk 8b. Decisões: ADR-0005 (driver), ADR-0013/0014 (zonas). Threat model: `../security/threat-model.md`.
+
+### O que existe hoje (Chunk 8)
+
+| Peça | Onde | Notas |
+|---|---|---|
+| Spec de domínio + validação de hardening | `internal/sandbox/spec.go` | O tipo **não consegue expressar** privileged, rede/PID do host nem bind gravável. `Validate` exige limites de CPU/memória/pids, imagem por digest (ou `sesim/*` local), capabilities de uma allowlist e bind mounts read-only fora de `/`, `/etc`, `/proc`, `/sys`, `/dev`, `/run`, `/var/run`, `/var/lib/docker`, `/boot`, `/root` e de qualquer `docker.sock` |
+| Driver Docker | `internal/sandbox/docker/driver.go` | `Create`, `Start`, `WaitHealthy`, `RunOnce` (containers descartáveis: build, seed), `Exec`, `Addr`, `Stats`, `Destroy`, `Leftovers`, `Runs`. Baixa imagens de terceiros por digest quando faltam |
+| Spec da Nexora + orquestração | `internal/stack` | `Up` (create → build → postgres → template → reset → serviços), `Down` (destroy + verificação), `GC`; senhas aleatórias por execução |
+| Registro de execuções | `$XDG_STATE_HOME/sesim/runs/<run>.json` (0600) | PID do dono + estado `creating`/`ready`. **Órfão** = sem registro, ou `creating` com o dono morto. `gc` coleta só órfãos; `gc --all`, tudo |
+| CLI | `sesim sandbox up | ls | exec | down | gc` | Aceite: `just sandbox-check` |
+
+Diferenças em relação ao esboço do §3: `Endpoint` virou `Addr` (IP do container na rede; no Linux o host alcança redes `internal` direto, no Docker Desktop não), `Health` virou `WaitHealthy`, entrou `RunOnce`, e `Kill`/`Update`/`Snapshot`/`Restore` **ainda não existem**. Kill e Update entram com o C3 e com eventos de crescimento; snapshot, quando o reset por template não bastar.
+
+**Medido (2026-09-25, cache de build quente):** `sandbox up` em 26 s. Create 1,0 s, build 0,8 s, Postgres 4,9 s, seed do template 6,3 s, reset 2,2 s, serviços 11,3 s. O aceite completo (`just sandbox-check`, 18 verificações, incluindo matar o sesim no meio de um `up`) leva ~40 s.
+
+**Armadilha encontrada:** na primeira inicialização, o entrypoint do Postgres sobe um servidor temporário só no socket e depois o derruba. `pg_isready` pelo socket dava "pronto" cedo demais, e o seed era derrubado ("terminating connection due to administrator command"). O health check agora usa TCP (`-h 127.0.0.1`), aqui e no compose.
 
 ## 1. Objetivos
 
