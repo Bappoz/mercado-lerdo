@@ -180,6 +180,32 @@ Máquina de desenvolvimento: Linux, Docker 29.7.2, cgroup v2, 12 CPUs. Stack de 
 
 **Achado:** com quota de 0,25 CPU (25 ms a cada período de 100 ms do CFS), uma query que precisa de ~15–60 ms de CPU atravessa vários períodos, e a latência vira uma função de *onde* ela cai no ciclo de throttling. A dispersão (57–409 ms para a mesma query) é ruído que o evaluator precisa absorver (`evaluator.md` §4). Candidatos a investigar no Chunk 4–6: `cpu.cfs_period_us` menor (via `--cpu-period`), `cpuset` dedicado em vez de quota, ou limiares calibrados sobre a distribuição e não sobre execuções isoladas.
 
+### Calibração da carga (Chunk 4, 2026-09-25)
+
+Mesmo host. k6 2.3.0; perfis `workloads/nexora/`; timeout de cliente 5 s; Normal Day = 10 req/s (15 % busca), Flash Sale = rampa até 60 req/s (35 % busca). Execuções de 30–60 s, não benchmark.
+
+| Postgres | Estado | Perfil | Busca p95 | Falha busca | Catálogo (`/products`) p95 |
+|---|---|---|---|---|---|
+| 0,25 CPU | quebrado | Normal Day (×2) | 5 s | 64 % / 51 % | 3,4 s / 3,2 s |
+| 0,25 CPU | quebrado | Flash Sale (×2) | 5 s | 99,5 % / 99,3 % | 5 s |
+| **0,5 CPU** | quebrado | Normal Day (×3) | 123 / 137 / 116 ms | 0 % | 3,0–3,2 ms |
+| **0,5 CPU** | quebrado | Flash Sale | 5 s | 97 % | 5 s (78 % falha) |
+| **0,5 CPU** | corrigido (GIN trigram) | Flash Sale (×2) | 15,6 / 15,3 ms | 0 % | 2,8 / 2,8 ms |
+| 1,0 CPU | quebrado | Normal Day | 66 ms | 0 % | 2,9 ms |
+| 1,0 CPU | quebrado | Flash Sale | 5 s | 85 % | 5 s (14 % falha) |
+
+Decisões e achados:
+
+- **Padrão do stack de dev e ponto de partida do C1: Postgres com 0,5 CPU.** Com 0,25 nem o Normal Day é saudável, e sem dia normal saudável não existe contraste com o crescimento. Com 0,5, o estado quebrado passa no Normal Day e colapsa no Flash Sale, e uma solução de referência passa com folga (≈320× no p95 da busca).
+- **A sobrecarga não fica restrita à busca.** A CPU do banco é compartilhada, então no Flash Sale o catálogo também cai. Para o jogo isso é mais realista e mais didático: o sintoma é "tudo lento" e a causa raiz é uma query (`pg_stat_statements` mostra isso).
+- **`dropped_iterations` tem duas causas** (`internal/workload`, `DropCause`):
+  - *sistema saturado*: todos os VUs esperando até o timeout, e as chegadas novas não foram atendidas. É resultado válido e conta como indisponibilidade;
+  - *gerador limitado*: drops com VUs livres, e a execução não é confiável.
+
+  Pré-alocar todos os VUs (`preAllocatedVUs = maxVUs = pico × timeout × 1,2 + 10`) eliminou o segundo caso nas execuções acima.
+- **O sistema demora a se recuperar depois da sobrecarga:** a fila no banco continua depois que os clientes desistem, e o `/healthz` falha por alguns segundos. A ferramenta não depende da saúde do alvo (`--no-deps`). O evaluator precisa de reset ou espera entre execuções (Chunk 6).
+- **k6 com 370 VUs:** ≤ 123 MB de RAM e ~10 % de CPU. Não é gargalo.
+
 - A calibração **não** substitui a folga dos limiares: cada cenário é autorado com ≥5× de distância entre quebrado e corrigido (ver `evaluator.md`).
 - O resultado da calibração entra no relatório e na tupla de reprodutibilidade.
 

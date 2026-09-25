@@ -14,6 +14,7 @@ just doctor     # toolchain + Docker
 just dev-up     # stack Nexora de dev (compose): build, seed, espera healthy
 just dev-psql   # psql como role nexora, de dentro da rede da sandbox
 just dev-reset  # derruba e apaga o banco (próximo dev-up refaz o seed)
+just dev-load normal-day   # carga k6 (normal-day | flash-sale); RATE/DURATION/RAMP/SEED via env
 ```
 Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixadas em `tools/*.go.mod` e compiladas em `bin/tools/` por `just tools`; nunca use as do sistema.
 
@@ -41,6 +42,8 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixa
 - Mudou `nexora/go.mod`? `just nexora-vendor`, senão o build offline quebra.
 - O código do `nexora/` não comenta os problemas plantados pelos cenários (busca lenta, transação aberta durante o pagamento, idempotência ignorada). É proposital; não "conserte" nem documente no código.
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
+- `handleSummary` do k6 recebe `setup_data` com tokens de sessão: `workloads/nexora/lib/traffic.js` apaga antes de imprimir. Não reverta.
+- `discardResponseBodies: true` também vale no `setup()`: request cujo corpo você lê precisa de `responseType: 'text'`.
 - `docker compose exec -T` consome o stdin do chamador: em scripts, sempre `</dev/null`.
 - Segredo falso de cenário vai para `.gitleaksignore` com justificativa; nunca contornar o hook.
 

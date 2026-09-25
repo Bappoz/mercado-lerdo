@@ -130,6 +130,17 @@ dev-reset:
 dev-hash:
     {{dev}} run --rm --no-deps seed -migrations /migrations
 
+# Run a workload (normal-day | flash-sale) against the dev stack. Env: RATE, DURATION, RAMP, SEED
+dev-load profile="flash-sale":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p .runs
+    out=".runs/$(date +%Y%m%dT%H%M%S)-{{profile}}.json"
+    {{dev}} run --rm --no-deps -T -e RATE -e DURATION -e RAMP -e SEED -e RUN_ID="$(date +%s)" \
+      k6 run -q --no-color /workloads/nexora/{{profile}}.js </dev/null > "$out" 2> "${out%.json}.log"
+    echo "raw summary: $out ($(grep -c 'Request Failed' "${out%.json}.log" || true) failed requests logged in ${out%.json}.log)"
+    go run ./cmd/sesim load-summary < "$out"
+
 # Chunk 3 acceptance checks against the running dev stack
 dev-smoke:
     scripts/dev-smoke.sh
