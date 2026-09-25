@@ -48,3 +48,35 @@ func TestQueryScalar(t *testing.T) {
 		t.Errorf("empty vector = %+v, %v", vec, err)
 	}
 }
+
+func TestQueryRange(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if r.URL.Path != "/api/v1/query_range" || q.Get("start") != "100" || q.Get("end") != "160" || q.Get("step") != "30" {
+			http.Error(w, "bad request "+r.URL.String(), http.StatusBadRequest)
+			return
+		}
+		switch q.Get("query") {
+		case "p95":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[` +
+				`{"metric":{"name":"search"},"values":[[100,"4.5"],[130,"NaN"],[160,"+Inf"]]},` +
+				`{"metric":{"name":"products"},"values":[[100,"0.002"]]}]}}`))
+		default:
+			_, _ = w.Write([]byte(`{"status":"error","error":"parse error"}`))
+		}
+	}))
+	defer srv.Close()
+	ctx := context.Background()
+	start, end := time.Unix(100, 0), time.Unix(160, 0)
+
+	got, err := QueryRange(ctx, srv.Client(), srv.URL, "p95", start, end, 30*time.Second)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("QueryRange = %+v, %v", got, err)
+	}
+	if got[0].Labels["name"] != "search" || len(got[0].Points) != 1 || got[0].Points[0] != [2]float64{100, 4.5} {
+		t.Errorf("search series = %+v, want only the finite point", got[0])
+	}
+	if _, err := QueryRange(ctx, srv.Client(), srv.URL, "bad(", start, end, 30*time.Second); err == nil {
+		t.Error("bad query: want error")
+	}
+}

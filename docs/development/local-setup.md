@@ -97,7 +97,9 @@ just sandbox-check          # aceite: ciclo de vida, isolamento, limpeza, kill n
 | Quero… | Comando |
 |---|---|
 | Rodar a CLI | `go run ./cmd/sesim version` |
-| UI em modo dev | `npm --prefix web run dev` (escuta só em 127.0.0.1) |
+| Jogar no navegador | `just images && just build && bin/sesim ui` (abre o NexoraOS; `--no-open` só imprime o endereço) |
+| UI em modo dev | `bin/sesim ui --addr 127.0.0.1:7777 --no-open` e, em outro terminal, `npm --prefix web run dev` (o vite faz proxy de `/api` e `/ws` para a 7777) |
+| Testes da UI | `npm --prefix web test` (vitest; também roda no `just test`) |
 | Formatar tudo | `just fmt` |
 | Gate completo | `just check` |
 | Binários de todas as plataformas | `just build-all` → `dist/` |
@@ -107,7 +109,7 @@ just sandbox-check          # aceite: ciclo de vida, isolamento, limpeza, kill n
 - `tools/go.mod`: `govulncheck` e `go-licenses` via diretiva `tool`.
 - `tools/lint/go.mod`: `golangci-lint` isolado, como recomenda a própria documentação, para não compartilhar dependências.
 - `just tools` compila os três em `bin/tools/` (o cache do Go torna isso rápido); todas as receitas usam esses binários, inclusive dentro de `nexora/`.
-- Política de licenças (ADR-0009): allowlist em `justfile` (Go) e `web/scripts/check-licenses.mjs` (npm). **Mantenha as duas iguais.**
+- Política de licenças (ADR-0009): allowlist em `justfile` (Go) e `web/scripts/check-licenses.mjs` (npm). **Mantenha as duas iguais**, com uma exceção: OFL-1.1 só na web, porque se aplica a fontes (ADR-0016).
 
 ## CI
 

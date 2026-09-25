@@ -40,11 +40,11 @@ B1 navegador ↔ sesim · B2 sesim ↔ Docker daemon · B3 zona do jogador ↔ z
 
 | # | STRIDE | Ameaça | Mitigação | Residual |
 |---|---|---|---|---|
-| T1 | S/E | Página maliciosa faz `fetch` para `127.0.0.1:<porta>` e dispara ações (CSRF) | Token de sessão aleatório de 256 bits, entregue na URL de abertura (`sesim play` abre `http://127.0.0.1:P/#t=…`) e guardado em `sessionStorage`; toda requisição exige `Authorization: Bearer`; sem cookies de auth | Baixo |
-| T2 | S/E | **DNS rebinding** (`evil.com` resolve para 127.0.0.1) | Validar `Host` ∈ {`127.0.0.1:P`, `localhost:P`}; rejeitar o resto | Baixo |
-| T3 | E | WebSocket do terminal aberto cross-origin (WS não segue CORS) | Checar `Origin` no handshake + token no primeiro frame ou no subprotocolo | Baixo |
-| T4 | I | Dispositivo da LAN acessa a UI | Bind só em `127.0.0.1` (nunca `0.0.0.0`); flag explícita e avisada para mudar | Baixo |
-| T5 | T | XSS na SPA via conteúdo exibido (logs do app, nomes de produto do seed, saída do terminal) | React escapando por padrão; proibido `dangerouslySetInnerHTML` com dado de sandbox; Markdown dos pacotes renderizado com sanitização; CSP restritiva (`default-src 'self'`) | Baixo |
+| T1 | S/E | Página maliciosa faz `fetch` para `127.0.0.1:<porta>` e dispara ações (CSRF) | **Implementado (Chunk 9):** token aleatório de 256 bits por execução do `sesim ui`, entregue no fragmento da URL (`#t=…`, que o navegador nunca envia) e guardado em `sessionStorage`; toda chamada a `/api/` exige `Authorization: Bearer` (comparação em tempo constante); sem cookies. Testes em `internal/ui/server_test.go` | Baixo |
+| T2 | S/E | **DNS rebinding** (`evil.com` resolve para 127.0.0.1) | **Implementado (Chunk 9):** toda requisição, inclusive de arquivo estático, exige `Host` ∈ {`127.0.0.1:P`, `localhost:P`}; o resto recebe 403 | Baixo |
+| T3 | E | WebSocket do terminal aberto cross-origin (WS não segue CORS) | **Implementado (Chunk 9):** `websocket.Accept` recusa um `Origin` diferente do `Host`; o token vai na primeira mensagem (5 s de prazo), senão a conexão fecha com 1008 | Baixo |
+| T4 | I | Dispositivo da LAN acessa a UI | **Implementado (Chunk 9):** `--addr` aceita só 127.0.0.0/8; `0.0.0.0`, IPv6 e nomes são recusados. Não há flag para abrir para a LAN | Baixo |
+| T5 | T | XSS na SPA via conteúdo exibido (logs do app, nomes de produto do seed, saída do terminal) | **Implementado (Chunk 9):** React escapa por padrão e não há `dangerouslySetInnerHTML`; o Markdown dos pacotes vira elementos React, sem nunca montar HTML, e só aceita links `http(s)` (`web/src/markdown.test.ts`); CSP `default-src 'self'` com `script-src 'self'` (o `style-src` permite `'unsafe-inline'` porque o xterm injeta estilos); `frame-ancestors 'none'`; fontes empacotadas, sem CDN | Baixo |
 
 ### B2 — sesim ↔ Docker daemon
 

@@ -1,6 +1,6 @@
 # ADR-0011: Frontend — React + Vite (SPA) embutida no binário
 
-**Status:** Proposto
+**Status:** Proposto. A lista de bibliotecas foi revista pelo [ADR-0016](0016-nexoraos-desktop-simulado-e-temas-por-tokens.md) no Chunk 9.
 **Data:** 2026-09-24
 **Decisores:** Lucas Zanetti
 

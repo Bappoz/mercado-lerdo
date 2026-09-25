@@ -3,6 +3,7 @@ module github.com/Bappoz/software-engineering-simulator
 go 1.27.1
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/containerd/errdefs v1.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/moby/moby/api v1.56.0

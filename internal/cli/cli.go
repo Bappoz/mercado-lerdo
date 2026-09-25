@@ -25,6 +25,7 @@ Playing (output in PT-BR):
   hint           the next hint (5 levels)
   shell          terminal inside the Nexora network
   stop           stop the background traffic (--down: also destroy the sandbox)
+  ui             NexoraOS: the same game in the browser (127.0.0.1 only)
 
 Tools:
   sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes via the Docker API
@@ -69,6 +70,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runShell(ctx, args[1:], stdout, stderr)
 	case "stop":
 		return runStop(ctx, args[1:], stdout, stderr)
+	case "ui":
+		return runUI(ctx, args[1:], stdout, stderr)
 	case "scenario":
 		if len(args) < 2 || args[1] != "verify" {
 			fmt.Fprintln(stderr, "usage: sesim scenario verify [flags]")

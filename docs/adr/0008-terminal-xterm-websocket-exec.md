@@ -10,7 +10,7 @@ O jogador precisa de um shell real na rede da sandbox (psql, curl, ss, top). O b
 
 ## Decisão
 
-- Frontend: `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach` (os pacotes antigos `xterm-addon-*` foram deprecados).
+- Frontend: `@xterm/xterm` + `@xterm/addon-fit` (os pacotes antigos `xterm-addon-*` foram deprecados).
 - Transporte: WebSocket no servidor do sesim (`github.com/coder/websocket`, sucessor mantido de `nhooyr.io/websocket`) → `SandboxDriver.Exec(..., tty=true)` no container **toolbox**, com repasse de resize.
 - Autenticação: token de sessão + checagem de `Origin` no handshake (threat model T1–T3).
 - Alternativa na CLI: `sesim shell` faz o exec direto no terminal do jogador.
@@ -35,7 +35,8 @@ O WS + exec mantém uma única porta, um único ponto de auth e nenhuma porta pu
 
 ## Ações
 
-1. [ ] Confirmar a API atual do exec attach no `moby/moby/client` e do `coder/websocket` no context7 (Chunk 9).
+1. [x] Confirmar a API do exec attach e do `coder/websocket` (Chunk 9, 2026-09-25). Conferida pelo `go doc` das versões instaladas: `moby/moby/client` v0.6.0 (`ExecCreateOptions.TTY`, `ExecAttach`, `ExecResize`) e `coder/websocket` v1.8.15.
+2. [x] Implementado em `internal/ui/terminal.go` + `internal/sandbox/docker` (`ExecTTY`). A autenticação escolhida é o token na **primeira mensagem**; o `Origin` é checado no handshake (padrão do `websocket.Accept`). Não se usa `@xterm/addon-attach`: o protocolo tem mensagens de controle (resize), então o front fala com o socket diretamente.
 
 ## Fontes
 

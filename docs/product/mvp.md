@@ -139,8 +139,8 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 7b | **Playtest #1** (C1 só no terminal, 3–5 pessoas), conduzido por você | relatório; go/no-go |
 | 8 | Driver de sandbox programático: spec com hardening, ciclo de vida, registro de runs, GC, testes de limpeza | `just sandbox-check`: create/health/exec/destroy/verify-cleanup, kill no meio + gc |
 | 8b | Jogo (`play`/`test`/`verify`) sobre o driver; aposentar `internal/devstack` e o compose no caminho do jogador | feito: fluxo do jogador e `verify` (20/20) com o compose desligado |
-| 9 | UI web mínima: briefing, dashboard, terminal, resultados, debrief | C1 jogável no navegador |
-| 10 | Spec de topologia + C2 + C3 + injetor de falhas | Stage 1 completo |
+| 9 | UI web: **NexoraOS**, com desktop simulado, e-mail (briefing, incidente, debrief), Pulse, Terminal, Testes, Notas, Configurações (3 temas + personalização) e Tabby com roteiro fixo; regras do jogo em `internal/game`, compartilhadas com a CLI (ADR-0016) | feito: C1 jogado de ponta a ponta no navegador, de `play` ao PASS e ao debrief |
+| 10 | Spec de topologia + C2 + C3 + injetor de falhas; apps Git, Deploy, Laboratório de carga, Suporte (reclamações) e instalação de ferramentas | Stage 1 completo |
 | 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
 
 ## 9. Decisões tomadas (2026-09-24)
