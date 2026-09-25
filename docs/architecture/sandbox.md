@@ -25,12 +25,15 @@ Uma *run* de sandbox tem id `r-<ulid>`. Todo recurso Docker leva as labels:
 
 ### Redes
 
+Refinado pelo ADR-0014 (Chunk 5): a antiga rede `obs` virou duas, porque o nginx (configurado pelo jogador) não pode compartilhar rede com o Prometheus.
+
 | Rede | `internal` | Membros |
 |---|---|---|
-| `sesim-<run>-play` | sim | nginx, app×N, postgres, toolbox, toxiproxy, observer-svc*, exporter* |
-| `sesim-<run>-obs` | sim | k6, prometheus, observer-svc, exporters, nginx* |
+| `sesim-<run>-play` | sim | nginx, app×N, postgres, toolbox, toxiproxy, observer-svc, exporters, agente de coleta |
+| `sesim-<run>-ingress` | sim | nginx, k6 |
+| `sesim-<run>-telemetry` | sim | prometheus, agente de coleta, k6 |
 
-\* Membro das duas redes. Com `internal: true` não há rota default nem acesso a outras redes, mas **o IP do gateway (o host) continua alcançável** e o host alcança os IPs dos containers ([docs Docker](https://docs.docker.com/reference/cli/docker/network/create/)). Tratado no threat model como risco residual.
+Pontes entre redes: nginx (`play` + `ingress`), agente (`play` + `telemetry`), k6 (`ingress` + `telemetry`). Com `internal: true` não há rota default nem acesso a outras redes, mas **o IP do gateway (o host) continua alcançável** e o host alcança os IPs dos containers ([docs Docker](https://docs.docker.com/reference/cli/docker/network/create/)). Tratado no threat model como risco residual.
 
 Portas publicadas no host: **nenhuma** por padrão. O sesim fala com os containers pelo IP deles na bridge (Linux) ou por um port-forward em `127.0.0.1` (Docker Desktop, onde a bridge não é roteável a partir do host). Isso vai para o `SandboxDriver` como capacidade `Endpoint(component, port)`.
 

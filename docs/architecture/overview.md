@@ -64,40 +64,47 @@ flowchart LR
         db[("SQLite + JSONL<br/>+ artefatos")]
     end
 
-    subgraph pz["Zona do jogador (rede sesim-play, internal)"]
+    subgraph pz["Zona do jogador (rede play, internal)"]
         nginx["nginx<br/>(edge)"]
-        app1["app nexora #1"]
-        appn["app nexora #N"]
+        app1["app nexora #1..N"]
         pg[("postgres")]
         tb["toolbox<br/>(alvo do terminal)"]
         tx["toxiproxy<br/>(falhas de rede)"]
+        pay["observer-svc<br/>(mock de pagamento)"]
+        exp["exporters<br/>(postgres, nginx)"]
+        agent["agente de coleta<br/>(prometheus --agent)"]
     end
 
-    subgraph oz["Zona observadora (rede sesim-obs, internal)"]
+    subgraph ing["rede ingress"]
         k6["k6<br/>(carga)"]
-        prom["prometheus"]
-        pay["observer-svc<br/>(mock de pagamento + recorder)"]
-        exp["postgres_exporter"]
+    end
+
+    subgraph tel["rede telemetry"]
+        prom[("prometheus")]
     end
 
     builder["builder<br/>(go build, network none)"]
 
     api --- core --- db
-    core -->|Docker API| pz & oz & builder
-    k6 --> nginx
-    nginx --> app1 & appn
-    app1 & appn --> pg
-    app1 & appn -->|via toxiproxy| pay
-    prom -.scrape.-> nginx & exp & pay & k6
+    core -->|Docker API| pz & builder
+    k6 --> nginx --> app1 --> pg
+    app1 -->|via toxiproxy| pay
     exp --> pg
+    agent -.scrape.-> app1 & exp
+    agent -->|remote write| prom
+    k6 -->|remote write| prom
+    core -->|OTLP: stats de containers| prom
     core -->|PromQL| prom
 ```
 
-Pontos de ligação entre as zonas, todos intencionais e mínimos:
+Pontos de ligação entre as redes, todos intencionais e mínimos (ADR-0013, refinado pelo ADR-0014):
 
-- `nginx` está nas duas redes: é a porta de entrada do tráfego do k6.
-- `observer-svc` está nas duas redes: o app chama o "gateway de pagamento" externo, que é a zona observadora contando cobranças.
+- `nginx`: `play` + `ingress`. É a porta de entrada do tráfego do k6 e **não** está na `telemetry`, porque a configuração dele é do jogador.
+- `k6`: `ingress` + `telemetry`. Gera carga e envia as próprias métricas.
+- Agente de coleta: `play` + `telemetry`. É imagem nossa, faz scrape na `play` e só escreve no Prometheus.
+- O `observer-svc` conta as cobranças por `order_ref` (evaluator, integridade). O evaluator lê esses registros por fora da `play`, via host (Chunk 6).
 - `postgres_exporter` e o *probe* SQL do evaluator acessam o Postgres com um papel **somente leitura** criado pela plataforma.
+- As stats de containers vêm do host (Docker API). Nenhum container recebe o socket.
 
 Detalhes de redes, limites e ciclo de vida em [`sandbox.md`](sandbox.md).
 

@@ -1,8 +1,9 @@
 # Development stack for the Nexora demo app (Chunk 3).
 # Not the game sandbox: that one is created by sesim through the Docker API
 # (docs/architecture/sandbox.md). This file mirrors its networks, limits and
-# hardening so behaviour matches, with one dev-only exception: the `edge`
-# network, which lets the host reach nginx on 127.0.0.1.
+# hardening so behaviour matches, with dev-only exceptions: the `edge` network
+# (host reaches nginx on 127.0.0.1) and the `ctl` network (host reaches
+# Prometheus on 127.0.0.1). Networks: docs/adr/0014-topologia-de-telemetria.md.
 #
 # Dev-only credentials below are placeholders for a throwaway local database.
 name: nexora-dev
@@ -16,12 +17,15 @@ x-db-env: &db-env
   NEXORA_DB_PASSWORD: ${NEXORA_DB_PASSWORD:-nexora-dev}
 
 networks:
-  play: { internal: true }
-  obs: { internal: true }
-  edge: {}
+  play: { internal: true }      # the player's system
+  ingress: { internal: true }   # load generator -> nginx only
+  telemetry: { internal: true } # metric writes: agent, k6 -> prometheus
+  edge: {}                      # dev only: 127.0.0.1 -> nginx
+  ctl: {}                       # dev only: 127.0.0.1 -> prometheus
 
 volumes:
   pgdata: {}
+  promdata: {}
 
 services:
   postgres:
@@ -85,7 +89,7 @@ services:
       interval: 3s
       timeout: 2s
       retries: 10
-    networks: [play, obs]
+    networks: [play]
 
   app:
     build: { context: ../../nexora, dockerfile: ../images/nexora/Dockerfile }
@@ -121,9 +125,79 @@ services:
       retries: 10
     depends_on:
       app: { condition: service_healthy }
-    networks: [play, obs, edge]
+    networks: [play, ingress, edge]
 
-  # Load generator (observer zone). Not started by `up`; run through `just dev-load`.
+  prometheus:
+    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+    <<: *hardening
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=6h
+      - --web.enable-remote-write-receiver
+      - --web.enable-otlp-receiver
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_DEV_PORT:-9090}:9090"
+    cpus: 0.5
+    mem_limit: 512m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    networks: [telemetry, ctl]
+
+  agent:
+    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+    <<: *hardening
+    command:
+      - --agent
+      - --config.file=/etc/prometheus/agent.yml
+      - --storage.agent.path=/tmp/agent
+    volumes:
+      - ./prometheus/agent.yml:/etc/prometheus/agent.yml:ro
+    tmpfs: [/tmp]
+    cpus: 0.25
+    mem_limit: 128m
+    pids_limit: 64
+    depends_on:
+      prometheus: { condition: service_healthy }
+    networks: [play, telemetry]
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+    <<: *hardening
+    command:
+      - --collector.stat_statements
+      - --collector.stat_statements.include_query
+      - --collector.stat_statements.limit=20
+    environment:
+      DATA_SOURCE_URI: postgres:5432/nexora?sslmode=disable
+      DATA_SOURCE_USER: sesim_observer
+      DATA_SOURCE_PASS: ${SESIM_OBSERVER_PASSWORD:-observer-dev}
+    cpus: 0.1
+    mem_limit: 64m
+    pids_limit: 32
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [play]
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.5.3@sha256:85666e7fde7e253f1c6d978f9a961245df4c9cdb7677e1866d9bb28e8f9ee41d
+    <<: *hardening
+    command: ["--nginx.scrape-uri=http://nginx:8081/stub_status"]
+    cpus: 0.1
+    mem_limit: 32m
+    pids_limit: 32
+    depends_on:
+      nginx: { condition: service_healthy }
+    networks: [play]
+
+  # Load generator. Not started by `up`; run through `just dev-load`.
   k6:
     image: grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34
     profiles: [load]
@@ -133,12 +207,15 @@ services:
     tmpfs: [/tmp]
     environment:
       BASE_URL: http://nginx:8080
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_PUSH_INTERVAL: 2s
+      K6_PROMETHEUS_RW_TREND_STATS: p(50),p(95),p(99),max
     cpus: 1.0
     mem_limit: 512m
     pids_limit: 512
     depends_on:
       nginx: { condition: service_healthy }
-    networks: [obs]
+    networks: [ingress, telemetry]
 
   toolbox:
     build: { context: ../../images/toolbox }

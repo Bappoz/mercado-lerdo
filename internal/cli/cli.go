@@ -19,11 +19,12 @@ Usage:
 Commands:
   version        print the binary version
   load-summary   read a k6 summary (JSON) on stdin and print per-endpoint stats
+  dev            developer commands for the local dev stack
   help           print this help
 `
 
 // Run executes the command in args (without the program name) and returns the exit code.
-func Run(_ context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -40,6 +41,8 @@ func Run(_ context.Context, args []string, stdin io.Reader, stdout, stderr io.Wr
 		}
 		res.WriteTable(stdout)
 		return 0
+	case "dev":
+		return runDev(ctx, args[1:], stdout, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usage)
 		return 0

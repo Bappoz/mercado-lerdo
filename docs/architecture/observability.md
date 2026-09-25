@@ -18,13 +18,13 @@ Há **três** coisas diferentes chamadas "observabilidade" neste produto. Mistur
 |---|---|---|---|
 | Taxa, erros e latência por rota (vistos pelo cliente) | k6 | resumo JSON + séries (saída Prometheus remote write do k6; nome exato a confirmar na versão fixada) | dashboard + evaluator |
 | Taxa, status e upstream time no edge | nginx (log estruturado → exporter, ou `stub_status`) | scrape | dashboard; investigação de C3 |
-| CPU, memória, rede e restarts por container | stats do Docker (via sesim) ou cAdvisor | scrape | dashboard + evaluator (`resources`) |
+| CPU (inclusive throttling do CFS), memória, pids e rede por container | stats do Docker lidas pelo sesim no host | push OTLP (`sesim_container_*`) | dashboard + evaluator (`resources`) |
 | Conexões, locks, `pg_stat_statements`, cache hit, tuplas lidas | postgres_exporter (papel `sesim_observer`) | scrape | dashboard; C1 e C2 |
 | Métricas do app (pool pgx: `acquire_count`, `acquire_duration`, conexões em uso/ociosas) | endpoint `/metrics` do app | scrape | **só dashboard**, nunca evaluator |
 | Logs | Docker logs API | streaming pelo sesim | painel pesquisável |
 | Traces | OpenTelemetry SDK no app → Collector → Jaeger | — | **fora do MVP**; candidato forte para o Stage 2 ("onde o tempo é gasto?") |
 
-- **Problema em aberto (Chunk 5):** o app expõe `/metrics` na porta 9091, dentro da rede `play`. O Prometheus fica só na `obs` (ADR-0013). Ligar o Prometheus à rede `play` quebraria o T12. Candidatos: o sesim faz o scrape e repassa (remote write) ou um agente de scrape dedicado nas duas redes, sem porta de escrita exposta à `play`.
+- **Coleta (resolvido no Chunk 5, ADR-0014):** um agente Prometheus nas redes `play` e `telemetry` faz o scrape do app, do postgres_exporter e do nginx_exporter e envia por remote write. O k6 envia por remote write. As stats de containers saem do host (sesim, Docker API) via OTLP JSON. Validação: `just dev-telemetry-check`.
 - **Intervalo de scrape:** 1–2 s durante testes, 5 s no restante (a medir o custo). Retenção = duração da run; o que o relatório precisa é exportado para `runs/<test_id>/`.
 - **Por que o pool do app aparece mesmo sem entrar no evaluator:** o C2 depende de o jogador *ver* o tempo esperando conexão. É instrumentação que o jogador pode ler e também quebrar, e isso é realista.
 - **O dashboard é nosso (uPlot), não o Grafana.** O Prometheus fica acessível no toolbox (`curl prometheus:9090/api/v1/query…`) para quem quiser aprender PromQL. Grafana como painel opcional fica para depois (AGPLv3; rodar a imagem oficial sem modificar é aceitável pela política do ADR-0009).

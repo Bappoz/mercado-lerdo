@@ -131,19 +131,34 @@ dev-hash:
     {{dev}} run --rm --no-deps seed -migrations /migrations
 
 # Run a workload (normal-day | flash-sale) against the dev stack. Env: RATE, DURATION, RAMP, SEED
+# Streams k6 metrics to Prometheus (testid=<run id>) and pushes container stats while it runs.
 dev-load profile="flash-sale":
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p .runs
-    out=".runs/$(date +%Y%m%dT%H%M%S)-{{profile}}.json"
-    {{dev}} run --rm --no-deps -T -e RATE -e DURATION -e RAMP -e SEED -e RUN_ID="$(date +%s)" \
-      k6 run -q --no-color /workloads/nexora/{{profile}}.js </dev/null > "$out" 2> "${out%.json}.log"
-    echo "raw summary: $out ($(grep -c 'Request Failed' "${out%.json}.log" || true) failed requests logged in ${out%.json}.log)"
-    go run ./cmd/sesim load-summary < "$out"
+    run_id="$(date +%Y%m%dT%H%M%S)-{{profile}}"
+    out=".runs/$run_id.json"
+    go build -o bin/sesim ./cmd/sesim
+    bin/sesim dev container-stats --interval 1s 2> ".runs/$run_id.stats.log" &
+    bridge=$!
+    trap 'kill "$bridge" 2>/dev/null || true' EXIT
+    {{dev}} run --rm --no-deps -T -e RATE -e DURATION -e RAMP -e SEED -e RUN_ID="$run_id" \
+      k6 run -q --no-color -o experimental-prometheus-rw --tag testid="$run_id" \
+      /workloads/nexora/{{profile}}.js </dev/null > "$out" 2> ".runs/$run_id.log"
+    echo "run id: $run_id ($(grep -c 'Request Failed' ".runs/$run_id.log" || true) failed requests logged)"
+    bin/sesim load-summary < "$out"
+
+# Push container stats to the dev Prometheus until Ctrl-C
+dev-stats:
+    go run ./cmd/sesim dev container-stats
 
 # Chunk 3 acceptance checks against the running dev stack
 dev-smoke:
     scripts/dev-smoke.sh
+
+# Chunk 5 acceptance: store isolation + Flash Sale signals in Prometheus
+dev-telemetry-check:
+    scripts/dev-telemetry-check.sh
 
 # Reseed twice from scratch and compare dataset hashes (slow)
 dev-determinism:

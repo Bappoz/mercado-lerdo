@@ -16,4 +16,5 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0010](0010-formato-de-cenario-yaml-json-schema-cel.md) | Cenário: YAML + JSON Schema + CEL | Proposto |
 | [0011](0011-frontend-react-vite-spa-embutida.md) | Frontend: React + Vite, SPA embutida | Proposto |
 | [0012](0012-persistencia-local-sqlite.md) | Persistência: SQLite puro Go + JSONL | Proposto |
-| [0013](0013-zonas-de-rede-e-medicao-externa.md) | Zonas play/obs e medição externa | Proposto |
+| [0013](0013-zonas-de-rede-e-medicao-externa.md) | Zonas play/obs e medição externa | Proposto (redes refinadas pelo 0014) |
+| [0014](0014-topologia-de-telemetria.md) | Telemetria: agente de coleta, redes `ingress`/`telemetry`, stats de containers pelo host via OTLP | Proposto |
