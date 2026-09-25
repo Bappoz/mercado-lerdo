@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errorlint
+    - gosec
+    - nilerr
+    - noctx
+    - revive
+    - unconvert
+    - unparam
+  settings:
+    depguard:
+      rules:
+        # ADR-0005: SDK deprecado a partir do Docker v29.
+        no-legacy-docker-sdk:
+          deny:
+            - pkg: github.com/docker/docker
+              desc: "deprecado; use github.com/moby/moby/client (ADR-0005)"
+        # ADR-0005: só o driver conversa com o runtime de containers.
+        docker-only-in-driver:
+          files:
+            - "!**/internal/sandbox/docker/**"
+          deny:
+            - pkg: github.com/moby/moby
+              desc: "só internal/sandbox/docker pode importar o SDK (ADR-0005)"
+        # ADR-0009: dependência AGPL nunca é linkada ao binário.
+        no-agpl-link:
+          deny:
+            - pkg: go.k6.io/k6
+              desc: "k6 é AGPL; rode como container separado (ADR-0006/0009)"
+        # ADR-0003: binário sem cgo.
+        no-cgo-sqlite:
+          deny:
+            - pkg: github.com/mattn/go-sqlite3
+              desc: "exige cgo; use modernc.org/sqlite (ADR-0012)"
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - noctx
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Bappoz/software-engineering-simulator

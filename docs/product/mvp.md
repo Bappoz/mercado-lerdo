@@ -1,0 +1,152 @@
+# Definição do MVP
+
+## 1. Hipótese que o MVP existe para testar
+
+> H0: Receber um sistema real, vê-lo degradar sob carga, modificá-lo e provar a correção com um teste objetivo e multidimensional é **engajante** (a pessoa termina e quer o próximo) e **educativo** (a pessoa explica *por que* a correção funcionou e cita uma alternativa).
+
+Tudo no MVP serve a H0. O que não serve é non-goal.
+
+## 2. Escopo
+
+### Dentro
+
+| Área | Forma no MVP |
+|---|---|
+| Distribuição | **Local-first** (ADR-0002). Um binário `sesim` (nome provisório) sobe a sandbox no Docker do jogador e serve a UI em `127.0.0.1`. |
+| App demo | Marketplace "Nexora" em **Go** (ADR-0004): auth, produtos, busca, pedidos/checkout. PostgreSQL e Nginx. Dataset seed determinístico (~100k produtos gerados a partir de uma seed). |
+| Workspace | Repositório git no disco com o código do app e o `topology.yaml`. O jogador usa o próprio editor. |
+| Topologia | Arquivo declarativo e validado que descreve componentes de um catálogo pequeno (nginx, app ×N, postgres, pgbouncer, valkey) e seus limites de recursos. É a fonte da verdade para a sandbox, a tela de arquitetura e o modelo de custo. |
+| Terminal | Terminal web (xterm.js) num container *toolbox* da rede da sandbox, com psql, curl, ss, top e afins. Também dá para usar localmente com `sesim shell`. |
+| Carga | Perfis de workload (Normal Day, Flash Sale) como scripts k6 versionados, em modelo aberto (arrival rate). |
+| Telemetria | Métricas de requisição medidas **no gerador de carga e no Nginx** (fora do app), mais métricas de containers e do Postgres. |
+| Evaluator | Objetivos declarativos por cenário. Resultado por dimensão: PASS, FAIL ou INCONCLUSIVE, com valor medido e dispersão. Inclui um oráculo de corretude funcional. |
+| Cenários | 3 (abaixo), encadeados como Stage 1. Reset para o início do cenário; opção de adotar o estado canônico. |
+| Dicas | Escada autorada de 5 níveis por cenário. |
+| Debrief | Antes/depois, gráfico das soluções de referência, notas de conceito. |
+| Analytics de produto | Log local de eventos (JSONL), exportação opt-in. Nenhuma telemetria remota por padrão. |
+| Docs | Produto, arquitetura, threat model, ADRs, setup local. |
+
+### Non-goals (MVP)
+
+- Sandbox hospedada multi-tenant, contas, autenticação da plataforma.
+- Editor de código web.
+- Kubernetes, Kafka, multi-região, service mesh.
+- Mentores de IA e correção de postmortem por IA.
+- *Avaliação* de postmortem ou ADR (templates podem existir; nota não).
+- UI do Chaos Lab, modo Incidents, modo Labs.
+- Leaderboards, multiplayer, social, marketplace, certificados, cenários da comunidade.
+- Economia além de uma tabela estática de preço por tamanho de componente.
+- Mais de uma linguagem para o app demo.
+- Suporte nativo a Windows (WSL2 + Docker Desktop fica como best-effort).
+- Qualquer fluxo de pagamento. A doação é um link externo.
+
+## 3. Os três desafios (refinados)
+
+Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomeia a correção.**
+
+### C1 — Slow Search
+
+- **Montagem:** `GET /search?q=` usa `ILIKE '%termo%'` sobre `products(name, description)` sem índice adequado, com `ORDER BY` em coluna não indexada. Evento de crescimento ×40.
+- **Sintomas:** p95 > 2 s, CPU do banco quase saturada, CPU do app baixa.
+- **Soluções de referência:**
+  - (a) índice GIN trigram (`pg_trgm`);
+  - (b) full-text search com `tsvector` + GIN;
+  - (c) trocar para busca por prefixo + B-tree. O briefing diz "a busca deve achar o termo em qualquer posição do nome", então (c) **falha em corretude**. Ensina que otimização precisa respeitar o requisito;
+  - (d) cache na frente. O workload segue uma distribuição de cauda longa, então o cache ingênuo melhora só em parte. Ensina que o formato do workload importa.
+- **Objetivos:** corretude (o oráculo compara resultados amostrados com a referência), p95 < 300 ms na taxa-alvo, taxa de erro < 0,5 %, CPU do banco < 70 %.
+
+### C2 — Connection Pressure
+
+- **Montagem:** depois do C1, o tráfego cresce de novo e o app ganha mais instâncias (história: "subimos mais instâncias porque estava lento"). Cada instância tem um `pgxpool` grande demais, e a soma passa de `max_connections`. O checkout segura a conexão durante uma chamada lenta a um pagamento externo emulado.
+- **Sintomas:** 5xx intermitentes (`too many clients`) e picos de latência com CPU do banco *moderada*. É o enigma "CPU baixa mas lento".
+- **Soluções válidas:**
+  - dimensionar os pools de acordo com `max_connections`;
+  - PgBouncer em transaction pooling;
+  - liberar a conexão antes da chamada externa (a correção mais didática);
+  - aumentar `max_connections` e a memória. Funciona, mas pesa na dimensão de custo.
+- **Objetivos:** taxa de erro < 0,1 %, p95 < 400 ms, **zero pedido perdido ou pagamento duplicado** (verificado contra registros do gerador de carga e do mock de pagamento, ambos fora do controle do jogador), custo ≤ orçamento.
+
+### C3 — Single Instance Failure
+
+- **Montagem:** o injetor de falhas mata a instância do app no meio do teste.
+- **Sintomas:** 100 % de erro até alguém reiniciar manualmente.
+- **Soluções válidas:**
+  - ≥2 instâncias atrás do upstream do Nginx com `proxy_next_upstream`/health check;
+  - restart policy + startup rápido: *pode* passar num alvo frouxo, mas falha no estrito. Ensina a diferença entre *recuperação* e *redundância*.
+
+  Em qualquer caminho, o checkout precisa ser idempotente para não duplicar pagamento no retry.
+- **Objetivos:** disponibilidade ≥ 99,5 % num teste com um kill de instância, zero pagamento duplicado, custo ≤ orçamento.
+
+Cada desafio tem uma solução *tecnicamente atraente mas errada* diante das restrições. É o principal recurso didático.
+
+## 4. Escada de dicas (autorada, por cenário)
+
+| Nível | Tipo | Exemplo (C2) |
+|---|---|---|
+| 1 | Observação | "Observe as conexões do banco em relação a `max_connections` durante o Quick Check." |
+| 2 | Direção | "Compare o tempo executando queries com o tempo esperando para obter uma conexão." |
+| 3 | Conceito | "Pesquise connection pooling e o tempo de vida de conexões dentro de handlers." |
+| 4 | Explicação | Explicação completa do dimensionamento de pool e de segurar conexão durante I/O. |
+| 5 | Implementação | Aponta o local no código e esboça a mudança. |
+
+## 5. Modelo inicial de sandbox
+
+Detalhado em `docs/architecture/sandbox.md`. Resumo: containers no Docker local, duas redes `internal` (zona do jogador e zona observadora), limites de CPU, memória e pids em todos os containers, nada privilegiado, sem socket Docker dentro da sandbox, egress bloqueado, medição feita pela zona observadora.
+
+## 6. Hipóteses a validar
+
+| # | Hipótese | Teste | Sinal |
+|---|---|---|---|
+| H1 | A persona completa o C1 numa sessão de 30–90 min usando dicas até o nível 3. | Playtest com 5–8 pessoas (think-aloud) | conclusão, tempo, nível de dica |
+| H2 | O briefing só com sintomas motiva em vez de paralisar, *dado* o onboarding calmo. | Playtest; perguntar o momento de maior frustração | tempo até a primeira ação; desistências |
+| H3 | Depois do debrief, o jogador explica por que a correção funcionou e cita uma alternativa. | Entrevista de 3 perguntas | % de explicações corretas |
+| H4 | Quick Check ≤ 90 s mantém a iteração fluindo. | Tempos instrumentados | mediana do loop; nº de iterações |
+| H5 | O evaluator é estável o bastante para ser confiável. | Rodar cada solução de referência N vezes em 3 máquinas | taxa de inversão PASS/FAIL |
+| H6 | O jogador quer o próximo cenário. | "Começaria o C2 agora?" + retorno em 7 dias | % sim; retorno |
+| H7 | O setup local é aceitável para a persona. | Tempo do download até o primeiro dashboard | mediana do setup; falhas |
+
+A H5 é **técnica** e deve ser testada *antes* dos playtests com pessoas.
+
+## 7. Métricas de sucesso
+
+As metas abaixo são **limiares propostos para o playtest**, não dados medidos.
+
+| Métrica | Meta proposta |
+|---|---|
+| Conclusão do C1 (playtest) | ≥ 60 % |
+| Mediana do tempo até a primeira hipótese (C1) | ≤ 15 min |
+| Mediana do loop Quick Check (edição → resultado) | ≤ 90 s |
+| Taxa de inversão do evaluator nas soluções de referência | ≤ 2 % |
+| Explicação correta de "por que funcionou" após o debrief | ≥ 70 % |
+| "Continuaria para o próximo cenário" | ≥ 70 % |
+| Setup (download → dashboard) | ≤ 10 min; ≤ 1 falha em 8 |
+
+Eventos de produto em JSONL local (esquema em `docs/architecture/observability.md`). Nenhum conteúdo de código, nenhum dado pessoal.
+
+## 8. Roadmap (ordem revisada)
+
+| Chunk | Objetivo | Saída demonstrável |
+|---|---|---|
+| 0 | Product discovery | docs de produto |
+| 1 | Arquitetura, threat model v0, ADRs | `docs/architecture`, `docs/security`, `docs/adr` |
+| 2 | Fundação do repositório: layout, `justfile`, lint/format/test, CI, gitleaks, `CLAUDE.md` | `just check` verde no CI |
+| 3 | App demo Go + seed determinística + compose de desenvolvimento | Nexora responde; busca lenta |
+| 4 | Gerador de carga + perfis | Flash Sale imprime p50/p95/p99/erros |
+| 5 | Telemetria: Prometheus, exporters, medição fora do app | séries temporais consultáveis de uma execução |
+| 6 | Evaluator (CLI) + C1 ponta a ponta + **teste de estabilidade (H5)** | `sesim test` → PASS/FAIL por dimensão, estável |
+| 7 | **Playtest #1** (C1 só no terminal, 3–5 pessoas) | relatório; go/no-go |
+| 8 | Driver de sandbox programático: ciclo de vida, limites, reset/snapshot, testes de limpeza | create/health/exec/destroy/verify-cleanup |
+| 9 | UI web mínima: briefing, dashboard, terminal, resultados, debrief | C1 jogável no navegador |
+| 10 | Spec de topologia + C2 + C3 + injetor de falhas | Stage 1 completo |
+| 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
+
+## 9. Decisões tomadas (2026-09-24)
+
+| Questão | Decisão | Registro |
+|---|---|---|
+| Linguagem do app demo | Go | ADR-0004 |
+| MVP local-first | Aceito | ADR-0002 |
+| Persona primária | Estudante do fim do curso | `vision.md` §4 |
+| Idioma dos docs | PT-BR | — |
+| Nome | Adiado; deve derivar da empresa fictícia | — |
+| Licença | Código fechado, gratuito, com doação | ADR-0009 |

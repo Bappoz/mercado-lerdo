@@ -1,0 +1,13 @@
+# Default gitleaks rules; only excludes generated and third-party trees from `gitleaks dir`.
+# Intentional fake secrets used by scenarios go to .gitleaksignore with a justification.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated output and third-party dependencies"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''^bin/''',
+  '''(^|/)\.git/''',
+]
