@@ -2,8 +2,10 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 module := "github.com/Bappoz/software-engineering-simulator"
-golangci := "go tool -modfile=tools/lint/go.mod golangci-lint"
-gotool := "go tool -modfile=tools/go.mod"
+# Go tools are pinned in tools/*.go.mod and built into bin/tools by `just tools`.
+tools_bin := justfile_directory() / "bin/tools"
+golangci := tools_bin / "golangci-lint"
+dev := "docker compose -f deploy/dev/compose.yml"
 version := `git describe --tags --always --dirty 2>/dev/null || echo dev`
 ldflags := "-s -w -X " + module + "/internal/buildinfo.version=" + version
 # ADR-0009 allowlist, shared with web/scripts/check-licenses.mjs
@@ -19,28 +21,38 @@ setup:
     go mod download
     npm --prefix web ci
 
+# Build the pinned Go tools into bin/tools (cached by the Go build cache)
+tools:
+    @go build -modfile=tools/lint/go.mod -o {{tools_bin}}/ github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+    @go build -modfile=tools/go.mod -o {{tools_bin}}/ golang.org/x/vuln/cmd/govulncheck github.com/google/go-licenses/v2
+
 # Format Go and web code in place
-fmt:
+fmt: tools
     {{golangci}} fmt ./...
+    cd nexora && {{golangci}} fmt ./...
     npm --prefix web run format
 
 # Fail if anything is not formatted
-fmt-check:
+fmt-check: tools
     {{golangci}} fmt --diff ./...
+    cd nexora && {{golangci}} fmt --diff ./...
 
 # Lint Go (golangci-lint) and web (Biome: lint + format + imports)
-lint:
+lint: tools
     {{golangci}} run ./...
+    cd nexora && {{golangci}} run ./...
     npm --prefix web run check
 
 # Type-check Go and TypeScript
 typecheck:
     go vet ./...
+    cd nexora && go vet ./...
     npm --prefix web run typecheck
 
 # Run tests (race detector on)
 test:
     go test -race ./...
+    cd nexora && go test -race ./...
 
 # Build bin/sesim for this machine and the web bundle
 build:
@@ -59,13 +71,15 @@ build-all:
     done
 
 # Known vulnerabilities in Go code and web production deps
-vuln:
-    {{gotool}} govulncheck ./...
+vuln: tools
+    {{tools_bin}}/govulncheck ./...
+    cd nexora && {{tools_bin}}/govulncheck ./...
     npm --prefix web audit --omit=dev
 
 # Enforce the dependency license policy (ADR-0009)
-licenses:
-    {{gotool}} go-licenses check ./... --ignore {{module}} --allowed_licenses={{go_licenses}}
+licenses: tools
+    {{tools_bin}}/go-licenses check ./... --ignore {{module}} --allowed_licenses={{go_licenses}}
+    cd nexora && {{tools_bin}}/go-licenses check ./... --ignore nexora --allowed_licenses={{go_licenses}}
     npm --prefix web run licenses
 
 # Scan for secrets: git history if there is any, plus the working tree
@@ -87,6 +101,51 @@ doctor:
     need go "go version"; need node "node --version"; need npm "npm --version"; need gitleaks "gitleaks version"; need docker "docker --version"
     if command -v docker >/dev/null && ! docker info >/dev/null 2>&1; then echo "  FAIL docker daemon unreachable"; ok=0; fi
     [ "$ok" = 1 ] && echo "doctor: ok" || { echo "doctor: problems found"; exit 1; }
+
+# Refresh nexora/vendor after changing its go.mod
+nexora-vendor:
+    cd nexora && go mod tidy && go mod vendor
+
+# Start the Nexora dev stack (build, seed, wait until healthy)
+dev-up:
+    {{dev}} up -d --build --wait
+
+# Stop the dev stack, keeping the database volume
+dev-down:
+    {{dev}} down
+
+# Stop the dev stack and delete the database (next dev-up reseeds)
+dev-reset:
+    {{dev}} down -v
+
+# Print the dataset hash of the running dev database
+dev-hash:
+    {{dev}} run --rm --no-deps seed -migrations /migrations
+
+# Chunk 3 acceptance checks against the running dev stack
+dev-smoke:
+    scripts/dev-smoke.sh
+
+# Reseed twice from scratch and compare dataset hashes (slow)
+dev-determinism:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash() { {{dev}} down -v >/dev/null 2>&1; {{dev}} up -d --wait >/dev/null; {{dev}} run --rm --no-deps seed -migrations /migrations 2>/dev/null; }
+    a=$(hash); b=$(hash)
+    echo "run 1: $a"; echo "run 2: $b"
+    [ "$a" = "$b" ] && echo "deterministic: yes" || { echo "deterministic: NO"; exit 1; }
+
+# Open psql as the nexora role inside the sandbox network
+dev-psql:
+    {{dev}} exec toolbox psql
+
+# Shell in the toolbox container
+dev-shell:
+    {{dev}} exec toolbox bash
+
+# Follow logs of the dev stack
+dev-logs *services:
+    {{dev}} logs -f {{services}}
 
 # Remove build output
 clean:

@@ -11,14 +11,20 @@ just check      # gate completo: fmt-check → lint → typecheck → test → b
 just fmt        # formata Go e web
 just build-all  # cross-compile para dist/
 just doctor     # toolchain + Docker
+just dev-up     # stack Nexora de dev (compose): build, seed, espera healthy
+just dev-psql   # psql como role nexora, de dentro da rede da sandbox
+just dev-reset  # derruba e apaga o banco (próximo dev-up refaz o seed)
 ```
-Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go vêm do go.mod em `tools/` (`go tool -modfile=…`), não do sistema.
+Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixadas em `tools/*.go.mod` e compiladas em `bin/tools/` por `just tools`; nunca use as do sistema.
 
 ## Arquitetura
 - `cmd/sesim` → binário único (CLI + servidor local + SPA embutida). ADR-0002/0003.
 - `internal/` → um pacote por componente; papéis em `docs/architecture/overview.md` §4.
 - `internal/sandbox/docker` → único pacote que pode importar `github.com/moby/moby` (depguard garante).
 - `web/` → SPA; só será embutida no Chunk 9.
+- `nexora/` → app demo, **módulo Go separado** (`module nexora`) com `vendor/` commitado; é o workspace que o jogador edita. Contrato em `nexora/API.md`.
+- `internal/seed` + `cmd/nexora-seed` → dataset determinístico; `internal/observer` + `cmd/observer-svc` → gateway de pagamento emulado (zona observadora).
+- `deploy/dev/compose.yml` → stack de dev que espelha redes/limites da sandbox; não é a sandbox do jogo.
 - `docs/` → produto, arquitetura, threat model e ADRs (`docs/adr/README.md`). Decisão nova ou alterada = ADR novo.
 
 ## Convenções (não-negociáveis)
@@ -31,7 +37,9 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go vêm do g
 
 ## Armadilhas
 - Node do sistema pode ser outra versão: use o do mise (`~/Work/.mise.toml` fixa a 22) ou `mise exec node@22 -- just …`.
-- `golangci-lint` fica em módulo próprio (`tools/lint/go.mod`) para não misturar dependências. Atualize com `go get -tool -modfile=tools/lint/go.mod …@vX`.
+- `golangci-lint` fica em módulo próprio (`tools/lint/go.mod`) para não misturar dependências. Atualize com `go get -tool -modfile=tools/lint/go.mod …@vX`. Não troque por `go tool -modfile` dentro de `nexora/`: o `vendor/` de lá quebra a resolução.
+- Mudou `nexora/go.mod`? `just nexora-vendor`, senão o build offline quebra.
+- O código do `nexora/` não comenta os problemas plantados pelos cenários (busca lenta, transação aberta durante o pagamento, idempotência ignorada). É proposital; não "conserte" nem documente no código.
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
 - Segredo falso de cenário vai para `.gitleaksignore` com justificativa; nunca contornar o hook.
 
