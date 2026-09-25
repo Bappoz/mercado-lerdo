@@ -37,8 +37,8 @@ O compose seria mais rápido de começar, mas o sesim precisa de operações que
 
 ## Ações
 
-1. [ ] Confirmar a API atual do `moby/moby/client` (create, update, exec attach, events) no context7 no Chunk 8.
-2. [ ] Teste de limpeza com kill do processo no meio (Chunk 8).
+1. [x] API do `moby/moby/client` v0.6.0 confirmada com `go doc` na versão instalada (Chunk 8, 2026-09-25): create/start/wait/exec attach/inspect/list/remove de containers, redes e volumes; `ImagePull`; erros via `containerd/errdefs`.
+2. [x] Teste de limpeza com kill do processo no meio: `just sandbox-check` (18 verificações).
 3. [ ] Testar com Docker rootless e com Docker Desktop macOS.
 
 ## Fontes

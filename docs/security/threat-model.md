@@ -50,9 +50,9 @@ B1 navegador ↔ sesim · B2 sesim ↔ Docker daemon · B3 zona do jogador ↔ z
 
 | # | STRIDE | Ameaça | Mitigação | Residual |
 |---|---|---|---|---|
-| T6 | E | Container com socket Docker montado = escape trivial | Proibido pelo gerador de spec (`topology`), com teste unitário que falha se algum `Spec` tiver o socket, `privileged`, `pid: host`, `network: host` ou bind fora da allowlist | Baixo |
+| T6 | E | Container com socket Docker montado = escape trivial | **Implementado (Chunk 8):** o tipo `sandbox.Spec` não consegue expressar `privileged`, `pid: host` nem `network: host`; `Spec.Validate` rejeita socket Docker, bind gravável e bind em caminhos sensíveis (testes em `internal/sandbox/spec_test.go`). `just sandbox-check` confere no Docker real: nenhum privilegiado, todos com `CapDrop: ALL`, nenhum `docker.sock` montado | Baixo |
 | T7 | T | `topology.yaml` do jogador pede algo perigoso (bind `/`, capability, imagem arbitrária) | A topologia só referencia o **catálogo** (componentes e imagens fixados pela plataforma); campos livres são validados por JSON Schema com `additionalProperties: false` | Baixo |
-| T8 | D | Recursos órfãos acumulam (disco, redes) | Labels + GC na inicialização + verificação pós-destroy | Baixo |
+| T8 | D | Recursos órfãos acumulam (disco, redes) | **Implementado (Chunk 8):** labels + registro com PID do dono + `sesim sandbox gc` (também chamado no `up`) + `Leftovers` depois do destroy. Testado matando o sesim no meio de um `up` | Baixo |
 
 ### B3 — Integridade da avaliação
 
@@ -82,6 +82,12 @@ B1 navegador ↔ sesim · B2 sesim ↔ Docker daemon · B3 zona do jogador ↔ z
 | T20 | T | Binário adulterado | Releases com checksums SHA-256 e assinatura (cosign/minisign, a decidir no Chunk 2); build no CI | Médio até a assinatura existir |
 | T21 | T | Dependência Go/npm comprometida | Lockfiles; `govulncheck`, `npm audit`/OSV no CI; poucas dependências (ADR-0003); Renovate/Dependabot com revisão | Médio |
 | T22 | I | Segredo real vaza no repo (cenário de "segredo vazado" usa segredo falso) | `gitleaks` no pre-commit e no CI; segredos de cenário claramente falsos, com justificativa no `.gitleaksignore` | Baixo |
+
+### Novo ativo do Chunk 8: senhas por execução
+
+| # | STRIDE | Ameaça | Mitigação | Residual |
+|---|---|---|---|---|
+| T24 | I | As senhas do banco de cada sandbox ficam no registro de execuções no host | Arquivo `0600` em `$XDG_STATE_HOME/sesim/runs/`, apagado no `down`/`gc`; as senhas valem só para aquele sandbox, que não é alcançável fora do host | Baixo |
 
 ### Privacidade (A7)
 

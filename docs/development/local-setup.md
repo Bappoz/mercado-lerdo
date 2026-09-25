@@ -77,6 +77,18 @@ just verify --rounds 3                      # estabilidade (H5): ≈45 min; não
 
 Os relatórios JSON ficam em `.runs/`. O exit code de `sesim test` é 3 quando alguma dimensão não passa; o de `sesim scenario verify` é 3 quando há veredito inesperado ou instável.
 
+## Sandbox pela Docker API (sem compose)
+
+```bash
+just images                 # imagens locais sesim/* (as de terceiros são baixadas por digest sob demanda)
+bin/sesim sandbox up        # imprime o run id e as URLs (IP do container; só Linux)
+bin/sesim sandbox ls
+bin/sesim sandbox exec <run> toolbox -- psql -c 'select count(*) from products'
+bin/sesim sandbox down <run>
+bin/sesim sandbox gc        # coleta sandboxes órfãos (--all: todos)
+just sandbox-check          # aceite: ciclo de vida, isolamento, limpeza, kill no meio + gc
+```
+
 ## Rotina
 
 | Quero… | Comando |

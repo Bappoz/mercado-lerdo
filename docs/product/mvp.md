@@ -137,7 +137,8 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 6 | Evaluator (CLI) + C1 ponta a ponta + **teste de estabilidade (H5)** | `sesim test` → PASS/FAIL por dimensão, estável |
 | 7 | Preparação do Playtest #1: fluxo do jogador no terminal (`sesim play/next/status/check/test/hint`), conteúdo PT-BR, eventos, protocolo | C1 jogável de ponta a ponta; [`playtest-1.md`](playtest-1.md) |
 | 7b | **Playtest #1** (C1 só no terminal, 3–5 pessoas), conduzido por você | relatório; go/no-go |
-| 8 | Driver de sandbox programático: ciclo de vida, limites, reset/snapshot, testes de limpeza | create/health/exec/destroy/verify-cleanup |
+| 8 | Driver de sandbox programático: spec com hardening, ciclo de vida, registro de runs, GC, testes de limpeza | `just sandbox-check`: create/health/exec/destroy/verify-cleanup, kill no meio + gc |
+| 8b | Jogo (`play`/`test`/`verify`) sobre o driver; aposentar `internal/devstack` e o compose no caminho do jogador | C1 jogável e o harness verde sem compose |
 | 9 | UI web mínima: briefing, dashboard, terminal, resultados, debrief | C1 jogável no navegador |
 | 10 | Spec de topologia + C2 + C3 + injetor de falhas | Stage 1 completo |
 | 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |

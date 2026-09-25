@@ -110,6 +110,16 @@ doctor:
     if command -v docker >/dev/null && ! docker info >/dev/null 2>&1; then echo "  FAIL docker daemon unreachable"; ok=0; fi
     [ "$ok" = 1 ] && echo "doctor: ok" || { echo "doctor: problems found"; exit 1; }
 
+# Build the locally built sandbox images (third-party images are pulled by digest on demand)
+images:
+    docker build -q -t sesim/nexora-seed:dev --build-arg CMD=nexora-seed -f images/platform/Dockerfile .
+    docker build -q -t sesim/observer-svc:dev --build-arg CMD=observer-svc -f images/platform/Dockerfile .
+    docker build -q -t sesim/toolbox:dev images/toolbox
+
+# Sandbox lifecycle acceptance (Chunk 8): up, reach, exec, down, verify cleanup, kill mid-up, gc
+sandbox-check:
+    scripts/sandbox-lifecycle.sh
+
 # Refresh nexora/vendor after changing its go.mod
 nexora-vendor:
     cd nexora && go mod tidy && go mod vendor
