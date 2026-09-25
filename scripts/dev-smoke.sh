@@ -10,6 +10,7 @@ trap 'rm -rf "$tmp"' EXIT
 pass() { printf '  \033[32mPASS\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31mFAIL\033[0m %s\n' "$1"; fail=1; }
 check() { local name=$1; shift; if "$@"; then pass "$name"; else bad "$name"; fi; }
+jqok() { jq -e "$@" >/dev/null; } # jq as a predicate; output discarded, exit code kept
 
 echo "== services"
 for s in postgres payments app nginx; do
@@ -26,17 +27,17 @@ search=$(curl -fsS "$base/search?q=lamp&limit=20")
 n=$(jq '.products | length' <<<"$search")
 check "search returns results ($n)" test "$n" -gt 0
 check "every result name contains 'lamp' (case-insensitive)" \
-  jq -e '[.products[].name | ascii_downcase | contains("lamp")] | all' <<<"$search" >/dev/null
+  jqok '[.products[].name | ascii_downcase | contains("lamp")] | all' <<<"$search"
 check "results ordered by created_at desc" \
-  jq -e '[.products[].created_at] as $c | $c == ($c | sort | reverse)' <<<"$search" >/dev/null
+  jqok '[.products[].created_at] as $c | $c == ($c | sort | reverse)' <<<"$search"
 check "literal % is not a wildcard" \
-  jq -e '.products | length == 0' <<<"$(curl -fsS "$base/search?q=%25%25")" >/dev/null
+  jqok '.products | length == 0' <<<"$(curl -fsS "$base/search?q=%25%25")"
 check "short query rejected with 400" \
   test "$(curl -s -o /dev/null -w '%{http_code}' "$base/search?q=a")" = 400
 
 echo "== search is slow for the planned reason"
 plan=$("${dc[@]}" exec -T toolbox psql -Atc \
-  "EXPLAIN SELECT id FROM products WHERE name ILIKE '%lamp%' ORDER BY created_at DESC LIMIT 20")
+  "EXPLAIN SELECT id FROM products WHERE name ILIKE '%lamp%' ORDER BY created_at DESC LIMIT 20" </dev/null)
 check "plan uses Seq Scan on products" grep -q 'Seq Scan on products' <<<"$plan"
 
 echo "== checkout end to end"
@@ -48,16 +49,17 @@ code=$(curl -s -o "$tmp/order.json" -w '%{http_code}' "$base/checkout" \
   -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H "Idempotency-Key: $ref" \
   -d "{\"order_ref\":\"$ref\",\"items\":[{\"product_id\":42,\"quantity\":1}]}")
 check "checkout returns 201 ($code)" test "$code" = 201
-charges=$("${dc[@]}" exec -T toolbox curl -fsS "http://payments:8090/charges/$ref" | jq .count)
+charges=$("${dc[@]}" exec -T toolbox curl -fsS "http://payments:8090/charges/$ref" </dev/null | jq .count)
 check "payment gateway charged exactly once ($charges)" test "$charges" = 1
 check "order visible in GET /orders" \
-  jq -e --arg r "$ref" '[.orders[].order_ref] | index($r) != null' \
-  <<<"$(curl -fsS "$base/orders" -H "Authorization: Bearer $token")" >/dev/null
+  jqok --arg r "$ref" '[.orders[].order_ref] | index($r) != null' \
+  <<<"$(curl -fsS "$base/orders" -H "Authorization: Bearer $token")"
 
 echo "== isolation"
-check "app cannot reach the internet (internal network)" \
+check "sandbox containers cannot reach the internet (internal network)" \
   bash -c "! ${dc[*]} exec -T toolbox curl -fsS --max-time 3 -o /dev/null https://example.com 2>/dev/null"
 check "metrics port is not published to the host" \
   bash -c "! curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:9091/metrics 2>/dev/null"
 
-exit $fail
+echo; [ "$fail" = 0 ] && echo "all checks passed" || echo "some checks FAILED"
+exit "$fail"

@@ -130,7 +130,7 @@ dev-smoke:
 dev-determinism:
     #!/usr/bin/env bash
     set -euo pipefail
-    hash() { {{dev}} down -v >/dev/null 2>&1; {{dev}} up -d --wait >/dev/null; {{dev}} run --rm --no-deps seed -migrations /migrations 2>/dev/null; }
+    hash() { {{dev}} down -v >/dev/null 2>&1; {{dev}} up -d --wait >/dev/null 2>&1; {{dev}} run --rm --no-deps seed -migrations /migrations 2>/dev/null; }
     a=$(hash); b=$(hash)
     echo "run 1: $a"; echo "run 2: $b"
     [ "$a" = "$b" ] && echo "deterministic: yes" || { echo "deterministic: NO"; exit 1; }

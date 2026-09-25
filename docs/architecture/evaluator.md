@@ -94,6 +94,7 @@ Para um objetivo `m < L` com margem relativa `δ` (padrão 10 %):
 - INCONCLUSIVE mostra o motivo ("seu p95 ficou entre 272 e 331 ms; o limiar é 300 ms") e sugere rodar de novo ou investigar a variação. **Para a campanha, INCONCLUSIVE não conta como PASS.**
 - Objetivos booleanos (corretude, integridade) não têm margem: qualquer violação é FAIL.
 - Os números acima (3 execuções, 10 %, 25 %) são **ponto de partida** a validar pela H5 no Chunk 6.
+- Evidência inicial de ruído: o throttling de quota de CPU gerou dispersão de ~7× na mesma query (`sandbox.md` §7, medições do Chunk 3).
 - O autor do cenário é obrigado (linter + harness) a manter o estado quebrado e as referências longe do limiar. Essa é a principal proteção contra ruído, mais importante que a estatística.
 
 ## 5. Dimensões

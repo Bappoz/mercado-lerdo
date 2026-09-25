@@ -41,6 +41,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixa
 - Mudou `nexora/go.mod`? `just nexora-vendor`, senão o build offline quebra.
 - O código do `nexora/` não comenta os problemas plantados pelos cenários (busca lenta, transação aberta durante o pagamento, idempotência ignorada). É proposital; não "conserte" nem documente no código.
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
+- `docker compose exec -T` consome o stdin do chamador: em scripts, sempre `</dev/null`.
 - Segredo falso de cenário vai para `.gitleaksignore` com justificativa; nunca contornar o hook.
 
 ## Evitar
