@@ -1,0 +1,10 @@
+# Metrics store (telemetry network only). It scrapes nothing in the player's
+# network: samples arrive by remote write (agent, k6) and OTLP (sesim on the host).
+# See docs/adr/0014-topologia-de-telemetria.md.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,22 @@
+# Collection agent: the only telemetry component in the player's network.
+# It scrapes play-side targets and forwards everything to the store.
+global:
+  scrape_interval: 2s
+  scrape_timeout: 2s
+
+scrape_configs:
+  - job_name: nexora-app
+    dns_sd_configs: # every replica of the app service
+      - names: ["app"]
+        type: A
+        port: 9091
+        refresh_interval: 5s
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
+
+remote_write:
+  - url: http://prometheus:9090/api/v1/write

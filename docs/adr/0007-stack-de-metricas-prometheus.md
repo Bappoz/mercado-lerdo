@@ -36,5 +36,5 @@ O Prometheus ensina algo transferível para o mercado. O VictoriaMetrics é o pl
 
 ## Ações
 
-1. [ ] Medir RAM/CPU do Prometheus com scrape de 1 s durante o Flash Sale (Chunk 5).
-2. [ ] Decidir entre cAdvisor e stats do Docker (Chunk 5).
+1. [x] Medir RAM/CPU do Prometheus durante o Flash Sale (Chunk 5, 2026-09-25): pico de 67 MiB com ~2.900 séries; stack inteiro com 390 MiB. O VictoriaMetrics não é necessário.
+2. [x] cAdvisor vs. stats do Docker: stats do Docker lidas pelo sesim no host. O cAdvisor exigiria o socket ou privilégio (ADR-0014).
