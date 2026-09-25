@@ -24,7 +24,7 @@ Playing (output in PT-BR):
   test           Production Test (graded); in a game, shows the debrief on PASS
   hint           the next hint (5 levels)
   shell          terminal inside the Nexora network
-  stop           stop the background traffic
+  stop           stop the background traffic (--down: also destroy the sandbox)
 
 Tools:
   sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes via the Docker API

@@ -7,7 +7,10 @@ package stack
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
@@ -25,6 +28,7 @@ const (
 	imageSeed       = "sesim/nexora-seed:dev"
 	imageObserver   = "sesim/observer-svc:dev"
 	imageToolbox    = "sesim/toolbox:dev"
+	imageK6         = "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34"
 )
 
 // Networks (ADR-0014). All internal: nothing in the sandbox reaches the LAN or the internet.
@@ -170,6 +174,9 @@ func Spec(o Options) sandbox.Spec {
 
 // builder compiles the workspace into the bin volume, without network
 // (dependencies come from vendor/) and with a Go build cache shared across runs.
+// It runs as root, and root without capabilities cannot read a workspace the
+// host user made private (0700 dirs, 0600 files): DAC_OVERRIDE restores that,
+// limited to what is mounted here. `go build` runs no player code.
 func builder(o Options) sandbox.Container {
 	return sandbox.Container{
 		Component: "builder", Replica: 1, Image: imageGo,
@@ -184,20 +191,48 @@ func builder(o Options) sandbox.Container {
 			tmpfs("/tmp"),
 		},
 		ReadOnly:  true,
+		CapAdd:    []string{"DAC_OVERRIDE"},
 		Resources: sandbox.Resources{CPUs: 2, Memory: 1024 * mb, Pids: 512},
 	}
 }
 
 // seeder applies the migrations in dir to database db (and loads the dataset
-// when the database is empty).
+// when the database is empty). It runs as the host user, who owns the
+// workspace, so private file modes do not stop it.
 func seeder(o Options, migrations, db string) sandbox.Container {
 	return sandbox.Container{
 		Component: "seed", Replica: 1, Image: imageSeed, Networks: []string{netPlay}, ReadOnly: true,
-		Cmd: []string{"-migrations", "/migrations"},
+		User: fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
+		Cmd:  []string{"-migrations", "/migrations"},
 		Env: map[string]string{
 			"NEXORA_SEED_DATABASE_URL": "postgres://nexora:" + o.Secrets.App + "@postgres:5432/" + db + "?sslmode=disable",
 		},
 		Mounts:    []sandbox.Mount{bind(migrations, "/migrations")},
 		Resources: sandbox.Resources{CPUs: 1, Memory: 256 * mb, Pids: 64},
+	}
+}
+
+// loadGen runs a k6 workload from the observer zone: it reaches nginx on the
+// ingress network and writes its metrics on the telemetry network. It is
+// never on the player's network. id tags every metric (testid).
+func loadGen(o Options, component, profile string, rate int, duration, ramp time.Duration, id string) sandbox.Container {
+	return sandbox.Container{
+		Component: component, Replica: 1, Image: imageK6,
+		Cmd: []string{"run", "-q", "--no-color", "-o", "experimental-prometheus-rw", "--tag", "testid=" + id,
+			"/workloads/nexora/" + profile + ".js"},
+		Env: map[string]string{
+			"BASE_URL":                       "http://nginx:8080",
+			"K6_PROMETHEUS_RW_SERVER_URL":    "http://prometheus:9090/api/v1/write",
+			"K6_PROMETHEUS_RW_PUSH_INTERVAL": "2s",
+			"K6_FEATURES":                    "native-histograms",
+			"RATE":                           strconv.Itoa(rate),
+			"DURATION":                       duration.String(),
+			"RAMP":                           ramp.String(),
+			"RUN_ID":                         id,
+		},
+		Networks:  []string{netIngress, netTelemetry},
+		Mounts:    []sandbox.Mount{bind(filepath.Join(o.Root, "workloads"), "/workloads"), tmpfs("/tmp")},
+		ReadOnly:  true,
+		Resources: sandbox.Resources{CPUs: 1, Memory: 512 * mb, Pids: 512},
 	}
 }

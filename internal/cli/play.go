@@ -13,10 +13,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/Bappoz/software-engineering-simulator/internal/devstack"
 	"github.com/Bappoz/software-engineering-simulator/internal/events"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
+	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
+	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
+	"github.com/Bappoz/software-engineering-simulator/internal/stack"
 )
 
 const defaultWorkspace = "workspace"
@@ -25,18 +27,22 @@ const defaultWorkspace = "workspace"
 type game struct {
 	root    string
 	pack    *scenario.Pack
-	stack   *devstack.Stack
+	d       *docker.Client
+	reg     stack.Registry
+	stack   *stack.Stack // nil until the session's sandbox is attached
 	session *play.Session
 	events  events.Log
+	log     *slog.Logger
 	stdout  io.Writer
 	stderr  io.Writer
 }
 
-// openGame parses the common flags. With needSession, a missing session is an error.
-func openGame(name string, args []string, stdout, stderr io.Writer, needSession bool) (*game, int) {
+// openGame parses the common flags and loads the session. With needSession,
+// a missing session is an error. The sandbox is attached when it is alive.
+func openGame(ctx context.Context, name string, args []string, stdout, stderr io.Writer, needSession bool) (*game, int) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	root := fs.String("root", ".", "repository root (holds deploy/dev/compose.yml)")
+	root := fs.String("root", ".", "repository root")
 	pack := fs.String("scenario", defaultScenario, "scenario pack directory")
 	ws := fs.String("workspace", defaultWorkspace, "your workspace (a copy of the app you edit)")
 	if err := fs.Parse(args); err != nil {
@@ -56,27 +62,71 @@ func openGame(name string, args []string, stdout, stderr io.Writer, needSession 
 		fmt.Fprintln(stderr, "sesim:", err)
 		return nil, 1
 	}
+	d, err := docker.New()
+	if err != nil {
+		fmt.Fprintln(stderr, "sesim:", err)
+		return nil, 1
+	}
+	reg, err := stack.DefaultRegistry()
+	if err != nil {
+		_ = d.Close()
+		fmt.Fprintln(stderr, "sesim:", err)
+		return nil, 1
+	}
 	g := &game{
-		root: *root, pack: p, stdout: stdout, stderr: stderr,
-		stack:  devstack.New(*root, slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))),
+		root: *root, pack: p, d: d, reg: reg, stdout: stdout, stderr: stderr,
+		log:    slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: slog.LevelWarn})),
 		events: events.Log{Path: play.EventsPath(abs), Scenario: p.Manifest.Metadata.ID},
 	}
 	g.session, err = play.LoadSession(abs)
 	switch {
 	case errors.Is(err, play.ErrNoSession) && needSession:
+		g.close()
 		fmt.Fprintln(stderr, "sesim: nenhuma partida neste workspace. Comece com: sesim play")
 		return nil, 1
 	case errors.Is(err, play.ErrNoSession):
 		g.session = &play.Session{Scenario: *pack, Workspace: abs}
 	case err != nil:
+		g.close()
 		fmt.Fprintln(stderr, "sesim:", err)
 		return nil, 1
 	}
-	if err := g.stack.SetWorkspace(abs); err != nil {
-		fmt.Fprintln(stderr, "sesim:", err)
-		return nil, 1
+	if g.session.Sandbox != "" {
+		if rec, err := reg.Get(sandbox.RunID(g.session.Sandbox)); err == nil && rec != nil && rec.State == stack.Ready && g.sandboxRunning(ctx, rec.Run) {
+			g.stack, err = stack.Attach(d, *rec, *root, g.log)
+			if err != nil {
+				g.close()
+				fmt.Fprintln(stderr, "sesim:", err)
+				return nil, 1
+			}
+		}
 	}
 	return g, 0
+}
+
+// sandboxRunning reports whether every container of run is up (a reboot or
+// `docker stop` leaves them stopped, and the game then starts over).
+func (g *game) sandboxRunning(ctx context.Context, run sandbox.RunID) bool {
+	runs, err := g.d.Runs(ctx)
+	if err != nil || runs[run] == nil {
+		return false
+	}
+	return runs[run].Containers > 0 && runs[run].Running == runs[run].Containers
+}
+
+// requireSandbox is for commands that need the game's sandbox.
+func (g *game) requireSandbox() error {
+	if g.stack == nil {
+		return errors.New("a Nexora desta partida não está rodando. Rode `sesim play` para subir de novo")
+	}
+	return nil
+}
+
+func (g *game) close() {
+	if g.stack != nil {
+		g.stack.Close()
+	}
+	_ = g.d.Close()
 }
 
 func (g *game) fail(err error) int {
@@ -109,21 +159,27 @@ func (g *game) startBackground(ctx context.Context) error {
 	return nil
 }
 
-func (g *game) printFile(rel string) error {
+func (g *game) printFile(ctx context.Context, rel string) error {
 	b, err := os.ReadFile(filepath.Join(g.pack.Dir, rel)) //nolint:gosec // G304: file named by the scenario pack
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(g.stdout, play.RenderBriefing(string(b), g.session.Workspace))
+	vars := map[string]string{"workspace": g.session.Workspace}
+	if g.stack != nil {
+		vars["app_url"], _ = g.stack.NginxURL(ctx)
+		vars["prometheus_url"], _ = g.stack.PrometheusURL(ctx)
+	}
+	fmt.Fprintln(g.stdout, play.RenderBriefing(string(b), vars))
 	return nil
 }
 
 // runPlay: start a new game, or resume the one in the workspace.
 func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("play", args, stdout, stderr, false)
+	g, code := openGame(ctx, "play", args, stdout, stderr, false)
 	if g == nil {
 		return code
 	}
+	defer g.close()
 	s := g.session
 	fresh := s.Phase == ""
 	if fresh {
@@ -135,17 +191,22 @@ func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		s.Phase, s.StartedAt = play.Calm, time.Now().UTC()
 		fmt.Fprintf(stdout, "Workspace criado em %s\n", s.Workspace)
 	}
-	fmt.Fprintln(stdout, "Subindo a Nexora (a primeira vez leva alguns minutos)…")
-	if err := g.stack.Up(ctx); err != nil {
-		return g.fail(err)
-	}
-	if err := g.stack.EnsureTemplate(ctx); err != nil {
-		return g.fail(err)
-	}
-	if fresh {
-		if err := g.stack.ResetData(ctx); err != nil {
+	if g.stack == nil {
+		if !fresh && s.Sandbox != "" {
+			fmt.Fprintln(stdout, "A Nexora desta partida não está mais rodando; subindo de novo (os dados voltam ao início do cenário, o seu código continua).")
+		}
+		if gone, err := stack.GC(ctx, g.d, g.reg, false); err == nil && len(gone) > 0 {
+			g.log.Info("collected orphaned sandboxes", "runs", gone)
+		}
+		if old := sandbox.RunID(s.Sandbox); old != "" {
+			_ = stack.Down(ctx, g.d, g.reg, old) // a stopped sandbox of this game; start clean
+		}
+		fmt.Fprintln(stdout, "Subindo a Nexora (a primeira vez leva alguns minutos)…")
+		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.root, Workspace: s.Workspace, PGCPUs: 0.5}, g.log)
+		if err != nil {
 			return g.fail(err)
 		}
+		g.stack, s.Sandbox = st, string(st.Run)
 	}
 	if s.Phase == play.Completed {
 		fmt.Fprintln(stdout, "Este cenário já foi concluído. O debrief está em:", filepath.Join(g.pack.Dir, g.pack.Manifest.Player.Debrief))
@@ -160,7 +221,7 @@ func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		g.event("scenario_resumed", map[string]any{"phase": string(s.Phase)})
 	}
 	fmt.Fprintln(stdout)
-	if err := g.printFile(g.phase().Briefing); err != nil {
+	if err := g.printFile(ctx, g.phase().Briefing); err != nil {
 		return g.fail(err)
 	}
 	return 0
@@ -168,9 +229,13 @@ func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 // runNext: end the calm phase; the growth event starts the incident.
 func runNext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("next", args, stdout, stderr, true)
+	g, code := openGame(ctx, "next", args, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	if g.session.Phase != play.Calm {
 		fmt.Fprintln(stdout, "Nada a avançar: o incidente já começou. `sesim status` mostra como está a produção.")
@@ -182,7 +247,7 @@ func runNext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	g.save()
 	g.event("growth_event", map[string]any{"calm_seconds": int(g.session.IncidentAt.Sub(g.session.StartedAt).Seconds())})
-	if err := g.printFile(g.phase().Briefing); err != nil {
+	if err := g.printFile(ctx, g.phase().Briefing); err != nil {
 		return g.fail(err)
 	}
 	return 0
@@ -255,9 +320,13 @@ func (g *game) signals(ctx context.Context, window time.Duration) (play.Signals,
 
 // runStatus: production signals right now.
 func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("status", args, stdout, stderr, true)
+	g, code := openGame(ctx, "status", args, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	fmt.Fprintln(stdout, "Medindo por 10 s…")
 	sig, err := g.signals(ctx, 10*time.Second)
@@ -274,9 +343,13 @@ func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 
 // runCheck: Quick Check — apply the workspace and measure the live traffic (indicative).
 func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("check", args, stdout, stderr, true)
+	g, code := openGame(ctx, "check", args, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	start := time.Now()
 	fmt.Fprintln(stdout, "Compilando o seu workspace…")
@@ -321,11 +394,12 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 }
 
 // runHint: the next rung of the hint ladder.
-func runHint(_ context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("hint", args, stdout, stderr, true)
+func runHint(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	g, code := openGame(ctx, "hint", args, stdout, stderr, true)
 	if g == nil {
 		return code
 	}
+	defer g.close()
 	h, ok := play.NextHint(g.pack.Hints, g.session.HintsShown)
 	if !ok {
 		fmt.Fprintln(stdout, "Não há mais dicas. As anteriores continuam valendo; releia com calma.")
@@ -344,9 +418,13 @@ func runHint(_ context.Context, args []string, stdout, stderr io.Writer) int {
 
 // runShell: interactive shell inside the Nexora network.
 func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("shell", args, stdout, stderr, true)
+	g, code := openGame(ctx, "shell", args, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	g.event("shell_opened", nil)
 	fmt.Fprintln(stdout, "Terminal na rede da Nexora (psql já conectado ao banco). `exit` para sair.")
@@ -356,16 +434,33 @@ func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	return 0
 }
 
-// runStop: stop the background traffic (the stack keeps running).
+// runStop: stop the background traffic; with --down also destroy the sandbox
+// (the workspace and the progress stay; `sesim play` brings a fresh one up).
 func runStop(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	g, code := openGame("stop", args, stdout, stderr, true)
+	down := slices.Contains(args, "--down")
+	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--down" })
+	g, code := openGame(ctx, "stop", args, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	if err := g.stack.StopBackground(ctx); err != nil {
 		return g.fail(err)
 	}
-	g.event("session_paused", map[string]any{"phase": string(g.session.Phase)})
-	fmt.Fprintln(stdout, "Tráfego parado. `sesim play` retoma de onde você parou; `just dev-down` desliga tudo.")
+	g.event("session_paused", map[string]any{"phase": string(g.session.Phase), "down": down})
+	if !down {
+		fmt.Fprintln(stdout, "Tráfego parado; a Nexora continua de pé. `sesim play` retoma; `sesim stop --down` desliga tudo.")
+		return 0
+	}
+	g.stack.Close()
+	if err := stack.Down(ctx, g.d, g.reg, g.stack.Run); err != nil {
+		return g.fail(err)
+	}
+	g.stack, g.session.Sandbox = nil, ""
+	g.save()
+	fmt.Fprintln(stdout, "Nexora desligada (nada ficou para trás). Seu workspace e o progresso continuam; `sesim play` sobe de novo.")
 	return 0
 }

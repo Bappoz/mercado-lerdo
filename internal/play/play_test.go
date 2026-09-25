@@ -77,3 +77,11 @@ func TestSignalsWrite(t *testing.T) {
 		t.Error("absent endpoint should have NaN p95")
 	}
 }
+
+func TestRenderBriefing(t *testing.T) {
+	got := RenderBriefing("ws={{workspace}} api={{app_url}} prom={{prometheus_url}}",
+		map[string]string{"workspace": "/w", "app_url": "http://10.0.0.2:8080", "prometheus_url": ""})
+	if want := "ws=/w api=http://10.0.0.2:8080 prom=(indisponível)"; got != want {
+		t.Errorf("RenderBriefing = %q, want %q", got, want)
+	}
+}

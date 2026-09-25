@@ -19,7 +19,8 @@ Abra no seu editor. `API.md` descreve o que a API promete.
 | `sesim test` | o teste de produção que vale (≈ 4 min) |
 | `sesim hint` | uma dica por vez, quando travar |
 
-O Prometheus está em http://127.0.0.1:9090 e a API em http://127.0.0.1:8080.
+A API está em {{app_url}} e o Prometheus em {{prometheus_url}}
+(endereços dentro da sua máquina, válidos enquanto a Nexora estiver rodando).
 
 ## Como uma mudança chega à produção
 

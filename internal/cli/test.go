@@ -13,10 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Bappoz/software-engineering-simulator/internal/devstack"
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
+	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
+	"github.com/Bappoz/software-engineering-simulator/internal/stack"
 	"github.com/Bappoz/software-engineering-simulator/internal/workspace"
 )
 
@@ -33,17 +34,47 @@ func (f *evalFlags) register(fs *flag.FlagSet) {
 	fs.IntVar(&f.runs, "runs", 0, "override the scenario's number of runs (0 = use the scenario's)")
 }
 
-func (f *evalFlags) load(stderr io.Writer) (*scenario.Pack, *devstack.Stack, *slog.Logger, bool) {
+func (f *evalFlags) load(stderr io.Writer) (*scenario.Pack, *slog.Logger, bool) {
 	pack, err := scenario.Load(f.scenario)
 	if err != nil {
 		fmt.Fprintln(stderr, "sesim:", err)
-		return nil, nil, nil, false
+		return nil, nil, false
 	}
 	if f.runs > 0 {
 		pack.Manifest.Test.Runs = f.runs
 	}
-	log := slog.New(slog.NewTextHandler(stderr, nil))
-	return pack, devstack.New(f.root, log), log, true
+	return pack, slog.New(slog.NewTextHandler(stderr, nil)), true
+}
+
+// withSandbox brings up a throwaway sandbox for workspace, runs f and always
+// destroys it (and verifies the cleanup) afterwards.
+func withSandbox(ctx context.Context, root, workspace string, log *slog.Logger, f func(*stack.Stack) error) error {
+	d, err := docker.New()
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	reg, err := stack.DefaultRegistry()
+	if err != nil {
+		return err
+	}
+	if _, err := stack.GC(ctx, d, reg, false); err != nil {
+		log.Warn("gc of orphaned sandboxes failed", "err", err)
+	}
+	log.Info("creating sandbox", "workspace", workspace)
+	s, err := stack.Up(ctx, d, reg, stack.Options{Root: root, Workspace: workspace, PGCPUs: 0.5}, log)
+	if s != nil {
+		defer func() {
+			s.Close()
+			if err := stack.Down(context.WithoutCancel(ctx), d, reg, s.Run); err != nil {
+				log.Error("destroying the sandbox failed; `sesim sandbox gc --all` cleans up", "run", s.Run, "err", err)
+			}
+		}()
+	}
+	if err != nil {
+		return err
+	}
+	return f(s)
 }
 
 // runTest: sesim test — Production Test of one workspace. Inside a game (a
@@ -65,12 +96,16 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			return runPlayerTest(ctx, ef, stdout, stderr)
 		}
 	}
-	pack, stack, log, ok := ef.load(stderr)
+	pack, log, ok := ef.load(stderr)
 	if !ok {
 		return 1
 	}
-	defer stack.Close()
-	rep, err := evaluator.Evaluate(ctx, stack, pack, *ws, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+	var rep evaluator.Report
+	err := withSandbox(ctx, ef.root, *ws, log, func(s *stack.Stack) error {
+		var err error
+		rep, err = evaluator.Evaluate(ctx, s, pack, *ws, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+		return err
+	})
 	if err != nil {
 		fmt.Fprintln(stderr, "sesim:", err)
 		return 1
@@ -99,9 +134,13 @@ func allPass(rep evaluator.Report) bool {
 }
 
 func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) int {
-	g, code := openGame("test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
+	g, code := openGame(ctx, "test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
 	if g == nil {
 		return code
+	}
+	defer g.close()
+	if err := g.requireSandbox(); err != nil {
+		return g.fail(err)
 	}
 	defer g.stack.Close()
 	if ef.runs > 0 {
@@ -148,7 +187,7 @@ func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) 
 	}
 	fmt.Fprintln(stdout, "\nPASS em todas as dimensões.")
 	fmt.Fprintln(stdout)
-	if err := g.printFile(g.pack.Manifest.Player.Debrief); err != nil {
+	if err := g.printFile(ctx, g.pack.Manifest.Player.Debrief); err != nil {
 		return g.fail(err)
 	}
 	g.event("debrief_viewed", nil)
@@ -175,11 +214,10 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	pack, stack, log, ok := ef.load(stderr)
+	pack, log, ok := ef.load(stderr)
 	if !ok {
 		return 1
 	}
-	defer stack.Close()
 
 	type input struct{ name, patch string }
 	inputs := []input{{"broken", ""}}
@@ -197,23 +235,30 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	for i, in := range inputs {
 		cases[i] = &verifyCase{Name: in.name, Expect: expect[in.name]}
 	}
-	for round := 1; round <= *rounds; round++ {
-		for i, in := range inputs {
-			log.Info("verify", "round", round, "case", in.name)
-			dir, cleanup, err := workspace.Materialize(ctx, *base, in.patch)
-			if err != nil {
-				fmt.Fprintln(stderr, "sesim:", err)
-				return 1
+	// One sandbox for the whole matrix: every case rebuilds the app from its
+	// own workspace and every run restores the pristine dataset.
+	err := withSandbox(ctx, ef.root, *base, log, func(sb *stack.Stack) error {
+		for round := 1; round <= *rounds; round++ {
+			for i, in := range inputs {
+				log.Info("verify", "round", round, "case", in.name)
+				dir, cleanup, err := workspace.Materialize(ctx, *base, in.patch)
+				if err != nil {
+					return err
+				}
+				rep, err := evaluator.Evaluate(ctx, sb, pack, dir, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+				cleanup()
+				if err != nil {
+					return fmt.Errorf("%s: %w", in.name, err)
+				}
+				cases[i].Rounds = append(cases[i].Rounds, rep.Dimensions)
+				_, _ = saveJSON(ef.root, "eval-"+in.name, rep)
 			}
-			rep, err := evaluator.Evaluate(ctx, stack, pack, dir, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
-			cleanup()
-			if err != nil {
-				fmt.Fprintf(stderr, "sesim: %s: %v\n", in.name, err)
-				return 1
-			}
-			cases[i].Rounds = append(cases[i].Rounds, rep.Dimensions)
-			_, _ = saveJSON(ef.root, "eval-"+in.name, rep)
 		}
+		return nil
+	})
+	if err != nil {
+		fmt.Fprintln(stderr, "sesim:", err)
+		return 1
 	}
 
 	mismatches, flips, cells := writeMatrix(stdout, cases)

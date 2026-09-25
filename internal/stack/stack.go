@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -23,6 +24,11 @@ type Stack struct {
 	opts Options
 	spec sandbox.Spec
 	log  *slog.Logger
+
+	http      *http.Client
+	appURL    string // resolved lazily; container IPs are stable for the run
+	promURL   string
+	stopStats context.CancelFunc
 }
 
 // Up creates and starts a Nexora sandbox for opts.Workspace: builds the app,
@@ -38,7 +44,7 @@ func Up(ctx context.Context, d *docker.Client, reg Registry, opts Options, log *
 		*p = abs
 	}
 	opts.Secrets = NewSecrets()
-	s := &Stack{Run: sandbox.NewRunID(), d: d, opts: opts, spec: Spec(opts), log: log}
+	s := newStack(sandbox.NewRunID(), d, opts, log)
 	rec := Record{Run: s.Run, PID: os.Getpid(), State: Creating, Workspace: opts.Workspace, Secrets: opts.Secrets, Created: time.Now().UTC()}
 	if err := reg.Put(rec); err != nil {
 		return nil, err
@@ -82,10 +88,17 @@ func Up(ctx context.Context, d *docker.Client, reg Registry, opts Options, log *
 	return s, reg.Put(rec)
 }
 
-// Attach returns a handle to a registered, ready run.
-func Attach(d *docker.Client, rec Record, root string, log *slog.Logger) *Stack {
-	o := Options{Root: root, Workspace: rec.Workspace, Secrets: rec.Secrets}
-	return &Stack{Run: rec.Run, d: d, opts: o, spec: Spec(o), log: log}
+// Attach returns a handle to a registered run.
+func Attach(d *docker.Client, rec Record, root string, log *slog.Logger) (*Stack, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("stack: %w", err)
+	}
+	return newStack(rec.Run, d, Options{Root: abs, Workspace: rec.Workspace, Secrets: rec.Secrets}, log), nil
+}
+
+func newStack(run sandbox.RunID, d *docker.Client, o Options, log *slog.Logger) *Stack {
+	return &Stack{Run: run, d: d, opts: o, spec: Spec(o), log: log, http: &http.Client{Timeout: 10 * time.Second}}
 }
 
 func (s *Stack) startHealthy(ctx context.Context, component string) error {
@@ -97,12 +110,12 @@ func (s *Stack) startHealthy(ctx context.Context, component string) error {
 
 // Build compiles the workspace into the bin volume.
 func (s *Stack) Build(ctx context.Context) error {
-	code, out, err := s.d.RunOnce(ctx, s.Run, s.spec, builder(s.opts))
+	res, err := s.d.RunOnce(ctx, s.Run, s.spec, builder(s.opts))
 	if err != nil {
 		return err
 	}
-	if code != 0 {
-		return fmt.Errorf("go build failed (exit %d):\n%s", code, out)
+	if res.ExitCode != 0 {
+		return fmt.Errorf("go build failed (exit %d):\n%s", res.ExitCode, strings.TrimSpace(res.Stdout+res.Stderr))
 	}
 	return nil
 }
@@ -143,12 +156,12 @@ func (s *Stack) seedTemplate(ctx context.Context) error {
 }
 
 func (s *Stack) runSeed(ctx context.Context, migrations, db string) error {
-	code, out, err := s.d.RunOnce(ctx, s.Run, s.spec, seeder(s.opts, migrations, db))
+	res, err := s.d.RunOnce(ctx, s.Run, s.spec, seeder(s.opts, migrations, db))
 	if err != nil {
 		return err
 	}
-	if code != 0 {
-		return fmt.Errorf("seed/migrate %s failed (exit %d):\n%s", db, code, out)
+	if res.ExitCode != 0 {
+		return fmt.Errorf("seed/migrate %s failed (exit %d):\n%s", db, res.ExitCode, strings.TrimSpace(res.Stdout+res.Stderr))
 	}
 	return nil
 }
@@ -175,20 +188,26 @@ func (s *Stack) Addr(ctx context.Context, component, network string) (netip.Addr
 
 // NginxURL is the app's public entry point.
 func (s *Stack) NginxURL(ctx context.Context) (string, error) {
-	a, err := s.Addr(ctx, "nginx", netPlay)
-	if err != nil {
-		return "", err
+	if s.appURL == "" {
+		a, err := s.Addr(ctx, "nginx", netPlay)
+		if err != nil {
+			return "", err
+		}
+		s.appURL = "http://" + netip.AddrPortFrom(a, 8080).String()
 	}
-	return "http://" + netip.AddrPortFrom(a, 8080).String(), nil
+	return s.appURL, nil
 }
 
 // PrometheusURL is the metrics store.
 func (s *Stack) PrometheusURL(ctx context.Context) (string, error) {
-	a, err := s.Addr(ctx, "prometheus", netTelemetry)
-	if err != nil {
-		return "", err
+	if s.promURL == "" {
+		a, err := s.Addr(ctx, "prometheus", netTelemetry)
+		if err != nil {
+			return "", err
+		}
+		s.promURL = "http://" + netip.AddrPortFrom(a, 9090).String()
 	}
-	return "http://" + netip.AddrPortFrom(a, 9090).String(), nil
+	return s.promURL, nil
 }
 
 // Exec runs cmd in the first replica of component.
