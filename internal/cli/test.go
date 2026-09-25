@@ -2,18 +2,17 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
+	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
@@ -115,82 +114,39 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func reportTest(rep evaluator.Report, root string, stdout io.Writer) int {
 	rep.WriteTable(stdout)
-	if path, err := saveJSON(root, "eval", rep); err == nil {
+	if path, err := game.SaveReport(root, "eval", rep); err == nil {
 		fmt.Fprintln(stdout, "report:", path)
 	}
-	if !allPass(rep) {
+	if !game.AllPass(rep) {
 		return 3
 	}
 	return 0
 }
 
-func allPass(rep evaluator.Report) bool {
-	for _, v := range rep.Dimensions {
-		if v != evaluator.Pass {
-			return false
-		}
-	}
-	return len(rep.Dimensions) > 0
-}
-
 func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) int {
-	g, code := openGame(ctx, "test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
-	if g == nil {
+	t, code := openGame(ctx, "test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
+	if t == nil {
 		return code
 	}
-	defer g.close()
-	if err := g.requireSandbox(); err != nil {
-		return g.fail(err)
-	}
-	defer g.stack.Close()
-	if ef.runs > 0 {
-		g.pack.Manifest.Test.Runs = ef.runs
-	}
-	m := g.pack.Manifest.Test
-	fmt.Fprintf(stdout, "Production Test: %d execuções de %s até %d req/s, cada uma a partir do banco original + as suas migrações.\n",
-		m.Runs, m.Profile, m.Rate)
-	fmt.Fprintln(stdout, "O tráfego do dia fica pausado enquanto isso. Leva alguns minutos.")
-	if err := g.stack.StopBackground(ctx); err != nil {
-		return g.fail(err)
-	}
-	log := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	start := time.Now()
-	rep, err := evaluator.Evaluate(ctx, g.stack, g.pack, g.session.Workspace, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
-	if bgErr := g.startBackground(ctx); bgErr != nil {
-		fmt.Fprintln(stderr, "sesim: não consegui retomar o tráfego:", bgErr)
-	}
-	g.session.Tests++
-	g.save()
+	defer t.g.Close()
+	res, err := t.g.Test(ctx, ef.runs, t.say)
 	if err != nil {
-		g.event("production_test_failed_to_run", nil)
-		return g.fail(err)
+		return t.fail(err)
 	}
-	dims := map[string]string{}
-	for d, v := range rep.Dimensions {
-		dims[d] = string(v)
+	res.Report.WriteTable(stdout)
+	if res.Path != "" {
+		fmt.Fprintln(stdout, "report:", res.Path)
 	}
-	g.event("production_test_run", map[string]any{"seconds": int(time.Since(start).Seconds()), "dimensions": dims})
-	code = reportTest(rep, ef.root, stdout)
-	if code != 0 {
+	if !res.Passed {
 		fmt.Fprintln(stdout, "\nAinda não. As dimensões acima dizem o que falta. `sesim hint` se precisar.")
-		return code
-	}
-	if g.session.Phase != play.Completed {
-		g.session.Phase, g.session.DoneAt = play.Completed, time.Now().UTC()
-		g.save()
-		props := map[string]any{"tests": g.session.Tests, "checks": g.session.Checks, "hints": g.session.HintsShown,
-			"total_minutes": int(g.session.DoneAt.Sub(g.session.StartedAt).Minutes())}
-		if !g.session.IncidentAt.IsZero() {
-			props["incident_minutes"] = int(g.session.DoneAt.Sub(g.session.IncidentAt).Minutes())
-		}
-		g.event("scenario_completed", props)
+		return 3
 	}
 	fmt.Fprintln(stdout, "\nPASS em todas as dimensões.")
 	fmt.Fprintln(stdout)
-	if err := g.printFile(ctx, g.pack.Manifest.Player.Debrief); err != nil {
-		return g.fail(err)
+	if err := t.printDoc(ctx, t.g.Pack.Manifest.Player.Debrief); err != nil {
+		return t.fail(err)
 	}
-	g.event("debrief_viewed", nil)
+	t.g.Event("debrief_viewed", nil)
 	return 0
 }
 
@@ -251,7 +207,7 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 					return fmt.Errorf("%s: %w", in.name, err)
 				}
 				cases[i].Rounds = append(cases[i].Rounds, rep.Dimensions)
-				_, _ = saveJSON(ef.root, "eval-"+in.name, rep)
+				_, _ = game.SaveReport(ef.root, "eval-"+in.name, rep)
 			}
 		}
 		return nil
@@ -262,7 +218,7 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	}
 
 	mismatches, flips, cells := writeMatrix(stdout, cases)
-	if path, err := saveJSON(ef.root, "verify", cases); err == nil {
+	if path, err := game.SaveReport(ef.root, "verify", cases); err == nil {
 		fmt.Fprintln(stdout, "report:", path)
 	}
 	fmt.Fprintf(stdout, "\nunexpected verdicts: %d · unstable cells (verdict changed between rounds): %d of %d", mismatches, flips, cells)
@@ -304,17 +260,4 @@ func writeMatrix(w io.Writer, cases []*verifyCase) (mismatches, flips, cells int
 		}
 	}
 	return mismatches, flips, cells
-}
-
-func saveJSON(root, kind string, v any) (string, error) {
-	dir := filepath.Join(root, ".runs")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return "", err
-	}
-	path := filepath.Join(dir, fmt.Sprintf("%s-%s.json", time.Now().Format("20060102T150405"), kind))
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return path, os.WriteFile(path, b, 0o600)
 }

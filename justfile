@@ -57,20 +57,22 @@ typecheck:
     cd nexora && go vet ./...
     npm --prefix web run typecheck
 
-# Run tests (race detector on)
+# Run tests (race detector on) and the UI's unit tests
 test:
     go test -race ./...
     cd nexora && go test -race ./...
+    npm --prefix web test
 
-# Build bin/sesim for this machine and the web bundle
+# Build the web bundle, then bin/sesim for this machine (it embeds web/dist)
 build:
-    CGO_ENABLED=0 go build -trimpath -ldflags '{{ldflags}}' -o bin/sesim ./cmd/sesim
     npm --prefix web run build
+    CGO_ENABLED=0 go build -trimpath -ldflags '{{ldflags}}' -o bin/sesim ./cmd/sesim
 
-# Cross-compile sesim for every supported platform into dist/
+# Cross-compile sesim for every supported platform into dist/ (with the web bundle)
 build-all:
     #!/usr/bin/env bash
     set -euo pipefail
+    npm --prefix web run build
     for p in {{platforms}}; do
       os="${p%/*}"; arch="${p#*/}"; ext=""; [ "$os" = windows ] && ext=".exe"
       CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags '{{ldflags}}' \

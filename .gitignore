@@ -1,7 +1,9 @@
 # Build output
 /bin/
 /dist/
-web/dist/
+# web/dist is embedded into the binary; the placeholder keeps `go build` working before `npm run build`
+web/dist/*
+!web/dist/.gitkeep
 /*.test
 /*.out
 /coverage.*

@@ -21,6 +21,17 @@ func RenderBriefing(md string, vars map[string]string) string {
 	return md
 }
 
+// CLIWords name the game's tools in the player's briefings, hints and
+// debrief ({{status}}, {{next}}…) when they are read in the terminal.
+var CLIWords = map[string]string{
+	"status": "`sesim status`",
+	"shell":  "`sesim shell`",
+	"check":  "`sesim check`",
+	"test":   "`sesim test`",
+	"hint":   "`sesim hint`",
+	"next":   "rode `sesim next`",
+}
+
 // NextHint returns the next hint after shown ones, or false when none are left.
 func NextHint(hints []scenario.Hint, shown int) (scenario.Hint, bool) {
 	if shown >= len(hints) {
@@ -35,6 +46,17 @@ type Endpoint struct {
 	RPS       float64 `json:"rps"`
 	ErrorRate float64 `json:"error_rate"`
 	P95s      float64 `json:"p95_s"` // p95 over the window, seconds
+}
+
+// Finite returns e with NaN and infinite values zeroed: a quantile over no
+// requests is NaN, which JSON (the session file, the web UI) cannot carry.
+func (e Endpoint) Finite() Endpoint {
+	for _, v := range []*float64{&e.RPS, &e.ErrorRate, &e.P95s} {
+		if math.IsNaN(*v) || math.IsInf(*v, 0) {
+			*v = 0
+		}
+	}
+	return e
 }
 
 // Signals is a snapshot of production, as the player sees it.

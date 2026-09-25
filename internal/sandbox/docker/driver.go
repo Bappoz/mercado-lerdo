@@ -413,6 +413,52 @@ func (c *Client) Exec(ctx context.Context, run sandbox.RunID, component string, 
 	return ExecResult{ExitCode: ins.ExitCode, Stdout: stdout.String(), Stderr: stderr.String()}, nil
 }
 
+// TTY is an interactive exec with a terminal: Read gets the terminal's
+// output (stdout and stderr are one stream with a TTY), Write types into it.
+type TTY struct {
+	c    *Client
+	id   string
+	resp client.ExecAttachResult
+}
+
+func (t *TTY) Read(p []byte) (int, error)  { return t.resp.Reader.Read(p) }
+func (t *TTY) Write(p []byte) (int, error) { return t.resp.Conn.Write(p) }
+
+// Close ends the session; the process gets a hangup when its terminal goes away.
+func (t *TTY) Close() error {
+	t.resp.Close()
+	return nil
+}
+
+// Resize changes the terminal size.
+func (t *TTY) Resize(ctx context.Context, cols, rows uint) error {
+	if _, err := t.c.api.ExecResize(ctx, t.id, client.ExecResizeOptions{Width: cols, Height: rows}); err != nil {
+		return fmt.Errorf("docker: resize exec: %w", err)
+	}
+	return nil
+}
+
+// ExecTTY starts cmd in replica of component with a terminal of cols×rows.
+func (c *Client) ExecTTY(ctx context.Context, run sandbox.RunID, component string, replica int, cmd []string, cols, rows uint) (*TTY, error) {
+	id, err := c.containerID(ctx, run, component, replica)
+	if err != nil {
+		return nil, err
+	}
+	size := client.ConsoleSize{Width: cols, Height: rows}
+	ex, err := c.api.ExecCreate(ctx, id, client.ExecCreateOptions{
+		Cmd: cmd, TTY: true, ConsoleSize: size, AttachStdin: true, AttachStdout: true, AttachStderr: true,
+		Env: []string{"TERM=xterm-256color"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("docker: exec in %s: %w", component, err)
+	}
+	att, err := c.api.ExecAttach(ctx, ex.ID, client.ExecAttachOptions{TTY: true, ConsoleSize: size})
+	if err != nil {
+		return nil, fmt.Errorf("docker: attach exec in %s: %w", component, err)
+	}
+	return &TTY{c: c, id: ex.ID, resp: att}, nil
+}
+
 func (c *Client) containerID(ctx context.Context, run sandbox.RunID, component string, replica int) (string, error) {
 	list, err := c.containers(ctx, run, component)
 	if err != nil {

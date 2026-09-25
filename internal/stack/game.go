@@ -41,7 +41,7 @@ func (s *Stack) Prepare(ctx context.Context, workspace string) error {
 	if err := s.Build(ctx); err != nil {
 		return err
 	}
-	return s.startStats(ctx)
+	return s.StartStats(ctx)
 }
 
 // Close stops the container-stats pusher.
@@ -191,6 +191,15 @@ func (s *Stack) QueryVector(ctx context.Context, promql string, at time.Time) ([
 	return telemetry.QueryVector(ctx, s.http, base, promql, at)
 }
 
+// QueryRange runs a PromQL range query.
+func (s *Stack) QueryRange(ctx context.Context, promql string, start, end time.Time, step time.Duration) ([]telemetry.RangeSeries, error) {
+	base, err := s.PrometheusURL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return telemetry.QueryRange(ctx, s.http, base, promql, start, end, step)
+}
+
 // URL is the app through nginx (evaluator.Env). Empty if it cannot be resolved.
 func (s *Stack) URL() string {
 	u, _ := s.NginxURL(context.Background())
@@ -208,8 +217,15 @@ func (s *Stack) Shell(ctx context.Context, stdin io.Reader, stdout, stderr io.Wr
 	return cmd.Run()
 }
 
-// startStats pushes container stats to Prometheus every second until Close.
-func (s *Stack) startStats(ctx context.Context) error {
+// Terminal opens the same shell as Shell, for a terminal that is not ours
+// (the web UI's).
+func (s *Stack) Terminal(ctx context.Context, cols, rows uint) (*docker.TTY, error) {
+	return s.d.ExecTTY(ctx, s.Run, "toolbox", 1, []string{"bash"}, cols, rows)
+}
+
+// StartStats pushes container stats to Prometheus every second until Close.
+// It is idempotent.
+func (s *Stack) StartStats(ctx context.Context) error {
 	if s.stopStats != nil {
 		return nil
 	}

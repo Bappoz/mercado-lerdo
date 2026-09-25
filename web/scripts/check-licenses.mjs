@@ -14,6 +14,9 @@ const ALLOWED = new Set([
   "Unlicense",
   "MPL-2.0",
   "EPL-2.0",
+  // Fonts (@fontsource/*): OFL allows bundling them with any software, as
+  // long as they are not sold on their own (ADR-0016).
+  "OFL-1.1",
 ]);
 
 const deps = JSON.parse(execFileSync("npm", ["query", ".prod"], { encoding: "utf8" }));

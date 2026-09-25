@@ -113,7 +113,8 @@ Detalhes de redes, limites e ciclo de vida em [`sandbox.md`](sandbox.md).
 ```mermaid
 flowchart TB
     cli["cli<br/>comandos"]
-    server["server<br/>REST + WS + SPA"]
+    server["ui<br/>API + WS + SPA"]
+    game["game<br/>regras da partida"]
     campaign["campaign<br/>progresso, ledger,<br/>estado canônico"]
     scenario["scenario<br/>carregar pacote, validar,<br/>timeline"]
     topology["topology<br/>topology.yaml → spec,<br/>custo"]
@@ -126,8 +127,9 @@ flowchart TB
     events["events<br/>JSONL de produto"]
     wsp["workspace<br/>git, build do app"]
 
-    cli --> campaign
-    server --> campaign
+    cli --> game
+    server --> game
+    game --> campaign
     campaign --> scenario
     campaign --> store
     scenario --> topology
@@ -145,7 +147,8 @@ flowchart TB
 | Componente | Responsabilidade | Não faz |
 |---|---|---|
 | `cli` | `sesim doctor`, `play`, `status`, `check`, `test`, `reset`, `shell`, `down`, `gc` | Lógica de negócio |
-| `server` | API local, WebSocket de terminal e eventos ao vivo, SPA embutida, token de sessão | Acesso direto ao Docker |
+| `ui` | NexoraOS: API local com token, terminal por WebSocket, SPA embutida (implementado no Chunk 9; ADR-0016) | Regra de jogo; acesso direto ao Docker |
+| `game` | Uma partida: sessão no workspace, sandbox, fases, Quick Check, Production Test, dicas, eventos (Chunk 9) | Apresentar (a CLI e a UI apresentam) |
 | `campaign` | Estado da campanha, tentativas, ledger, adoção de estado canônico | Executar cenário |
 | `scenario` | Carrega e valida pacotes, conduz a máquina de estados e a timeline do cenário | Medir |
 | `topology` | Valida `topology.yaml` contra o catálogo, gera a spec da sandbox, calcula custo modelado e o grafo de arquitetura | Falar com o Docker |
@@ -246,7 +249,8 @@ Proposta para o Chunk 2. Os limites espelham o brief §39 (plataforma, SDK de ce
 ├── cmd/sesim/                 # main
 ├── internal/
 │   ├── cli/
-│   ├── server/                # REST, WS, embed da SPA
+│   ├── game/                  # regras de uma partida (CLI e UI usam)
+│   ├── ui/                    # NexoraOS: API, WS, SPA de web/dist
 │   ├── campaign/
 │   ├── scenario/              # pacote, schema, timeline
 │   ├── topology/              # catálogo, validação, custo, grafo
@@ -258,7 +262,7 @@ Proposta para o Chunk 2. Os limites espelham o brief §39 (plataforma, SDK de ce
 │   ├── evaluator/             # CEL, estatística, relatório
 │   ├── store/                 # SQLite + migrações
 │   └── events/
-├── web/                       # SPA React + Vite (ADR-0011)
+├── web/                       # SPA React + Vite (ADR-0011, 0016); web/embed.go embute web/dist
 ├── nexora/                    # app demo: módulo Go separado, template do workspace
 ├── scenarios/                 # pacotes oficiais (embutidos via embed.FS)
 │   └── stage1/{c1-slow-search,c2-connection-pressure,c3-instance-failure}/
@@ -278,7 +282,7 @@ O `nexora/` é um módulo Go separado, com `vendor/` commitado. O workspace do j
 | Orquestração | Docker Engine API via `github.com/moby/moby/client`, atrás de `SandboxDriver` | 0005 |
 | Carga | k6 (imagem oficial, não modificada) com executores arrival-rate | 0006 |
 | Métricas | Prometheus + postgres_exporter + nginx exporter + cAdvisor ou stats do Docker | 0007 |
-| Terminal | xterm.js (`@xterm/xterm`, `@xterm/addon-attach`) + WebSocket (`github.com/coder/websocket`) + `docker exec` com TTY | 0008 |
+| Terminal | xterm.js (`@xterm/xterm`, `@xterm/addon-fit`) + WebSocket (`github.com/coder/websocket`) + `docker exec` com TTY | 0008 |
 | Cenários/objetivos | YAML + JSON Schema + CEL (`cel-go`) | 0010 |
 | Frontend | React + Vite + TypeScript; React Flow + ELK.js; uPlot | 0011 |
 | Persistência | SQLite (`modernc.org/sqlite`, sem cgo) + JSONL + arquivos | 0012 |

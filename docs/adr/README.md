@@ -14,8 +14,9 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0008](0008-terminal-xterm-websocket-exec.md) | Terminal: xterm.js + WebSocket + `docker exec` | Proposto |
 | [0009](0009-licenciamento-e-distribuicao.md) | Gratuito, código fechado, doação; política de licenças | Aceito / política Proposta |
 | [0010](0010-formato-de-cenario-yaml-json-schema-cel.md) | Cenário: YAML + JSON Schema + CEL | Proposto |
-| [0011](0011-frontend-react-vite-spa-embutida.md) | Frontend: React + Vite, SPA embutida | Proposto |
+| [0011](0011-frontend-react-vite-spa-embutida.md) | Frontend: React + Vite, SPA embutida | Proposto (bibliotecas revistas pelo 0016) |
 | [0012](0012-persistencia-local-sqlite.md) | Persistência: SQLite puro Go + JSONL | Proposto |
 | [0013](0013-zonas-de-rede-e-medicao-externa.md) | Zonas play/obs e medição externa | Proposto (redes refinadas pelo 0014) |
 | [0014](0014-topologia-de-telemetria.md) | Telemetria: agente de coleta, redes `ingress`/`telemetry`, stats de containers pelo host via OTLP | Proposto |
 | [0015](0015-objetivos-estruturados-no-v0.md) | Objetivos estruturados no v0; CEL adiado | Proposto |
+| [0016](0016-nexoraos-desktop-simulado-e-temas-por-tokens.md) | NexoraOS: desktop simulado; temas como conjuntos de tokens; bibliotecas do 0011 adiadas | Proposto |

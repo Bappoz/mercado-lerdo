@@ -85,3 +85,10 @@ func TestRenderBriefing(t *testing.T) {
 		t.Errorf("RenderBriefing = %q, want %q", got, want)
 	}
 }
+
+func TestEndpointFinite(t *testing.T) {
+	e := Endpoint{Name: "search", RPS: 1, ErrorRate: math.NaN(), P95s: math.Inf(1)}.Finite()
+	if e.RPS != 1 || e.ErrorRate != 0 || e.P95s != 0 {
+		t.Errorf("Finite = %+v", e)
+	}
+}

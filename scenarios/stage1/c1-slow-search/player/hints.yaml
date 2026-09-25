@@ -3,14 +3,14 @@
 - level: 1
   kind: Observação
   text: |
-    Rode `sesim status` e compare a CPU de cada container com o limite dele.
+    Consulte {{status}} e compare a CPU de cada container com o limite dele.
     Quem está no teto? Quem está folgado?
 - level: 2
   kind: Direção
   text: |
     O banco está no limite; o app, não. Então o tempo está sendo gasto dentro do banco.
     Qual consulta consome mais tempo dele? O Postgres guarda estatísticas por consulta
-    na visão `pg_stat_statements` (experimente pelo `sesim shell` → `psql`).
+    na visão `pg_stat_statements` (experimente pelo {{shell}} → `psql`).
 - level: 3
   kind: Conceito
   text: |
@@ -19,7 +19,7 @@
     Pesquise como bancos evitam ler a tabela inteira, e se isso funciona para `ILIKE '%termo%'`
     (o termo pode estar em qualquer posição do nome; isso é requisito, veja `API.md`).
 
-    Lembre: para o `sesim test`, o que conta é o que está no workspace (código e `migrations/`).
+    Lembre: para o {{test}}, o que conta é o que está no workspace (código e `migrations/`).
     Mudanças feitas só no `psql` somem a cada execução.
 - level: 4
   kind: Explicação
@@ -43,5 +43,5 @@
         CREATE EXTENSION IF NOT EXISTS pg_trgm;
         CREATE INDEX products_name_trgm_idx ON products USING gin (name gin_trgm_ops);
 
-    Depois `sesim check` para ver o efeito e `sesim test` para valer.
+    Depois {{check}} para ver o efeito e {{test}} para valer.
     Ao passar, o debrief mostra outras soluções que também passariam.
