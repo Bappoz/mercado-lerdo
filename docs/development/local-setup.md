@@ -39,11 +39,15 @@ curl -s '127.0.0.1:8080/search?q=lamp&limit=3' | jq
 just dev-psql    # psql como role nexora (dono do banco, não superuser)
 just dev-hash    # hash do dataset: mesma seed → mesmo hash
 just dev-reset   # apaga o banco; o próximo dev-up refaz o seed
+just dev-load normal-day            # carga k6; tabela por endpoint + JSON bruto em .runs/
+RATE=80 DURATION=60s just dev-load flash-sale
 ```
+
+Perfis em `workloads/nexora/`: modelo aberto (arrival rate), sequência de intenções determinística por `SEED`, timeout de cliente de 5 s. Variáveis: `RATE` (pico, req/s), `DURATION`, `RAMP` (só Flash Sale), `SEED`. A CPU de um container pode ser mudada ao vivo: `docker update --cpus 1.0 nexora-dev-postgres-1`.
 
 | Variável | Padrão | Efeito |
 |---|---|---|
-| `PG_CPUS` | `0.25` | CPU do Postgres (física escalada) |
+| `PG_CPUS` | `0.5` | CPU do Postgres (física escalada; calibrado no Chunk 4, ver `docs/architecture/sandbox.md` §7) |
 | `PG_MAX_CONNECTIONS` | `50` | `max_connections` |
 | `APP_CPUS` | `0.5` | CPU do app |
 | `NEXORA_DB_MAX_CONNS` | `10` | tamanho do pool do app |

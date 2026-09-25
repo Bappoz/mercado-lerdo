@@ -46,7 +46,7 @@ services:
       - ./initdb:/docker-entrypoint-initdb.d:ro
     tmpfs: [/var/run/postgresql, /tmp]
     shm_size: 64m
-    cpus: ${PG_CPUS:-0.25}
+    cpus: ${PG_CPUS:-0.5}
     mem_limit: ${PG_MEMORY:-256m}
     pids_limit: 256
     healthcheck:
@@ -122,6 +122,23 @@ services:
     depends_on:
       app: { condition: service_healthy }
     networks: [play, obs, edge]
+
+  # Load generator (observer zone). Not started by `up`; run through `just dev-load`.
+  k6:
+    image: grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34
+    profiles: [load]
+    <<: *hardening
+    volumes:
+      - ../../workloads:/workloads:ro
+    tmpfs: [/tmp]
+    environment:
+      BASE_URL: http://nginx:8080
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 512
+    depends_on:
+      nginx: { condition: service_healthy }
+    networks: [obs]
 
   toolbox:
     build: { context: ../../images/toolbox }

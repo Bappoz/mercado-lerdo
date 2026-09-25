@@ -11,6 +11,7 @@ func TestRun(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
+		stdin      string
 		wantCode   int
 		wantStdout string
 		wantStderr string
@@ -19,12 +20,13 @@ func TestRun(t *testing.T) {
 		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "sesim "},
 		{name: "--version", args: []string{"--version"}, wantCode: 0, wantStdout: "sesim "},
 		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Commands:"},
+		{name: "load-summary bad input", args: []string{"load-summary"}, stdin: "nope", wantCode: 1, wantStderr: "decode k6 summary"},
 		{name: "unknown", args: []string{"fly"}, wantCode: 2, wantStderr: `unknown command "fly"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := Run(context.Background(), tt.args, &stdout, &stderr)
+			code := Run(context.Background(), tt.args, strings.NewReader(tt.stdin), &stdout, &stderr)
 			if code != tt.wantCode {
 				t.Errorf("code = %d, want %d", code, tt.wantCode)
 			}

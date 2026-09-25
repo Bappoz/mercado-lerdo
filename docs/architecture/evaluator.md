@@ -89,11 +89,12 @@ Para um objetivo `m < L` com margem relativa `δ` (padrão 10 %):
 |---|---|
 | todas as execuções `< L·(1−δ)` | **PASS** |
 | todas as execuções `> L·(1+δ)` | **FAIL** |
-| qualquer outro caso, ou dispersão > 25 %, ou `dropped_iterations > 0` | **INCONCLUSIVE** |
+| qualquer outro caso, ou dispersão > 25 %, ou drops com o gerador limitado | **INCONCLUSIVE** |
 
 - INCONCLUSIVE mostra o motivo ("seu p95 ficou entre 272 e 331 ms; o limiar é 300 ms") e sugere rodar de novo ou investigar a variação. **Para a campanha, INCONCLUSIVE não conta como PASS.**
 - Objetivos booleanos (corretude, integridade) não têm margem: qualquer violação é FAIL.
 - Os números acima (3 execuções, 10 %, 25 %) são **ponto de partida** a validar pela H5 no Chunk 6.
+- Drops por **sistema saturado** (todos os VUs esperando até o timeout do cliente) não tornam a execução inconclusiva: são chegadas não atendidas e contam contra `availability`. Só os drops com VUs livres (gerador limitado) invalidam a execução. Calibração em `sandbox.md` §7.
 - Evidência inicial de ruído: o throttling de quota de CPU gerou dispersão de ~7× na mesma query (`sandbox.md` §7, medições do Chunk 3).
 - O autor do cenário é obrigado (linter + harness) a manter o estado quebrado e as referências longe do limiar. Essa é a principal proteção contra ruído, mais importante que a estatística.
 

@@ -6,6 +6,9 @@ web/dist/
 /*.out
 /coverage.*
 
+# Load test outputs
+/.runs/
+
 # Dependencies
 node_modules/
 web/node_modules/
