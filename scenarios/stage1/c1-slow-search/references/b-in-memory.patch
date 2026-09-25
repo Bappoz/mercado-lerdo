@@ -1,0 +1,158 @@
+diff --color -ruN a/cmd/nexora/main.go b/cmd/nexora/main.go
+--- a/cmd/nexora/main.go	2026-09-25 00:21:59.000000000 -0300
++++ b/cmd/nexora/main.go	2026-09-25 01:14:37.066755545 -0300
+@@ -81,8 +81,12 @@
+ 	}
+ 	defer pool.Close()
+ 
++	st := store.New(pool)
++	if err := st.StartSearchIndex(ctx, 30*time.Second, log); err != nil {
++		return err
++	}
+ 	m := metrics.New(pool)
+-	srv := api.NewServer(store.New(pool), pool, payment.NewClient(cfg.paymentURL, 10*time.Second), m, log)
++	srv := api.NewServer(st, pool, payment.NewClient(cfg.paymentURL, 10*time.Second), m, log)
+ 
+ 	apiServer := &http.Server{Addr: cfg.addr, Handler: srv.Handler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second}
+ 	metricsServer := &http.Server{Addr: cfg.metricsAddr, Handler: m.Handler(), ReadHeaderTimeout: 5 * time.Second}
+diff --color -ruN a/internal/store/products.go b/internal/store/products.go
+--- a/internal/store/products.go	2026-09-25 00:21:59.000000000 -0300
++++ b/internal/store/products.go	2026-09-25 01:14:57.456568813 -0300
+@@ -4,7 +4,6 @@
+ 	"context"
+ 	"errors"
+ 	"fmt"
+-	"strings"
+ 	"time"
+ 
+ 	"github.com/jackc/pgx/v5"
+@@ -53,24 +52,11 @@
+ }
+ 
+ // SearchProducts returns products whose name contains term (case-insensitive),
+-// most recently added first.
+-func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]Product, error) {
+-	rows, err := s.pool.Query(ctx, `
+-		SELECT id, sku, name, category, price_cents, stock, created_at
+-		FROM products
+-		WHERE name ILIKE '%' || $1 || '%'
+-		ORDER BY created_at DESC
+-		LIMIT $2`, escapeLike(term), limit)
+-	if err != nil {
+-		return nil, fmt.Errorf("search products: %w", err)
+-	}
+-	return collectProducts(rows)
++// most recently added first. Served from the in-memory index (searchindex.go).
++func (s *Store) SearchProducts(_ context.Context, term string, limit int) ([]Product, error) {
++	return searchInMemory(term, limit), nil
+ }
+ 
+-// escapeLike makes LIKE wildcards in user input match literally.
+-func escapeLike(s string) string {
+-	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+-}
+ 
+ func collectProducts(rows pgx.Rows) ([]Product, error) {
+ 	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Product, error) {
+diff --color -ruN a/internal/store/products_test.go b/internal/store/products_test.go
+--- a/internal/store/products_test.go	2026-09-25 00:21:59.000000000 -0300
++++ b/internal/store/products_test.go	1969-12-31 21:00:00.000000000 -0300
+@@ -1,17 +0,0 @@
+-package store
+-
+-import "testing"
+-
+-func TestEscapeLike(t *testing.T) {
+-	tests := []struct{ in, want string }{
+-		{"lamp", "lamp"},
+-		{"100%", `100\%`},
+-		{"a_b", `a\_b`},
+-		{`back\slash`, `back\\slash`},
+-	}
+-	for _, tt := range tests {
+-		if got := escapeLike(tt.in); got != tt.want {
+-			t.Errorf("escapeLike(%q) = %q, want %q", tt.in, got, tt.want)
+-		}
+-	}
+-}
+diff --color -ruN a/internal/store/searchindex.go b/internal/store/searchindex.go
+--- a/internal/store/searchindex.go	1969-12-31 21:00:00.000000000 -0300
++++ b/internal/store/searchindex.go	2026-09-25 01:14:37.038008949 -0300
+@@ -0,0 +1,77 @@
++package store
++
++import (
++	"context"
++	"fmt"
++	"log/slog"
++	"strings"
++	"sync/atomic"
++	"time"
++)
++
++// searchIndex is an in-memory copy of the catalog, newest first, so search
++// never touches the database. Trade-off: results may be up to one refresh
++// interval stale (new products, stock), and every instance holds a copy.
++type searchIndex struct {
++	products []Product // sorted by created_at DESC
++	lower    []string  // lower-cased names, same order
++}
++
++var index atomic.Pointer[searchIndex]
++
++// StartSearchIndex loads the catalog and refreshes it every interval until ctx ends.
++func (s *Store) StartSearchIndex(ctx context.Context, interval time.Duration, log *slog.Logger) error {
++	if err := s.loadSearchIndex(ctx); err != nil {
++		return err
++	}
++	go func() {
++		t := time.NewTicker(interval)
++		defer t.Stop()
++		for {
++			select {
++			case <-ctx.Done():
++				return
++			case <-t.C:
++				if err := s.loadSearchIndex(ctx); err != nil && ctx.Err() == nil {
++					log.Warn("search index refresh failed; serving the previous copy", "err", err)
++				}
++			}
++		}
++	}()
++	return nil
++}
++
++func (s *Store) loadSearchIndex(ctx context.Context) error {
++	rows, err := s.pool.Query(ctx, `
++		SELECT id, sku, name, category, price_cents, stock, created_at
++		FROM products
++		ORDER BY created_at DESC`)
++	if err != nil {
++		return fmt.Errorf("load search index: %w", err)
++	}
++	products, err := collectProducts(rows)
++	if err != nil {
++		return err
++	}
++	idx := &searchIndex{products: products, lower: make([]string, len(products))}
++	for i, p := range products {
++		idx.lower[i] = strings.ToLower(p.Name)
++	}
++	index.Store(idx)
++	return nil
++}
++
++func searchInMemory(term string, limit int) []Product {
++	idx := index.Load()
++	q := strings.ToLower(term)
++	out := make([]Product, 0, limit)
++	for i, name := range idx.lower {
++		if strings.Contains(name, q) {
++			out = append(out, idx.products[i])
++			if len(out) == limit {
++				break
++			}
++		}
++	}
++	return out
++}

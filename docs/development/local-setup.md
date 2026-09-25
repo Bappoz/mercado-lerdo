@@ -56,6 +56,17 @@ Perfis em `workloads/nexora/`: modelo aberto (arrival rate), sequência de inten
 
 Usuários do seed: `user00001@nexora.test` … `user05000@nexora.test`, todos com a senha `nexora-demo` (credencial de demonstração, só existe no banco local).
 
+## Avaliação (evaluator)
+
+```bash
+just eval                                   # Production Test do C1 contra nexora/ (≈3–4 min)
+just eval --workspace /caminho/outro-app    # outra cópia do app
+just verify --rounds 1 --runs 1             # matriz: quebrado + 4 referências (≈5 min)
+just verify --rounds 3                      # estabilidade (H5): ≈45 min; não use a máquina para trabalho pesado enquanto roda
+```
+
+Os relatórios JSON ficam em `.runs/`. O exit code de `sesim test` é 3 quando alguma dimensão não passa; o de `sesim scenario verify` é 3 quando há veredito inesperado ou instável.
+
 ## Rotina
 
 | Quero… | Comando |

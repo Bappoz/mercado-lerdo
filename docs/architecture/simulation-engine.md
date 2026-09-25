@@ -1,6 +1,8 @@
 # Simulation Engine — Cenários, Timeline e Campanha
 
-> Status: Chunk 1, proposta. Formato: ADR-0010. O formato v0 **não é estável** e vai mudar depois do Playtest #1.
+> Status: Chunk 1, proposta; parcialmente implementado no Chunk 6. Formato: ADR-0010, objetivos pelo ADR-0015. O formato v0 **não é estável** e vai mudar depois do Playtest #1.
+>
+> **Implementado (Chunk 6):** `internal/scenario` lê `metadata`, `dataset`, `test`, `oracle`, `objectives`, `broken` e `references` (exemplo real: `scenarios/stage1/c1-slow-search/scenario.yaml`). O harness é `sesim scenario verify`. **Ainda não implementados:** `timeline`, `scale`, `requires`, `ledger`, `measurements` configuráveis. O esboço do §2 é o alvo, não o estado atual.
 
 ## 1. Por que um runner de timeline e não "engines"
 

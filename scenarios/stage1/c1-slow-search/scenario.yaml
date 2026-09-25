@@ -1,0 +1,63 @@
+# C1 — Slow Search (Stage 1). Format: docs/architecture/simulation-engine.md §2 (v0alpha1, unstable).
+apiVersion: sesim.dev/v0alpha1
+kind: Scenario
+metadata:
+  id: stage1/c1-slow-search
+  version: 0.1.0
+  title: Slow Search
+
+# Must match what the seed tool loaded; the oracle regenerates it to know the truth.
+dataset: {seed: 4242, users: 5000, products: 100000, orders: 20000}
+
+# Production Test. Calibrated with Postgres at 0.5 CPU (docs/architecture/sandbox.md §7).
+test:
+  profile: flash-sale
+  rate: 60
+  ramp: 10s
+  duration: 30s
+  runs: 3
+
+oracle: oracle/cases.yaml
+
+# Properties only. Nothing here knows about indexes, caches or search engines.
+objectives:
+  - id: search-matches-contract
+    dimension: correctness
+    measure: oracle_pass_ratio
+    atLeast: 1
+  - id: search-p95
+    dimension: latency
+    measure: search_p95_ms
+    below: 300
+    margin: 0.10
+  - id: errors
+    dimension: availability
+    measure: error_rate
+    below: 0.01
+    margin: 0.10
+  - id: db-headroom
+    dimension: resources
+    measure: db_cpu_p90
+    below: 0.70
+    margin: 0.10
+
+# The untouched scenario start.
+broken: {correctness: PASS, latency: FAIL, availability: FAIL, resources: FAIL}
+
+references:
+  - name: trigram-index
+    patch: references/a-trigram.patch
+    why: ILIKE '%term%' served by a GIN trigram index; the database does little work per search.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS}
+  - name: in-memory-index
+    patch: references/b-in-memory.patch
+    why: The app keeps the catalog in memory and searches it there; the database is not involved. Costs memory per instance and serves results up to 30s stale.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS}
+  - name: prefix-search
+    patch: references/c-prefix.patch
+    why: Fast, but matches only names that START with the term. The requirement says "anywhere in the name".
+    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS}
+  - name: full-text-search
+    patch: references/d-fulltext.patch
+    why: Fast, but matches whole words, not substrings ("ette" does not find "Kettle").
+    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS}

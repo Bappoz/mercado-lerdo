@@ -1,6 +1,6 @@
 # Evaluator
 
-> Status: Chunk 1, proposta. Formato dos objetivos: ADR-0010. Zonas de medição: ADR-0013.
+> Status: implementado no Chunk 6 para o dev stack (`internal/evaluator`, `sesim test`, `sesim scenario verify`). Formato dos objetivos: ADR-0015. Zonas de medição: ADR-0013/0014. As seções abaixo descrevem o que o código faz; divergências da proposta do Chunk 1 estão marcadas.
 
 ## 1. Requisitos
 
@@ -89,14 +89,44 @@ Para um objetivo `m < L` com margem relativa `δ` (padrão 10 %):
 |---|---|
 | todas as execuções `< L·(1−δ)` | **PASS** |
 | todas as execuções `> L·(1+δ)` | **FAIL** |
-| qualquer outro caso, ou dispersão > 25 %, ou drops com o gerador limitado | **INCONCLUSIVE** |
+| qualquer outro caso | **INCONCLUSIVE** |
+
+Execuções em que o gerador ficou limitado (drops com VUs livres) têm as medidas de carga descartadas, e o objetivo é julgado com as execuções que sobraram.
+
+**Mudança em relação ao Chunk 1:** a regra "dispersão > 25 % → INCONCLUSIVE" foi removida. Uma execução muito longe do limiar é conclusiva, por mais ruidosa que seja: um p95 entre 10 e 40 ms contra um limiar de 300 ms não deixa dúvida. A dispersão continua no relatório.
 
 - INCONCLUSIVE mostra o motivo ("seu p95 ficou entre 272 e 331 ms; o limiar é 300 ms") e sugere rodar de novo ou investigar a variação. **Para a campanha, INCONCLUSIVE não conta como PASS.**
 - Objetivos booleanos (corretude, integridade) não têm margem: qualquer violação é FAIL.
 - Os números acima (3 execuções, 10 %, 25 %) são **ponto de partida** a validar pela H5 no Chunk 6.
 - Drops por **sistema saturado** (todos os VUs esperando até o timeout do cliente) não tornam a execução inconclusiva: são chegadas não atendidas e contam contra `availability`. Só os drops com VUs livres (gerador limitado) invalidam a execução. Calibração em `sandbox.md` §7.
+- **Validação da H5 (Chunk 6, 2026-09-25):** `sesim scenario verify --rounds 3` no C1, com 5 casos × 3 rodadas × 3 execuções = 45 Production Tests (44 min, mesma máquina). Resultado: 0 vereditos inesperados e 0 de 20 células instáveis. Distribuição nas 9 execuções de cada caso:
+
+  | Caso | search p95 (ms) | error_rate | db_cpu_p90 |
+  |---|---|---|---|
+  | quebrado | 5001 (timeout) | 0,88–0,92 | 0,97–1,00 |
+  | trigram | 33–141 | 0 | **0,49–0,61** |
+  | em memória | 1,7–2,1 | 0 | 0,19–0,24 |
+  | prefixo | 10–12 | 0 | 0,23–0,29 |
+  | full-text | 10–14 | 0 | 0,35–0,39 |
+
+  **Célula frágil:** `resources` do trigram. O pior valor (0,61) ficou a 2 pontos da fronteira de PASS (0,70 × 0,9 = 0,63). Zero inversão *nesta máquina* não garante estabilidade em máquinas mais lentas. Decisão pendente: afrouxar o objetivo (ex.: `below: 0.80`) ou aceitar INCONCLUSIVE em hardware fraco. A regra do Chunk 1 de "≥5× entre quebrado e corrigido" não se aplica a medidas limitadas a 1 como CPU/quota; aqui a distância é de ~1,6×.
 - Evidência inicial de ruído: o throttling de quota de CPU gerou dispersão de ~7× na mesma query (`sandbox.md` §7, medições do Chunk 3).
 - O autor do cenário é obrigado (linter + harness) a manter o estado quebrado e as referências longe do limiar. Essa é a principal proteção contra ruído, mais importante que a estatística.
+
+### Medidas implementadas (C1)
+
+| Medida | Definição | Fonte |
+|---|---|---|
+| `search_p95_ms` | p95 das requisições `name=search`, visto pelo k6 | resumo do k6 |
+| `error_rate` | (falhas + chegadas não atendidas por saturação) ÷ (requisições + chegadas não atendidas) | resumo do k6 + `DropCause` |
+| `db_cpu_p90` | p90, na janela da execução, de `rate(cpu do postgres) ÷ quota` | Prometheus (`sesim_container_*`, host) |
+| `oracle_pass_ratio` | casos corretos ÷ casos; resultado esperado **regenerado da seed**, nunca lido do banco do jogador | HTTP via nginx + `internal/seed` |
+
+O oráculo de busca é baseado em propriedades: cada resultado contém o termo, a quantidade é `min(limit, matches)`, e a sequência de `created_at` é igual ao top-N esperado. Comparar timestamps em vez de ids tolera empates. Um teste (`internal/evaluator/c1_test.go`) garante que os casos do C1 **distinguem** as semânticas erradas (prefixo, palavra inteira).
+
+### Ciclo de uma execução (dev stack)
+
+`ResetData` faz: `stop app` → `DROP DATABASE nexora WITH (FORCE)` → `CREATE DATABASE nexora TEMPLATE nexora_seed` → `pg_stat_statements_reset()` → migrações do workspace → `up --wait app` → `/healthz`. O `nexora_seed` é criado uma vez, com as migrações do **repositório** (o início do cenário), nunca com as do workspace. Depois vem o k6 com o perfil do cenário. A rampa funciona como aquecimento e não é descartada. Depois de cada execução, o evaluator espera 5 s até o último remote write/OTLP chegar e então consulta a janela.
 
 ## 5. Dimensões
 
