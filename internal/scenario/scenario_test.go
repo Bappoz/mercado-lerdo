@@ -52,6 +52,16 @@ func TestLoadValid(t *testing.T) {
 	}
 }
 
+func TestLoadShippedC1(t *testing.T) {
+	p, err := Load("../../scenarios/stage1/c1-slow-search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Manifest.Player == nil || len(p.Hints) != 5 || p.Hints[4].Kind != "Implementação" {
+		t.Fatalf("player section not loaded: %+v, %d hints", p.Manifest.Player, len(p.Hints))
+	}
+}
+
 func TestLoadRejects(t *testing.T) {
 	tests := []struct {
 		name, from, to, wantErr string

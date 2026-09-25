@@ -211,7 +211,9 @@ services:
       BASE_URL: http://nginx:8080
       K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
       K6_PROMETHEUS_RW_PUSH_INTERVAL: 2s
-      K6_PROMETHEUS_RW_TREND_STATS: p(50),p(95),p(99),max
+      # Latency as native histograms: trend stats (p95 series) are cumulative
+      # since the start of a k6 run, useless for long-running traffic.
+      K6_FEATURES: native-histograms
     cpus: 1.0
     mem_limit: 512m
     pids_limit: 512

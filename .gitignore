@@ -9,6 +9,9 @@ web/dist/
 # Load test outputs
 /.runs/
 
+# The player's workspace created by `sesim play`
+/workspace/
+
 # Dependencies
 node_modules/
 web/node_modules/

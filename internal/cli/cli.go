@@ -14,15 +14,24 @@ import (
 const usage = `sesim — Software Engineering Simulator (working name)
 
 Usage:
-  sesim <command>
+  sesim <command> [flags]
 
-Commands:
-  version        print the binary version
-  load-summary   read a k6 summary (JSON) on stdin and print per-endpoint stats
-  test           run the scenario's Production Test against a workspace (dev stack)
-  scenario       scenario tools: "scenario verify" checks the broken start and every reference
-  dev            developer commands for the local dev stack
-  help           print this help
+Playing (output in PT-BR):
+  play           start (or resume) the scenario: workspace, stack, briefing, traffic
+  next           end the calm phase; the incident starts
+  status         production signals now (traffic, errors, latency, CPU)
+  check          Quick Check: apply your workspace and measure ~45 s (indicative)
+  test           Production Test (graded); in a game, shows the debrief on PASS
+  hint           the next hint (5 levels)
+  shell          terminal inside the Nexora network
+  stop           stop the background traffic
+
+Tools:
+  scenario verify  run the broken start and every reference; report unexpected verdicts
+  load-summary     read a k6 summary (JSON) on stdin and print per-endpoint stats
+  dev              developer commands for the local dev stack
+  version          print the binary version
+  help             print this help
 `
 
 // Run executes the command in args (without the program name) and returns the exit code.
@@ -45,6 +54,20 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return 0
 	case "test":
 		return runTest(ctx, args[1:], stdout, stderr)
+	case "play":
+		return runPlay(ctx, args[1:], stdout, stderr)
+	case "next":
+		return runNext(ctx, args[1:], stdout, stderr)
+	case "status":
+		return runStatus(ctx, args[1:], stdout, stderr)
+	case "check":
+		return runCheck(ctx, args[1:], stdout, stderr)
+	case "hint":
+		return runHint(ctx, args[1:], stdout, stderr)
+	case "shell":
+		return runShell(ctx, args[1:], stdout, stderr)
+	case "stop":
+		return runStop(ctx, args[1:], stdout, stderr)
 	case "scenario":
 		if len(args) < 2 || args[1] != "verify" {
 			fmt.Fprintln(stderr, "usage: sesim scenario verify [flags]")

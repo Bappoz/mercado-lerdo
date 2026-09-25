@@ -19,6 +19,8 @@ func TestQueryScalar(t *testing.T) {
 				return
 			}
 			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1790000000,"0.93"]}]}}`))
+		case "by_name":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"name":"search"},"value":[1,"4.5"]},{"metric":{"name":"products"},"value":[1,"0.002"]}]}}`))
 		case "empty":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 		default:
@@ -36,5 +38,13 @@ func TestQueryScalar(t *testing.T) {
 	}
 	if _, err := QueryScalar(ctx, srv.Client(), srv.URL, "bad(", at); err == nil || !strings.Contains(err.Error(), "parse error") {
 		t.Errorf("bad query err = %v", err)
+	}
+
+	vec, err := QueryVector(ctx, srv.Client(), srv.URL, "by_name", at)
+	if err != nil || len(vec) != 2 || vec[0].Labels["name"] != "search" || vec[0].Value != 4.5 {
+		t.Errorf("QueryVector = %+v, %v", vec, err)
+	}
+	if vec, err := QueryVector(ctx, srv.Client(), srv.URL, "empty", at); err != nil || len(vec) != 0 {
+		t.Errorf("empty vector = %+v, %v", vec, err)
 	}
 }

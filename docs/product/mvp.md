@@ -54,7 +54,7 @@ Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomei
   - (c) busca por prefixo + B-tree: rápida, mas **falha em corretude**, porque o requisito é "em qualquer posição do nome";
   - (d) full-text search (`tsvector`): rápida, mas **falha em corretude**, porque casa palavras e não substrings (`ette` não acha "Kettle"). *Mudança em relação ao Chunk 1, que a listava como válida.*
   - Um cache ingênuo na frente ficou fora das referências por enquanto. Com a cauda longa dos termos, a expectativa é melhora parcial, mas isso ainda não foi medido.
-- **Objetivos** (`scenario.yaml`): corretude (9 casos de oráculo, esperado regenerado da seed), p95 da busca < 300 ms, taxa de erro < 1 %, p90 da CPU do banco < 70 % da quota. Margem de 10 % nos três últimos. Production Test: Flash Sale até 60 req/s, 3 execuções.
+- **Objetivos** (`scenario.yaml`): corretude (9 casos de oráculo, esperado regenerado da seed), p95 da busca < 300 ms, taxa de erro < 1 %, p90 da CPU do banco < 80 % da quota (era 70 %; mudado pela H5). Margem de 10 % nos três últimos. Production Test: Flash Sale até 60 req/s, 3 execuções.
 
 ### C2 — Connection Pressure
 

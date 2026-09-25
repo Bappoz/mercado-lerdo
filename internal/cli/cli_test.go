@@ -19,7 +19,7 @@ func TestRun(t *testing.T) {
 		{name: "no arguments", args: nil, wantCode: 2, wantStderr: "Usage:"},
 		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "sesim "},
 		{name: "--version", args: []string{"--version"}, wantCode: 0, wantStdout: "sesim "},
-		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Commands:"},
+		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Playing (output in PT-BR):"},
 		{name: "load-summary bad input", args: []string{"load-summary"}, stdin: "nope", wantCode: 1, wantStderr: "decode k6 summary"},
 		{name: "dev without command", args: []string{"dev"}, wantCode: 2, wantStderr: "container-stats"},
 		{name: "dev unknown", args: []string{"dev", "fly"}, wantCode: 2, wantStderr: `unknown command "fly"`},

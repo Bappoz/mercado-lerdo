@@ -1,0 +1,47 @@
+# Five levels, from observation to implementation (docs/product/mvp.md §4).
+# Never skip a level; the player asks for one at a time.
+- level: 1
+  kind: Observação
+  text: |
+    Rode `sesim status` e compare a CPU de cada container com o limite dele.
+    Quem está no teto? Quem está folgado?
+- level: 2
+  kind: Direção
+  text: |
+    O banco está no limite; o app, não. Então o tempo está sendo gasto dentro do banco.
+    Qual consulta consome mais tempo dele? O Postgres guarda estatísticas por consulta
+    na visão `pg_stat_statements` (experimente pelo `sesim shell` → `psql`).
+- level: 3
+  kind: Conceito
+  text: |
+    Peça ao Postgres o plano da consulta mais cara: `EXPLAIN ANALYZE <a consulta>`.
+    O que significa "Seq Scan" numa tabela de 100 mil linhas, repetido dezenas de vezes por segundo?
+    Pesquise como bancos evitam ler a tabela inteira, e se isso funciona para `ILIKE '%termo%'`
+    (o termo pode estar em qualquer posição do nome; isso é requisito, veja `API.md`).
+
+    Atenção: o `sesim test` recria o banco do zero a cada execução. Mudanças feitas só no `psql`
+    somem; o que conta é código e migrações versionadas no workspace (`migrations/`).
+- level: 4
+  kind: Explicação
+  text: |
+    Um índice B-tree comum serve para igualdade, faixas e prefixos ("começa com"). Com o curinga
+    no início (`'%termo%'`) ele não ajuda, e o banco lê as 100 mil linhas a cada busca.
+
+    Dois caminhos resolvem sem mudar o requisito:
+    - dar ao banco um índice que entenda "contém": o Postgres tem a extensão `pg_trgm`, que
+      indexa trigramas (pedaços de 3 letras) e é usada por `ILIKE`;
+    - não perguntar ao banco: manter o catálogo em memória no app e buscar lá, aceitando
+      memória extra e resultados um pouco atrasados.
+
+    Cuidado com atalhos rápidos que mudam o significado da busca (só prefixo, só palavras inteiras):
+    o teste de corretude pega.
+- level: 5
+  kind: Implementação
+  text: |
+    Crie `migrations/0002_search_index.sql` no workspace com:
+
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        CREATE INDEX products_name_trgm_idx ON products USING gin (name gin_trgm_ops);
+
+    Depois `sesim check` para ver o efeito e `sesim test` para valer.
+    Ao passar, o debrief mostra outras soluções que também passariam.

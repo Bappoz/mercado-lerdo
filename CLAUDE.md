@@ -46,7 +46,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixa
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
 - k6: `handleSummary` recebe `setup_data` com tokens (o `traffic.js` apaga; não reverta); `discardResponseBodies` também vale no `setup()` (use `responseType: 'text'`).
 - Redes do dev: `play`, `ingress`, `telemetry` (ADR-0014). Nunca coloque nginx/app/postgres na `telemetry`: o jogador controla a configuração do nginx.
-- k6 remote write envia duração em **segundos**; o texto das queries do `pg_stat_statements` fica em `pg_stat_statements_query_id` (join por `queryid`).
+- k6 remote write envia duração em **segundos**, como histograma nativo (`K6_FEATURES=native-histograms`): p95 = `histogram_quantile(0.95, sum by (name) (rate(k6_http_req_duration_seconds[..])))`. Não use `k6_http_req_duration_p95`: é cumulativo desde o início do run. O texto das queries do `pg_stat_statements` fica em `pg_stat_statements_query_id` (join por `queryid`).
 - O reset do evaluator clona `nexora_seed`, que é criado uma vez com as migrações do **repo**. Mudou o schema base (`nexora/migrations/0001…`) ou a seed? `DROP DATABASE nexora_seed` (com `ALTER DATABASE … IS_TEMPLATE false` antes), senão os testes medem o dataset antigo.
 - Não rode `just check`/builds pesados durante `just verify`: disputa de CPU no host vira ruído na medição.
 - `docker compose exec -T` consome o stdin do chamador: em scripts, sempre `</dev/null`.
