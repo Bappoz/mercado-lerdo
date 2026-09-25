@@ -46,14 +46,15 @@ Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomei
 
 ### C1 — Slow Search
 
-- **Montagem:** `GET /search?q=` usa `ILIKE '%termo%'` sobre `products(name, description)` sem índice adequado, com `ORDER BY` em coluna não indexada. Evento de crescimento ×40.
+- **Montagem:** `GET /search?q=` usa `ILIKE '%termo%'` sobre `products.name`, sem índice adequado, com `ORDER BY created_at` sem índice. Evento de crescimento ×40.
 - **Sintomas:** p95 > 2 s, CPU do banco quase saturada, CPU do app baixa.
-- **Soluções de referência:**
-  - (a) índice GIN trigram (`pg_trgm`);
-  - (b) full-text search com `tsvector` + GIN;
-  - (c) trocar para busca por prefixo + B-tree. O briefing diz "a busca deve achar o termo em qualquer posição do nome", então (c) **falha em corretude**. Ensina que otimização precisa respeitar o requisito;
-  - (d) cache na frente. O workload segue uma distribuição de cauda longa, então o cache ingênuo melhora só em parte. Ensina que o formato do workload importa.
-- **Objetivos:** corretude (o oráculo compara resultados amostrados com a referência), p95 < 300 ms na taxa-alvo, taxa de erro < 0,5 %, CPU do banco < 70 %.
+- **Soluções de referência** (implementadas como patches em `scenarios/stage1/c1-slow-search/references/`):
+  - (a) índice GIN trigram (`pg_trgm`): **PASS**;
+  - (b) índice de busca em memória no app: **PASS** por outro caminho. Tira a carga do banco ao custo de memória por instância e de resultados desatualizados em até 30 s;
+  - (c) busca por prefixo + B-tree: rápida, mas **falha em corretude**, porque o requisito é "em qualquer posição do nome";
+  - (d) full-text search (`tsvector`): rápida, mas **falha em corretude**, porque casa palavras e não substrings (`ette` não acha "Kettle"). *Mudança em relação ao Chunk 1, que a listava como válida.*
+  - Um cache ingênuo na frente ficou fora das referências por enquanto. Com a cauda longa dos termos, a expectativa é melhora parcial, mas isso ainda não foi medido.
+- **Objetivos** (`scenario.yaml`): corretude (9 casos de oráculo, esperado regenerado da seed), p95 da busca < 300 ms, taxa de erro < 1 %, p90 da CPU do banco < 70 % da quota. Margem de 10 % nos três últimos. Production Test: Flash Sale até 60 req/s, 3 execuções.
 
 ### C2 — Connection Pressure
 
@@ -101,7 +102,7 @@ Detalhado em `docs/architecture/sandbox.md`. Resumo: containers no Docker local,
 | H2 | O briefing só com sintomas motiva em vez de paralisar, *dado* o onboarding calmo. | Playtest; perguntar o momento de maior frustração | tempo até a primeira ação; desistências |
 | H3 | Depois do debrief, o jogador explica por que a correção funcionou e cita uma alternativa. | Entrevista de 3 perguntas | % de explicações corretas |
 | H4 | Quick Check ≤ 90 s mantém a iteração fluindo. | Tempos instrumentados | mediana do loop; nº de iterações |
-| H5 | O evaluator é estável o bastante para ser confiável. | Rodar cada solução de referência N vezes em 3 máquinas | taxa de inversão PASS/FAIL |
+| H5 | O evaluator é estável o bastante para ser confiável. | Rodar cada solução de referência N vezes em 3 máquinas | taxa de inversão PASS/FAIL. **1 de 3 máquinas medida (2026-09-25): 0 % em 45 testes**, com uma célula frágil (`evaluator.md` §4) |
 | H6 | O jogador quer o próximo cenário. | "Começaria o C2 agora?" + retorno em 7 dias | % sim; retorno |
 | H7 | O setup local é aceitável para a persona. | Tempo do download até o primeiro dashboard | mediana do setup; falhas |
 

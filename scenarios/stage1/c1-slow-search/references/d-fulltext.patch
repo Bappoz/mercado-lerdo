@@ -1,0 +1,20 @@
+diff --color -ruN a/internal/store/products.go b/internal/store/products.go
+--- a/internal/store/products.go	2026-09-25 00:21:59.000000000 -0300
++++ b/internal/store/products.go	2026-09-25 01:14:17.754884331 -0300
+@@ -58,9 +58,9 @@
+ 	rows, err := s.pool.Query(ctx, `
+ 		SELECT id, sku, name, category, price_cents, stock, created_at
+ 		FROM products
+-		WHERE name ILIKE '%' || $1 || '%'
++		WHERE to_tsvector('simple', name) @@ plainto_tsquery('simple', $1)
+ 		ORDER BY created_at DESC
+-		LIMIT $2`, escapeLike(term), limit)
++		LIMIT $2`, term, limit)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("search products: %w", err)
+ 	}
+diff --color -ruN a/migrations/0002_search_fulltext.sql b/migrations/0002_search_fulltext.sql
+--- a/migrations/0002_search_fulltext.sql	1969-12-31 21:00:00.000000000 -0300
++++ b/migrations/0002_search_fulltext.sql	2026-09-25 01:14:17.722983315 -0300
+@@ -0,0 +1 @@
++CREATE INDEX products_name_fts_idx ON products USING gin (to_tsvector('simple', name));

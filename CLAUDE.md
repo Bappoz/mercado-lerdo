@@ -11,11 +11,10 @@ just check      # gate completo: fmt-check → lint → typecheck → test → b
 just fmt        # formata Go e web
 just build-all  # cross-compile para dist/
 just doctor     # toolchain + Docker
-just dev-up     # stack Nexora de dev (compose): build, seed, espera healthy
-just dev-psql   # psql como role nexora, de dentro da rede da sandbox
-just dev-reset  # derruba e apaga o banco (próximo dev-up refaz o seed)
-just dev-load normal-day   # carga k6 (normal-day | flash-sale); RATE/DURATION/RAMP/SEED via env
-just dev-telemetry-check   # isolamento do Prometheus + sinais do Flash Sale em PromQL
+just dev-up | dev-psql | dev-reset          # stack de dev (compose); reset apaga o banco
+just dev-load normal-day                    # carga k6 (normal-day | flash-sale); RATE/DURATION/RAMP/SEED via env
+just dev-smoke | dev-telemetry-check        # aceite dos Chunks 3 e 5
+just eval | verify --only trigram-index --runs 1   # Production Test do C1 | harness das referências
 ```
 Prometheus de dev em `127.0.0.1:9090`. As stats de containers só chegam enquanto `sesim dev container-stats` roda (o `dev-load` liga sozinho; `just dev-stats` para rodar direto).
 Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixadas em `tools/*.go.mod` e compiladas em `bin/tools/` por `just tools`; nunca use as do sistema.
@@ -26,6 +25,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixa
 - `internal/sandbox/docker` → único pacote que pode importar `github.com/moby/moby` (depguard garante).
 - `web/` → SPA; só será embutida no Chunk 9.
 - `nexora/` → app demo, **módulo Go separado** (`module nexora`) com `vendor/` commitado; é o workspace que o jogador edita. Contrato em `nexora/API.md`.
+- `scenarios/stage1/c1-slow-search/` → pacote do C1 (manifesto, oráculo, referências como patches contra `nexora/`). `internal/scenario` lê; `internal/evaluator` julga; `internal/devstack` conduz o compose (temporário até o SandboxDriver).
 - `internal/seed` + `cmd/nexora-seed` → dataset determinístico; `internal/observer` + `cmd/observer-svc` → gateway de pagamento emulado (zona observadora).
 - `deploy/dev/compose.yml` → stack de dev que espelha redes/limites da sandbox; não é a sandbox do jogo.
 - `docs/` → produto, arquitetura, threat model e ADRs (`docs/adr/README.md`). Decisão nova ou alterada = ADR novo.
@@ -44,10 +44,11 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go são fixa
 - Mudou `nexora/go.mod`? `just nexora-vendor`, senão o build offline quebra.
 - O código do `nexora/` não comenta os problemas plantados pelos cenários (busca lenta, transação aberta durante o pagamento, idempotência ignorada). É proposital; não "conserte" nem documente no código.
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
-- `handleSummary` do k6 recebe `setup_data` com tokens de sessão: `workloads/nexora/lib/traffic.js` apaga antes de imprimir. Não reverta.
-- `discardResponseBodies: true` também vale no `setup()`: request cujo corpo você lê precisa de `responseType: 'text'`.
+- k6: `handleSummary` recebe `setup_data` com tokens (o `traffic.js` apaga; não reverta); `discardResponseBodies` também vale no `setup()` (use `responseType: 'text'`).
 - Redes do dev: `play`, `ingress`, `telemetry` (ADR-0014). Nunca coloque nginx/app/postgres na `telemetry`: o jogador controla a configuração do nginx.
 - k6 remote write envia duração em **segundos**; o texto das queries do `pg_stat_statements` fica em `pg_stat_statements_query_id` (join por `queryid`).
+- O reset do evaluator clona `nexora_seed`, que é criado uma vez com as migrações do **repo**. Mudou o schema base (`nexora/migrations/0001…`) ou a seed? `DROP DATABASE nexora_seed` (com `ALTER DATABASE … IS_TEMPLATE false` antes), senão os testes medem o dataset antigo.
+- Não rode `just check`/builds pesados durante `just verify`: disputa de CPU no host vira ruído na medição.
 - `docker compose exec -T` consome o stdin do chamador: em scripts, sempre `</dev/null`.
 - Segredo falso de cenário vai para `.gitleaksignore` com justificativa; nunca contornar o hook.
 

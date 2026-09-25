@@ -1,6 +1,6 @@
 # ADR-0010: Formato de cenário e objetivos — YAML + JSON Schema + CEL
 
-**Status:** Proposto
+**Status:** Proposto — objetivos em CEL substituídos por objetivos estruturados no v0 (ADR-0015)
 **Data:** 2026-09-24
 **Decisores:** Lucas Zanetti
 

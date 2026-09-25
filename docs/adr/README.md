@@ -18,3 +18,4 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0012](0012-persistencia-local-sqlite.md) | Persistência: SQLite puro Go + JSONL | Proposto |
 | [0013](0013-zonas-de-rede-e-medicao-externa.md) | Zonas play/obs e medição externa | Proposto (redes refinadas pelo 0014) |
 | [0014](0014-topologia-de-telemetria.md) | Telemetria: agente de coleta, redes `ingress`/`telemetry`, stats de containers pelo host via OTLP | Proposto |
+| [0015](0015-objetivos-estruturados-no-v0.md) | Objetivos estruturados no v0; CEL adiado | Proposto |

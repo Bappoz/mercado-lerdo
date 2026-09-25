@@ -68,7 +68,7 @@ services:
     environment:
       NEXORA_SEED_DATABASE_URL: postgres://nexora:${NEXORA_DB_PASSWORD:-nexora-dev}@postgres:5432/nexora?sslmode=disable
     volumes:
-      - ../../nexora/migrations:/migrations:ro
+      - ${NEXORA_WORKSPACE:-../../nexora}/migrations:/migrations:ro
     cpus: 1.0
     mem_limit: 256m
     pids_limit: 64
@@ -92,7 +92,9 @@ services:
     networks: [play]
 
   app:
-    build: { context: ../../nexora, dockerfile: ../images/nexora/Dockerfile }
+    # NEXORA_WORKSPACE points the build at another copy of the app (the evaluator
+    # uses it for reference solutions); the Dockerfile path must then be absolute.
+    build: { context: "${NEXORA_WORKSPACE:-../../nexora}", dockerfile: "${NEXORA_DOCKERFILE:-../images/nexora/Dockerfile}" }
     image: sesim/nexora:dev
     <<: *hardening
     environment:
