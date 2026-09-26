@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 	"github.com/Bappoz/software-engineering-simulator/internal/telemetry"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 	"github.com/Bappoz/software-engineering-simulator/internal/workload"
 )
 
@@ -33,7 +35,8 @@ func (s *Stack) SetWorkspace(workspace string) error {
 	return nil
 }
 
-// Prepare builds workspace and starts pushing container stats (evaluator.Env).
+// Prepare builds workspace, applies its topology and starts pushing container
+// stats (evaluator.Env). ResetData restarts the app on the new build.
 func (s *Stack) Prepare(ctx context.Context, workspace string) error {
 	if err := s.SetWorkspace(workspace); err != nil {
 		return err
@@ -41,7 +44,48 @@ func (s *Stack) Prepare(ctx context.Context, workspace string) error {
 	if err := s.Build(ctx); err != nil {
 		return err
 	}
+	t, err := topology.Load(s.opts.Workspace)
+	if err != nil {
+		return err
+	}
+	if _, err := s.Apply(ctx, t, func(line string) { s.log.Info("deploy", "step", line) }); err != nil {
+		return err
+	}
 	return s.StartStats(ctx)
+}
+
+// Deploy ships the workspace to the running sandbox: build, pending
+// migrations, the topology and nginx configuration, and the new binary on
+// every app replica. Data is kept (unlike a Production Test run).
+func (s *Stack) Deploy(ctx context.Context, say func(string)) ([]Change, error) {
+	t, err := topology.Load(s.opts.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	// Everything that can be refused is refused before anything changes.
+	if _, err := s.Preflight(ctx, t); err != nil {
+		return nil, err
+	}
+	say("Compilando o seu workspace…")
+	if err := s.Build(ctx); err != nil {
+		return nil, fmt.Errorf("o build falhou; corrija e rode de novo:\n%w", err)
+	}
+	say("Aplicando migrações…")
+	if err := s.Migrate(ctx); err != nil {
+		return nil, err
+	}
+	say("Aplicando a topologia…")
+	changes, err := s.Apply(ctx, t, say)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.ContainsFunc(changes, func(c Change) bool { return c.Component == "app" }) {
+		say("Reiniciando o app com o build novo…")
+		if err := s.RestartApp(ctx); err != nil {
+			return changes, err
+		}
+	}
+	return changes, nil
 }
 
 // Close stops the container-stats pusher.
@@ -142,7 +186,8 @@ func (s *Stack) StopBackground(ctx context.Context) error {
 	return s.d.RemoveComponent(ctx, s.Run, backgroundComponent)
 }
 
-// CPU returns each component's average CPU use over window as a fraction of its quota.
+// CPU returns each component's average CPU use over window as a fraction of
+// its quota (all replicas together).
 func (s *Stack) CPU(ctx context.Context, window time.Duration) (map[string]float64, error) {
 	label := docker.LabelRun + "=" + string(s.Run)
 	a, err := s.d.Stats(ctx, label)
@@ -162,13 +207,20 @@ func (s *Stack) CPU(ctx context.Context, window time.Duration) (map[string]float
 	for _, r := range a {
 		before[fmt.Sprintf("%s#%d", r.Component, r.Replica)] = r.CPUUsageSeconds
 	}
-	out := map[string]float64{}
+	// A component with replicas is judged as a whole: its busy seconds over
+	// the cores all its replicas are allowed.
+	used, quota := map[string]float64{}, map[string]float64{}
 	for _, r := range b {
 		prev, ok := before[fmt.Sprintf("%s#%d", r.Component, r.Replica)]
 		if !ok || r.CPUQuotaCores == 0 {
 			continue
 		}
-		out[r.Component] = (r.CPUUsageSeconds - prev) / window.Seconds() / r.CPUQuotaCores
+		used[r.Component] += r.CPUUsageSeconds - prev
+		quota[r.Component] += r.CPUQuotaCores
+	}
+	out := map[string]float64{}
+	for c, u := range used {
+		out[c] = u / window.Seconds() / quota[c]
 	}
 	return out, nil
 }

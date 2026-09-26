@@ -61,7 +61,7 @@ func withSandbox(ctx context.Context, root, workspace string, log *slog.Logger, 
 		log.Warn("gc of orphaned sandboxes failed", "err", err)
 	}
 	log.Info("creating sandbox", "workspace", workspace)
-	s, err := stack.Up(ctx, d, reg, stack.Options{Root: root, Workspace: workspace, PGCPUs: 0.5}, log)
+	s, err := stack.Up(ctx, d, reg, stack.Options{Root: root, Workspace: workspace}, log)
 	if s != nil {
 		defer func() {
 			s.Close()

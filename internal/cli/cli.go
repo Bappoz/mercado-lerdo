@@ -24,6 +24,10 @@ Playing (output in PT-BR):
   test           Production Test (graded); in a game, shows the debrief on PASS
   hint           the next hint (5 levels)
   shell          terminal inside the Nexora network
+  deploy         ship the workspace (code, migrations, topology.yaml, nginx config)
+  topology       the workspace's topology, its modeled cost and pending changes
+  docs [c]       the component catalog, or one component's page
+  install <c>    add an optional component to topology.yaml (deploy applies it)
   stop           stop the background traffic (--down: also destroy the sandbox)
   ui             NexoraOS: the same game in the browser (127.0.0.1 only)
 
@@ -72,6 +76,14 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runStop(ctx, args[1:], stdout, stderr)
 	case "ui":
 		return runUI(ctx, args[1:], stdout, stderr)
+	case "deploy":
+		return runDeploy(ctx, args[1:], stdout, stderr)
+	case "topology":
+		return runTopology(ctx, args[1:], stdout, stderr)
+	case "docs":
+		return runDocs(ctx, args[1:], stdout, stderr)
+	case "install":
+		return runInstall(ctx, args[1:], stdout, stderr)
 	case "scenario":
 		if len(args) < 2 || args[1] != "verify" {
 			fmt.Fprintln(stderr, "usage: sesim scenario verify [flags]")

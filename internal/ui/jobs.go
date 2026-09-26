@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
+	"github.com/Bappoz/software-engineering-simulator/internal/stack"
 )
 
 // Job is one long operation (start the game, Quick Check, Production Test).
@@ -25,6 +26,7 @@ type Job struct {
 	Finished time.Time         `json:"finished,omitzero"`
 	Check    *game.CheckResult `json:"check,omitempty"`
 	Test     *game.TestResult  `json:"test,omitempty"`
+	Deploy   []stack.Change    `json:"deploy,omitempty"`
 }
 
 const maxJobLines = 200
@@ -43,7 +45,8 @@ func (s *Server) currentJob() *Job {
 		return nil
 	}
 	j := *s.job
-	j.Lines = append([]string(nil), s.job.Lines...)
+	// Never nil: an empty log is [] in JSON, not null.
+	j.Lines = append(make([]string, 0, len(s.job.Lines)), s.job.Lines...)
 	return &j
 }
 
@@ -86,9 +89,10 @@ func (s *Server) startJob(kind string) http.HandlerFunc {
 func (s *Server) run(j *Job) {
 	ctx := s.ctx
 	var (
-		check *game.CheckResult
-		test  *game.TestResult
-		err   error
+		check  *game.CheckResult
+		test   *game.TestResult
+		deploy []stack.Change
+		err    error
 	)
 	switch j.Kind {
 	case "play":
@@ -105,12 +109,16 @@ func (s *Server) run(j *Job) {
 		if r, err = s.g.Test(ctx, 0, s.say); err == nil {
 			test = &r
 		}
+	case "deploy":
+		if deploy, err = s.g.Deploy(ctx, s.say); err == nil && deploy == nil {
+			deploy = []stack.Change{}
+		}
 	default:
 		err = fmt.Errorf("unknown job %q", j.Kind)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	j.Running, j.Finished, j.Check, j.Test = false, time.Now().UTC(), check, test
+	j.Running, j.Finished, j.Check, j.Test, j.Deploy = false, time.Now().UTC(), check, test, deploy
 	if err != nil {
 		j.Error = err.Error()
 		if !errors.Is(err, context.Canceled) {

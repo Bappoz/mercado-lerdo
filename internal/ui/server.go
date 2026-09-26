@@ -26,6 +26,7 @@ import (
 
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
 // Words name the game's tools in the scenario's texts as NexoraOS shows them
@@ -37,6 +38,10 @@ var Words = map[string]string{
 	"test":   "o **Production Test** (app Testes)",
 	"hint":   "a **Tabby** (pedir dica)",
 	"next":   "clique em **Começar o expediente**, aqui embaixo",
+	"deploy": "o **Deploy**",
+	// Where the player reads the topology and the catalog.
+	"architecture": "o app **Arquitetura**",
+	"docs":         "o app **Docs**",
 }
 
 // Limits on what the browser may send.
@@ -99,6 +104,10 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/play", s.startJob("play"))
 	api.HandleFunc("POST /api/check", s.startJob("check"))
 	api.HandleFunc("POST /api/test", s.startJob("test"))
+	api.HandleFunc("POST /api/deploy", s.startJob("deploy"))
+	api.HandleFunc("GET /api/topology", s.topology)
+	api.HandleFunc("GET /api/catalog", s.catalog)
+	api.HandleFunc("POST /api/install", s.install)
 	api.HandleFunc("POST /api/next", s.next)
 	api.HandleFunc("POST /api/hint", s.hint)
 	api.HandleFunc("POST /api/stop", s.stop)
@@ -323,6 +332,54 @@ func (s *Server) pulse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
+}
+
+func (s *Server) topology(w http.ResponseWriter, _ *http.Request) {
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.g.Topology())
+}
+
+// catalogEntry is a catalog page plus whether the workspace has it.
+type catalogEntry struct {
+	topology.Entry
+	Installed bool `json:"installed"`
+}
+
+func (s *Server) catalog(w http.ResponseWriter, _ *http.Request) {
+	var ws *topology.Topology
+	if s.g.HasSession() {
+		ws = s.g.Topology().Workspace
+	}
+	out := make([]catalogEntry, 0, len(topology.Catalog))
+	for _, k := range []topology.Kind{topology.KindNginx, topology.KindApp, topology.KindPgBouncer, topology.KindPostgres} {
+		e := catalogEntry{Entry: topology.Catalog[k], Installed: !topology.Catalog[k].Optional}
+		if ws != nil {
+			e.Installed = ws.Installed(k)
+		}
+		out = append(out, e)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) install(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Kind topology.Kind `json:"kind"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	switch err := s.g.Install(body.Kind); {
+	case errors.Is(err, topology.ErrInstalled), errors.Is(err, game.ErrNoSession):
+		writeError(w, http.StatusConflict, err)
+	case err != nil:
+		writeError(w, http.StatusBadRequest, err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // viewed records the product events the CLI records when it prints the

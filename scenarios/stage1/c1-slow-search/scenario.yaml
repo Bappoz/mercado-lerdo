@@ -3,7 +3,7 @@ apiVersion: sesim.dev/v0alpha1
 kind: Scenario
 metadata:
   id: stage1/c1-slow-search
-  version: 0.1.0
+  version: 0.2.0
   title: Slow Search
 
 # Must match what the seed tool loaded; the oracle regenerates it to know the truth.
@@ -50,24 +50,34 @@ objectives:
     # PASS boundary in H5. See docs/architecture/evaluator.md §4.
     below: 0.80
     margin: 0.10
+  - id: budget
+    dimension: cost
+    measure: monthly_cost
+    # Modeled from topology.yaml (internal/topology catalog). The start costs
+    # 70; the budget leaves room for one more app replica, not a bigger database.
+    below: 100
 
 # The untouched scenario start.
-broken: {correctness: PASS, latency: FAIL, availability: FAIL, resources: FAIL}
+broken: {correctness: PASS, latency: FAIL, availability: FAIL, resources: FAIL, cost: PASS}
 
 references:
   - name: trigram-index
     patch: references/a-trigram.patch
     why: ILIKE '%term%' served by a GIN trigram index; the database does little work per search.
-    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS}
+    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS, cost: PASS}
   - name: in-memory-index
     patch: references/b-in-memory.patch
     why: The app keeps the catalog in memory and searches it there; the database is not involved. Costs memory per instance and serves results up to 30s stale.
-    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS}
+    expect: {correctness: PASS, latency: PASS, availability: PASS, resources: PASS, cost: PASS}
   - name: prefix-search
     patch: references/c-prefix.patch
     why: Fast, but matches only names that START with the term. The requirement says "anywhere in the name".
-    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS}
+    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS, cost: PASS}
   - name: full-text-search
     patch: references/d-fulltext.patch
     why: Fast, but matches whole words, not substrings ("ette" does not find "Kettle").
-    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS}
+    expect: {correctness: FAIL, latency: PASS, availability: PASS, resources: PASS, cost: PASS}
+  - name: bigger-database
+    patch: references/e-bigger-database.patch
+    why: Twice the database (postgres M) and no change to the search. Buys CPU instead of removing work; still saturated at 2x, and over the budget.
+    expect: {correctness: PASS, latency: FAIL, availability: FAIL, resources: FAIL, cost: FAIL}

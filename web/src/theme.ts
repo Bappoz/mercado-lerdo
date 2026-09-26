@@ -5,7 +5,16 @@ export type ThemeId = "nexora98" | "plantao" | "pastel";
 export type Wallpaper = "cena" | "liso" | "grade";
 export type Coat = "laranja" | "cinza" | "frajola";
 export type TextSize = "P" | "M" | "G";
-export type AppId = "inbox" | "pulse" | "terminal" | "tests" | "notes" | "settings";
+export type AppId =
+  | "inbox"
+  | "pulse"
+  | "terminal"
+  | "tests"
+  | "architecture"
+  | "deploy"
+  | "docs"
+  | "notes"
+  | "settings";
 
 export interface Accent {
   name: string;
@@ -170,6 +179,9 @@ const pastelBars: Record<AppId, string> = {
   pulse: "#b9d7b0",
   terminal: "#f5e19a",
   tests: "#d7c7f0",
+  architecture: "#b9d7b0",
+  deploy: "#f6c6a8",
+  docs: "#cfe6f0",
   notes: "#f5e19a",
   settings: "#cfe6f0",
 };

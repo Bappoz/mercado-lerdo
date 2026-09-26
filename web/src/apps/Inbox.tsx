@@ -92,7 +92,7 @@ export function Inbox({
             <Markdown source={current.markdown} />
             {starting && state.job && (
               <div className="joblog" role="log" aria-live="polite">
-                {state.job.lines.map((l) => (
+                {(state.job.lines ?? []).map((l) => (
                   <div key={l}>{l}</div>
                 ))}
               </div>

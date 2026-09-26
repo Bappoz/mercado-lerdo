@@ -15,18 +15,25 @@ Abra no seu editor. `API.md` descreve o que a API promete.
 |---|---|
 | {{status}} | sinais de produção agora: tráfego, erros, latência, CPU |
 | {{shell}} | terminal dentro da rede da Nexora (`psql`, `curl`, `top`…) |
+| {{deploy}} | coloca o workspace em produção: código, migrações e topologia |
 | {{check}} | aplica o seu código e mede por ~45 s (rápido, indicativo) |
 | {{test}} | o teste de produção que vale (≈ 4 min) |
 | {{hint}} | uma dica por vez, quando travar |
+
+**Orçamento:** a infraestrutura pode custar até **US$ 100/mês** (custo modelado; hoje são US$ 70).
+O que roda em produção, e quanto custa, está em `topology.yaml` no workspace; {{architecture}} mostra
+e {{docs}} explica cada componente.
 
 A API está em {{app_url}} e o Prometheus em {{prometheus_url}}
 (endereços dentro da sua máquina, válidos enquanto a Nexora estiver rodando).
 
 ## Como uma mudança chega à produção
 
-- **Código Go:** edite no workspace. {{check}} e {{test}} recompilam e reiniciam o app.
+- **Código Go:** edite no workspace. {{deploy}}, {{check}} e {{test}} recompilam e reiniciam o app.
 - **Banco de dados:** crie uma migração nova em `migrations/` (ex.: `0002_minha_mudanca.sql`).
-  Elas são aplicadas em ordem pelo `check` e pelo `test`.
+  Elas são aplicadas em ordem a cada deploy.
+- **Infraestrutura:** `topology.yaml` (componentes, réplicas, tamanhos) e `nginx/default.conf`.
+  Também entram no deploy.
 - **Mexer direto no `psql` serve para investigar, não para entregar:** o {{test}} recria o
   banco do zero a cada execução, e só o que está no workspace sobrevive.
 

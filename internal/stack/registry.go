@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
 // State of a registered run.
@@ -30,6 +31,11 @@ type Record struct {
 	Workspace string        `json:"workspace"`
 	Secrets   Secrets       `json:"secrets"` // file is 0600 in the user's state dir
 	Created   time.Time     `json:"created"`
+	// Topology is what the sandbox runs now (last deploy). Records written
+	// before topologies existed have none: they ran the default.
+	Topology *topology.Topology `json:"topology,omitempty"`
+	// NginxConfHash identifies the nginx configuration the sandbox runs.
+	NginxConfHash string `json:"nginx_conf_hash,omitempty"`
 }
 
 // Registry stores one JSON file per run.

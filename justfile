@@ -117,10 +117,16 @@ images:
     docker build -q -t sesim/nexora-seed:dev --build-arg CMD=nexora-seed -f images/platform/Dockerfile .
     docker build -q -t sesim/observer-svc:dev --build-arg CMD=observer-svc -f images/platform/Dockerfile .
     docker build -q -t sesim/toolbox:dev images/toolbox
+    docker build -q -t sesim/pgbouncer:dev images/pgbouncer
 
 # Sandbox lifecycle acceptance (Chunk 8): up, reach, exec, down, verify cleanup, kill mid-up, gc
 sandbox-check:
     scripts/sandbox-lifecycle.sh
+
+# Topology acceptance (Chunk 10a): install, scale, deploy, refused nginx config, rollback, cleanup
+topology-check: images
+    go build -o bin/sesim ./cmd/sesim
+    scripts/topology-check.sh
 
 # Refresh nexora/vendor after changing its go.mod
 nexora-vendor:

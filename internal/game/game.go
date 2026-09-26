@@ -108,7 +108,7 @@ func Open(ctx context.Context, o Options) (*Game, error) {
 	if g.session.Sandbox != "" {
 		rec, err := reg.Get(sandbox.RunID(g.session.Sandbox))
 		if err == nil && rec != nil && rec.State == stack.Ready && g.sandboxRunning(ctx, rec.Run) {
-			if g.stack, err = stack.Attach(d, *rec, o.Root, log); err != nil {
+			if g.stack, err = stack.Attach(d, reg, *rec, o.Root, log); err != nil {
 				g.Close()
 				return nil, err
 			}
@@ -245,7 +245,7 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 			_ = stack.Down(ctx, g.d, g.reg, old) // a stopped sandbox of this game; start clean
 		}
 		say("Subindo a Nexora (a primeira vez leva alguns minutos)…")
-		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace, PGCPUs: 0.5}, g.log)
+		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace}, g.log)
 		if err != nil {
 			return fresh, err
 		}
@@ -335,7 +335,28 @@ type CheckResult struct {
 	Elapsed time.Duration `json:"elapsed"`
 }
 
-// Check is the Quick Check: apply the workspace to the live sandbox and
+// Deploy ships the workspace (code, migrations, topology, nginx config) to
+// the live sandbox, keeping its data.
+func (g *Game) Deploy(ctx context.Context, say Say) ([]stack.Change, error) {
+	st, err := g.requireStack()
+	if err != nil {
+		return nil, err
+	}
+	start := time.Now()
+	changes, err := st.Deploy(ctx, say)
+	if err != nil {
+		g.Event("deploy_failed", nil)
+		return nil, err
+	}
+	comps := make([]string, 0, len(changes))
+	for _, c := range changes {
+		comps = append(comps, c.Component+":"+string(c.Action))
+	}
+	g.Event("deploy_run", map[string]any{"ms": time.Since(start).Milliseconds(), "changes": comps})
+	return changes, nil
+}
+
+// Check is the Quick Check: deploy the workspace to the live sandbox and
 // measure the story's traffic (indicative; no data reset).
 func (g *Game) Check(ctx context.Context, say Say) (CheckResult, error) {
 	st, err := g.requireStack()
@@ -343,20 +364,8 @@ func (g *Game) Check(ctx context.Context, say Say) (CheckResult, error) {
 		return CheckResult{}, err
 	}
 	start := time.Now()
-	say("Compilando o seu workspace…")
-	if err := st.Build(ctx); err != nil {
-		g.Event("quick_check_failed", map[string]any{"stage": "build"})
-		return CheckResult{}, fmt.Errorf("o build falhou; corrija e rode de novo:\n%w", err)
-	}
-	built := time.Now()
-	say("Aplicando migrações e reiniciando o app…")
-	if err := st.Migrate(ctx); err != nil {
-		g.Event("quick_check_failed", map[string]any{"stage": "migrate"})
-		return CheckResult{}, err
-	}
-	migrated := time.Now()
-	if err := st.RestartApp(ctx); err != nil {
-		g.Event("quick_check_failed", map[string]any{"stage": "restart"})
+	if _, err := st.Deploy(ctx, say); err != nil {
+		g.Event("quick_check_failed", map[string]any{"stage": "deploy"})
 		return CheckResult{}, err
 	}
 	applied := time.Now()
@@ -375,9 +384,7 @@ func (g *Game) Check(ctx context.Context, say Say) (CheckResult, error) {
 		return res, err
 	}
 	g.Event("quick_check_run", map[string]any{
-		"build_ms": built.Sub(start).Milliseconds(), "migrate_ms": migrated.Sub(built).Milliseconds(),
-		"restart_ms": applied.Sub(migrated).Milliseconds(),
-		"total_ms":   res.Elapsed.Milliseconds(),
+		"deploy_ms": applied.Sub(start).Milliseconds(), "total_ms": res.Elapsed.Milliseconds(),
 	})
 	return res, nil
 }
@@ -517,7 +524,7 @@ func (g *Game) WatchStats(ctx context.Context) error {
 // the world around it and stays out of the player's view.
 func isPlayerComponent(c string) bool {
 	switch c {
-	case "nginx", "app", "postgres":
+	case "nginx", "app", "postgres", "pgbouncer":
 		return true
 	}
 	return false

@@ -27,7 +27,7 @@ const seconds = (ns: number) => `${Math.round(ns / 1e9)} s`;
 function JobLog({ job }: { job: Job }) {
   return (
     <div className="joblog" role="log" aria-live="polite">
-      {job.lines.slice(-12).map((l, i) => (
+      {(job.lines ?? []).slice(-12).map((l, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: an append-only log
         <div key={i}>{l}</div>
       ))}

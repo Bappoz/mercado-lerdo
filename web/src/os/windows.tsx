@@ -22,6 +22,9 @@ const LAYOUT: Record<AppId, { x: number; y: number; w: number; h: number }> = {
   pulse: { x: 600, y: 56, w: 640, h: 500 },
   terminal: { x: 32, y: 440, w: 720, h: 330 },
   tests: { x: 640, y: 96, w: 620, h: 560 },
+  architecture: { x: 120, y: 64, w: 720, h: 560 },
+  deploy: { x: 700, y: 120, w: 560, h: 520 },
+  docs: { x: 200, y: 80, w: 820, h: 600 },
   notes: { x: 1000, y: 420, w: 380, h: 320 },
   settings: { x: 240, y: 72, w: 860, h: 640 },
 };

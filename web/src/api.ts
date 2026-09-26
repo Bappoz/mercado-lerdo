@@ -143,18 +143,68 @@ export interface TestResult {
   elapsed: number;
 }
 
-export type JobKind = "play" | "check" | "test";
+export type JobKind = "play" | "check" | "test" | "deploy";
 
 export interface Job {
   id: number;
   kind: JobKind;
   running: boolean;
-  lines: string[];
+  lines: string[] | null;
   error?: string;
   started: string;
   finished?: string;
   check?: CheckResult;
   test?: TestResult;
+  deploy?: Change[];
+}
+
+// ---- topology (internal/topology, internal/stack) ----
+
+export type Size = "S" | "M" | "L";
+
+export interface Topology {
+  apiVersion: string;
+  kind: string;
+  components: {
+    nginx: { size: Size };
+    app: { size: Size; replicas: number; database: "postgres" | "pgbouncer"; dbMaxConns: number };
+    postgres: { size: Size; maxConnections: number };
+    pgbouncer?: { size: Size; poolMode: string; defaultPoolSize: number; maxClientConn: number };
+  };
+}
+
+export interface Change {
+  component: string;
+  action: "create" | "recreate" | "remove";
+}
+
+export interface TopologyView {
+  workspace: Topology | null;
+  workspace_error: string;
+  workspace_cost: number;
+  deployed: Topology | null;
+  deployed_cost: number;
+  pending: Change[] | null;
+  budget: number;
+}
+
+export interface Tier {
+  cpus: number;
+  memory: number;
+  price: number;
+}
+
+export interface CatalogEntry {
+  kind: string;
+  name: string;
+  optional: boolean;
+  installed: boolean;
+  summary: string;
+  when_to_use: string;
+  tradeoffs: string;
+  settings: { field: string; range: string; doc: string }[];
+  sizes: Partial<Record<Size, Tier>>;
+  snippet: string;
 }
 
 export interface GameState {
