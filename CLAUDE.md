@@ -22,7 +22,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 - `internal/game` → regras de uma partida (sessão, sandbox, check/test/dica); a CLI (`internal/cli`) e a UI (`internal/ui`) só apresentam.
 - `internal/ui` → servidor local do NexoraOS: API JSON com token, terminal por WebSocket, SPA de `web/dist` (`web/embed.go`). Temas = tokens (ADR-0016).
 - `nexora/` → app demo, **módulo Go separado** (`module nexora`) com `vendor/` commitado; é o workspace que o jogador edita. Contrato em `nexora/API.md`.
-- `scenarios/stage1/c1-slow-search/` → pacote do C1. `internal/scenario` lê; `internal/evaluator` julga; `internal/stack` roda a Nexora no driver `internal/sandbox/docker` (spec + hardening em `internal/sandbox`) para `play`/`test`/`verify`.
+- `scenarios/stage1/` → `stage.yaml` (ordem + história por topologia, `internal/campaign`, ADR-0020) e um pacote por cenário. `internal/scenario` lê; `internal/evaluator` julga; `internal/stack` roda a Nexora no driver `internal/sandbox/docker` (spec + hardening em `internal/sandbox`) para `play`/`test`/`verify`.
 - `internal/seed` + `cmd/nexora-seed` → dataset determinístico; `internal/observer` + `cmd/observer-svc` → gateway emulado (zona observadora).
 - `deploy/dev/compose.yml` → só ferramenta de dev do app; o jogo não usa. Os configs em `deploy/dev/{prometheus,initdb}` e `nexora/nginx/default.conf` (início do cenário; o jogo usa o do workspace) são montados pelos dois.
 - `docs/` → produto, arquitetura, threat model e ADRs (`docs/adr/README.md`). Decisão nova ou alterada = ADR novo.

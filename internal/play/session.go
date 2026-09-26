@@ -43,10 +43,31 @@ type Session struct {
 	Background string    `json:"background"` // testid of the running background traffic
 	Sandbox    string    `json:"sandbox"`    // run id of this game's sandbox
 	LastCheck  *Signals  `json:"last_check,omitempty"`
+	// Canonical is true when this scenario started from its canonical state
+	// instead of the player's code from the previous one.
+	Canonical bool `json:"canonical,omitempty"`
+	// History is every scenario of the campaign this workspace completed.
+	History []Finished `json:"history,omitempty"`
 }
 
-// StateDir is where sesim keeps its files inside a workspace (git-ignored).
-func StateDir(workspace string) string { return filepath.Join(workspace, ".sesim") }
+// Finished is one completed scenario of the campaign.
+type Finished struct {
+	Scenario  string    `json:"scenario"` // pack directory
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	StartedAt time.Time `json:"started_at"`
+	DoneAt    time.Time `json:"done_at"`
+	Checks    int       `json:"checks"`
+	Tests     int       `json:"tests"`
+	Hints     int       `json:"hints"`
+	Canonical bool      `json:"canonical,omitempty"`
+}
+
+// StateDirName is the directory sesim keeps inside a workspace (git-ignored).
+const StateDirName = ".sesim"
+
+// StateDir is where sesim keeps its files inside a workspace.
+func StateDir(workspace string) string { return filepath.Join(workspace, StateDirName) }
 
 // EventsPath is the product-event log of a workspace.
 func EventsPath(workspace string) string { return filepath.Join(StateDir(workspace), "events.jsonl") }
@@ -55,34 +76,74 @@ func statePath(workspace string) string { return filepath.Join(StateDir(workspac
 
 // LoadSession reads the session of workspace.
 func LoadSession(workspace string) (*Session, error) {
-	b, err := os.ReadFile(statePath(workspace)) //nolint:gosec // G304: the player's own workspace
+	s, _, err := LoadSessionInfo(workspace)
+	return s, err
+}
+
+// LoadSessionInfo is LoadSession plus the identity of the file it read. Save
+// always replaces the file, so a file that is not os.SameFile as this one
+// holds a session some process saved later.
+func LoadSessionInfo(workspace string) (*Session, os.FileInfo, error) {
+	f, err := os.Open(statePath(workspace)) //nolint:gosec // G304: the player's own workspace
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, ErrNoSession
+		return nil, nil, ErrNoSession
 	}
 	if err != nil {
-		return nil, fmt.Errorf("play: %w", err)
+		return nil, nil, fmt.Errorf("play: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, nil, fmt.Errorf("play: %w", err)
 	}
 	var s Session
-	if err := json.Unmarshal(b, &s); err != nil {
-		return nil, fmt.Errorf("play: corrupt session file %s: %w", statePath(workspace), err)
+	if err := json.NewDecoder(f).Decode(&s); err != nil {
+		return nil, nil, fmt.Errorf("play: corrupt session file %s: %w", statePath(workspace), err)
 	}
-	return &s, nil
+	return &s, fi, nil
+}
+
+// StateInfo is the identity of the saved session file (see LoadSessionInfo).
+func StateInfo(workspace string) (os.FileInfo, error) {
+	return os.Stat(statePath(workspace))
 }
 
 // Save writes the session atomically.
 func (s *Session) Save() error {
+	_, err := s.SaveInfo()
+	return err
+}
+
+// SaveInfo is Save plus the identity of the file it wrote.
+func (s *Session) SaveInfo() (os.FileInfo, error) {
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
-		return fmt.Errorf("play: encode session: %w", err)
+		return nil, fmt.Errorf("play: encode session: %w", err)
 	}
 	if err := os.MkdirAll(StateDir(s.Workspace), 0o750); err != nil {
-		return fmt.Errorf("play: %w", err)
+		return nil, fmt.Errorf("play: %w", err)
 	}
-	tmp := statePath(s.Workspace) + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return fmt.Errorf("play: %w", err)
+	// A temp file of its own: another process may be saving at the same time.
+	f, err := os.CreateTemp(StateDir(s.Workspace), "state-*.json")
+	if err != nil {
+		return nil, fmt.Errorf("play: %w", err)
 	}
-	return os.Rename(tmp, statePath(s.Workspace))
+	defer func() { _ = os.Remove(f.Name()) }() // a no-op once renamed
+	_, err = f.Write(b)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return nil, fmt.Errorf("play: %w", err)
+	}
+	fi, err := os.Stat(f.Name()) // the same file once renamed
+	if err != nil {
+		return nil, fmt.Errorf("play: %w", err)
+	}
+	if err := os.Rename(f.Name(), statePath(s.Workspace)); err != nil {
+		return nil, fmt.Errorf("play: %w", err)
+	}
+	return fi, nil
 }
 
 // CreateWorkspace copies base into dst (which must not exist), applies the

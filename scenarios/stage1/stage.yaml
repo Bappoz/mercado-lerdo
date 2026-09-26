@@ -1,0 +1,18 @@
+# Stage 1: the Nexora grows. The scenarios in order, and what each one's story
+# changes in a workspace that carries the player's own code forward.
+apiVersion: sesim.dev/v0alpha1
+kind: Stage
+metadata:
+  id: stage1
+  title: "Stage 1 — A Nexora cresce"
+scenarios:
+  - dir: c1-slow-search
+  - dir: c2-connection-pressure
+    # "We added instances because it was slow."
+    story:
+      app.replicas: 3
+      app.dbMaxConns: 20
+  - dir: c3-instance-failure
+    # "Cost cut: back to one instance."
+    story:
+      app.replicas: 1

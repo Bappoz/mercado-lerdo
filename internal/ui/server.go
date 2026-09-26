@@ -108,6 +108,12 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/test", s.startJob("test"))
 	api.HandleFunc("POST /api/deploy", s.startJob("deploy"))
 	api.HandleFunc("POST /api/lab", s.startJob("lab"))
+	api.HandleFunc("POST /api/advance", s.startJob("advance"))
+	api.HandleFunc("GET /api/campaign", s.campaign)
+	api.HandleFunc("GET /api/git/status", s.gitStatus)
+	api.HandleFunc("GET /api/git/diff", s.gitDiff)
+	api.HandleFunc("GET /api/git/log", s.gitLog)
+	api.HandleFunc("POST /api/git/commit", s.gitCommit)
 	api.HandleFunc("GET /api/topology", s.topology)
 	api.HandleFunc("GET /api/catalog", s.catalog)
 	api.HandleFunc("POST /api/install", s.install)
@@ -218,13 +224,13 @@ type stateView struct {
 }
 
 func (s *Server) state(w http.ResponseWriter, r *http.Request) {
-	md := s.g.Pack.Manifest
+	md := s.g.Pack().Manifest
 	v := stateView{
 		Scenario:   map[string]string{"id": md.Metadata.ID, "title": md.Metadata.Title, "version": md.Metadata.Version},
 		Running:    s.g.Running(),
 		Messages:   []Message{},
 		Hints:      []HintView{},
-		HintsTotal: len(s.g.Pack.Hints),
+		HintsTotal: len(s.g.Pack().Hints),
 		Job:        s.currentJob(),
 	}
 	if rep := s.g.LastTest(); rep != nil {
@@ -248,7 +254,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 
 // messages is the inbox: the story so far.
 func (s *Server) messages(ctx context.Context, sess play.Session) ([]Message, error) {
-	p := s.g.Pack.Manifest.Player
+	p := s.g.Pack().Manifest.Player
 	type mail struct {
 		id, from, subject, file string
 		at                      time.Time
@@ -383,6 +389,84 @@ func (s *Server) install(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 	default:
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (s *Server) campaign(w http.ResponseWriter, _ *http.Request) {
+	v, err := s.g.Campaign()
+	if errors.Is(err, game.ErrNotInCampaign) {
+		writeJSON(w, http.StatusOK, map[string]any{"missions": []any{}})
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+func (s *Server) gitStatus(w http.ResponseWriter, r *http.Request) {
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	c, err := s.g.GitStatus(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if c == nil {
+		c = []game.FileChange{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"changes": c})
+}
+
+func (s *Server) gitDiff(w http.ResponseWriter, r *http.Request) {
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	d, err := s.g.GitDiff(r.Context(), r.URL.Query().Get("path"), r.URL.Query().Get("since") == "start")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"diff": d})
+}
+
+func (s *Server) gitLog(w http.ResponseWriter, r *http.Request) {
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	l, err := s.g.GitLog(r.Context(), 40)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"commits": l})
+}
+
+func (s *Server) gitCommit(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Message string `json:"message"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if s.busy() {
+		writeError(w, http.StatusConflict, errBusy)
+		return
+	}
+	c, err := s.g.GitCommit(r.Context(), body.Message)
+	switch {
+	case errors.Is(err, game.ErrNothingToCommit):
+		writeError(w, http.StatusConflict, err)
+	case err != nil:
+		writeError(w, http.StatusBadRequest, err)
+	default:
+		writeJSON(w, http.StatusOK, c)
 	}
 }
 

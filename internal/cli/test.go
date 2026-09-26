@@ -88,12 +88,23 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	explicit := false
-	fs.Visit(func(f *flag.Flag) { explicit = explicit || f.Name == "workspace" })
-	if !explicit {
-		if _, err := play.LoadSession(defaultWorkspace); err == nil {
-			return runPlayerTest(ctx, ef, stdout, stderr)
+	explicit, scenarioSet := false, false
+	fs.Visit(func(f *flag.Flag) {
+		explicit = explicit || f.Name == "workspace"
+		scenarioSet = scenarioSet || f.Name == "scenario"
+	})
+	// A workspace with a game in it (the default ./workspace, or the one
+	// named) is tested inside that game: it pauses the story's traffic,
+	// records the result and completes the scenario on a PASS.
+	gameWS := defaultWorkspace
+	if explicit {
+		gameWS = *ws
+	}
+	if _, err := play.LoadSession(gameWS); err == nil {
+		if !scenarioSet {
+			ef.scenario = "" // the game's current scenario
 		}
+		return runPlayerTest(ctx, ef, gameWS, stdout, stderr)
 	}
 	pack, log, ok := ef.load(stderr)
 	if !ok {
@@ -123,8 +134,12 @@ func reportTest(rep evaluator.Report, root string, stdout io.Writer) int {
 	return 0
 }
 
-func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) int {
-	t, code := openGame(ctx, "test", []string{"--root", ef.root, "--scenario", ef.scenario}, stdout, stderr, true)
+func runPlayerTest(ctx context.Context, ef evalFlags, ws string, stdout, stderr io.Writer) int {
+	args := []string{"--root", ef.root, "--workspace", ws}
+	if ef.scenario != "" {
+		args = append(args, "--scenario", ef.scenario)
+	}
+	t, code := openGame(ctx, "test", args, stdout, stderr, true)
 	if t == nil {
 		return code
 	}
@@ -143,7 +158,7 @@ func runPlayerTest(ctx context.Context, ef evalFlags, stdout, stderr io.Writer) 
 	}
 	fmt.Fprintln(stdout, "\nPASS em todas as dimensões.")
 	fmt.Fprintln(stdout)
-	if err := t.printDoc(ctx, t.g.Pack.Manifest.Player.Debrief); err != nil {
+	if err := t.printDoc(ctx, t.g.Pack().Manifest.Player.Debrief); err != nil {
 		return t.fail(err)
 	}
 	t.g.Event("debrief_viewed", nil)

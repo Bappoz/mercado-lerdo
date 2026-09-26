@@ -11,8 +11,10 @@ import { api } from "./api.ts";
 import { Architecture } from "./apps/Architecture.tsx";
 import { Deploy } from "./apps/Deploy.tsx";
 import { Docs } from "./apps/Docs.tsx";
+import { Git } from "./apps/Git.tsx";
 import { Inbox, messageKey } from "./apps/Inbox.tsx";
 import { Lab } from "./apps/Lab.tsx";
+import { Missions } from "./apps/Missions.tsx";
 import { Notes } from "./apps/Notes.tsx";
 import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
@@ -34,6 +36,7 @@ import {
 import { useGame } from "./useGame.ts";
 
 const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
+  { id: "missions", title: "Missões · Stage 1", label: "Missões", reading: true },
   { id: "inbox", title: "Caixa de entrada", label: "E-mail", reading: true },
   { id: "pulse", title: "Pulse · produção agora", label: "Pulse" },
   { id: "terminal", title: "Terminal · rede da Nexora", label: "Terminal" },
@@ -41,6 +44,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "support", title: "Suporte · reclamações", label: "Suporte", reading: true },
   { id: "architecture", title: "Arquitetura · topology.yaml", label: "Arquitetura", reading: true },
   { id: "deploy", title: "Deploy", label: "Deploy", reading: true },
+  { id: "git", title: "Git · workspace", label: "Git", reading: true },
   { id: "lab", title: "Laboratório de carga", label: "Lab", reading: true },
   { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
   { id: "notes", title: "Notas", label: "Notas", reading: true },
@@ -127,7 +131,10 @@ export function App() {
     } else if (job.kind === "check") setToast("Quick Check pronto.");
     else if (job.kind === "deploy") setToast("Deploy feito.");
     else if (job.kind === "lab") setToast("Experimento terminado.");
-    else setToast(job.test?.passed ? "Production Test: PASS!" : "Production Test terminou.");
+    else if (job.kind === "advance") {
+      setToast("Próximo cenário pronto. Ligue a Nexora pela Caixa de entrada.");
+      open("inbox");
+    } else setToast(job.test?.passed ? "Production Test: PASS!" : "Production Test terminou.");
     if (job.kind === "check" || job.kind === "test") open("tests");
     if (job.kind === "deploy") open("deploy");
     if (job.kind === "lab") open("lab");
@@ -236,6 +243,18 @@ export function App() {
             }
           />
         );
+      case "missions":
+        return (
+          <Missions
+            state={state}
+            busy={busy}
+            onAdvance={(canonical) =>
+              void game.act(() => api("POST", "/api/advance", { canonical }))
+            }
+          />
+        );
+      case "git":
+        return <Git hasSession={state.session !== null} jobVersion={state.job?.id ?? 0} />;
       case "lab":
         return (
           <Lab

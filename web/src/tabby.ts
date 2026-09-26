@@ -19,6 +19,7 @@ export function tabbyTip(s: GameState | null): Tip {
       test: "o Production Test",
       deploy: "o deploy",
       lab: "o experimento no laboratório",
+      advance: "a passagem para o próximo cenário",
     }[job.kind];
     return {
       id: `job-${job.id}`,
@@ -53,7 +54,7 @@ export function tabbyTip(s: GameState | null): Tip {
     case "completed":
       return {
         id: "done",
-        text: "Você resolveu! O debrief na Caixa de entrada compara a sua solução com outras. Vale ler com calma.",
+        text: "Você resolveu! O debrief na Caixa de entrada compara a sua solução com outras. Quando quiser, Missões leva você ao próximo cenário.",
       };
   }
   if (last?.kind === "test" && last.test && !last.test.passed) {

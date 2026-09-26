@@ -49,7 +49,6 @@ type Say func(string)
 // must still run one long operation (Start, Check, Test) at a time.
 type Game struct {
 	Root string
-	Pack *scenario.Pack
 
 	d      *docker.Client
 	reg    stack.Registry
@@ -57,15 +56,37 @@ type Game struct {
 	log    *slog.Logger
 
 	mu       sync.Mutex
-	stack    *stack.Stack // nil while the sandbox is down
+	pack     *scenario.Pack // changes when a campaign advances
+	stack    *stack.Stack   // nil while the sandbox is down
 	session  *play.Session
-	saved    bool // the session exists on disk
+	saved    bool        // the session exists on disk
+	file     os.FileInfo // the session file this process last read or wrote
 	lastTest *evaluator.Report
 }
 
+// DefaultScenario is where a new game starts: the first scenario of Stage 1.
+const DefaultScenario = "scenarios/stage1/c1-slow-search"
+
 // Open loads the scenario and the workspace's session (a new one in memory
 // when there is none; HasSession tells) and attaches the sandbox when alive.
+// An empty o.Scenario means the workspace's current scenario (a campaign
+// moves it forward), or DefaultScenario for a new game.
 func Open(ctx context.Context, o Options) (*Game, error) {
+	ws0, err := filepath.Abs(o.Workspace)
+	if err != nil {
+		return nil, err
+	}
+	if prev, err := play.LoadSession(ws0); err == nil && prev.Scenario != "" {
+		switch {
+		case o.Scenario == "":
+			o.Scenario = prev.Scenario
+		case !samePath(o.Scenario, prev.Scenario):
+			return nil, fmt.Errorf("este workspace está no cenário %s; rode sem --scenario, ou use outro --workspace", prev.Scenario)
+		}
+	}
+	if o.Scenario == "" {
+		o.Scenario = filepath.Join(o.Root, DefaultScenario)
+	}
 	p, err := scenario.Load(o.Scenario)
 	if err != nil {
 		return nil, err
@@ -91,10 +112,10 @@ func Open(ctx context.Context, o Options) (*Game, error) {
 		log = slog.New(slog.DiscardHandler)
 	}
 	g := &Game{
-		Root: o.Root, Pack: p, d: d, reg: reg, log: log,
+		Root: o.Root, pack: p, d: d, reg: reg, log: log,
 		events: events.Log{Path: play.EventsPath(ws), Scenario: p.Manifest.Metadata.ID},
 	}
-	g.session, err = play.LoadSession(ws)
+	g.session, g.file, err = play.LoadSessionInfo(ws)
 	switch {
 	case errors.Is(err, play.ErrNoSession):
 		g.session = &play.Session{Scenario: o.Scenario, Workspace: ws}
@@ -118,6 +139,12 @@ func Open(ctx context.Context, o Options) (*Game, error) {
 		}
 	}
 	return g, nil
+}
+
+func samePath(a, b string) bool {
+	x, err1 := filepath.Abs(a)
+	y, err2 := filepath.Abs(b)
+	return err1 == nil && err2 == nil && filepath.Clean(x) == filepath.Clean(y)
 }
 
 // Close releases the Docker client and stops the stats pusher. The sandbox
@@ -149,10 +176,19 @@ func (g *Game) sandboxRunning(ctx context.Context, rec stack.Record) bool {
 	return r.Running > 0
 }
 
+// Pack is the scenario being played.
+func (g *Game) Pack() *scenario.Pack {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.follow()
+	return g.pack
+}
+
 // HasSession reports whether this workspace has a game in progress.
 func (g *Game) HasSession() bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.follow()
 	return g.saved
 }
 
@@ -160,8 +196,49 @@ func (g *Game) HasSession() bool {
 func (g *Game) Session() play.Session {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.follow()
 	s := *g.session
 	return s
+}
+
+// follow adopts the session another process saved since this one last read
+// or wrote it: the UI and a CLI command can hold the same workspace, and
+// neither may act on (or save over) a stale copy. When the other process
+// advanced the campaign, the scenario follows. Callers hold g.mu.
+func (g *Game) follow() {
+	if err := g.syncSession(); err != nil {
+		g.log.Warn("could not reload the session saved by another process", "err", err)
+	}
+}
+
+func (g *Game) syncSession() error {
+	ws := g.session.Workspace
+	fi, err := play.StateInfo(ws)
+	if errors.Is(err, os.ErrNotExist) || (err == nil && g.file != nil && os.SameFile(fi, g.file)) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	s, fi, err := play.LoadSessionInfo(ws)
+	if err != nil {
+		return err
+	}
+	if !samePath(s.Scenario, g.pack.Dir) {
+		p, err := scenario.Load(s.Scenario)
+		if err != nil {
+			return err
+		}
+		g.pack = p
+		g.events = events.Log{Path: play.EventsPath(ws), Scenario: p.Manifest.Metadata.ID}
+	}
+	if g.stack != nil && string(g.stack.Run) != s.Sandbox { // the other process brought it down
+		g.stack.Close()
+		g.stack = nil
+	}
+	g.session, g.file, g.saved = s, fi, true
+	g.lastTest = loadLastTest(ws)
+	return nil
 }
 
 // Running reports whether the game's sandbox is up.
@@ -191,30 +268,39 @@ func (g *Game) requireStack() (*stack.Stack, error) {
 func (g *Game) update(f func(s *play.Session)) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if err := g.syncSession(); err != nil {
+		return fmt.Errorf("não consegui ler o progresso salvo: %w", err)
+	}
 	f(g.session)
-	if err := g.session.Save(); err != nil {
+	fi, err := g.session.SaveInfo()
+	if err != nil {
 		return fmt.Errorf("não consegui salvar o progresso: %w", err)
 	}
-	g.saved = true
+	g.file, g.saved = fi, true
 	return nil
 }
 
 // Event records a product event; failures never break the game.
-func (g *Game) Event(name string, props map[string]any) { _ = g.events.Append(name, props) }
+func (g *Game) Event(name string, props map[string]any) {
+	g.mu.Lock()
+	l := g.events
+	g.mu.Unlock()
+	_ = l.Append(name, props)
+}
 
 // Phase is the scenario phase the story is in (the growth phase once the
 // incident started).
 func (g *Game) Phase() scenario.Phase {
 	if g.Session().Phase == play.Calm {
-		return g.Pack.Manifest.Player.Calm
+		return g.Pack().Manifest.Player.Calm
 	}
-	return g.Pack.Manifest.Player.Growth
+	return g.Pack().Manifest.Player.Growth
 }
 
 // Document renders a player file of the pack (briefing, debrief) with words,
 // the view's names for the game's tools, plus the live addresses.
 func (g *Game) Document(ctx context.Context, rel string, words map[string]string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(g.Pack.Dir, rel)) //nolint:gosec // G304: file named by the scenario pack
+	b, err := os.ReadFile(filepath.Join(g.Pack().Dir, rel)) //nolint:gosec // G304: file named by the scenario pack
 	if err != nil {
 		return "", err
 	}
@@ -235,9 +321,9 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 	s := g.Session()
 	fresh = s.Phase == ""
 	if fresh {
-		base := filepath.Join(g.Root, g.Pack.Manifest.Player.WorkspaceBase)
-		tag := "sesim/scenario-start/" + filepath.Base(g.Pack.Dir)
-		if err := play.CreateWorkspace(ctx, base, s.Workspace, tag, g.Pack.StartPatches()...); err != nil {
+		base := filepath.Join(g.Root, g.Pack().Manifest.Player.WorkspaceBase)
+		tag := "sesim/scenario-start/" + filepath.Base(g.Pack().Dir)
+		if err := play.CreateWorkspace(ctx, base, s.Workspace, tag, g.Pack().StartPatches()...); err != nil {
 			return false, err
 		}
 		if err := g.update(func(s *play.Session) { s.Phase, s.StartedAt = play.Calm, time.Now().UTC() }); err != nil {
@@ -256,22 +342,24 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 			_ = stack.Down(ctx, g.d, g.reg, old) // a stopped sandbox of this game; start clean
 		}
 		say("Subindo a Nexora (a primeira vez leva alguns minutos)…")
-		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace, PaymentLatency: g.Pack.Manifest.World.PaymentLatency}, g.log)
+		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace, PaymentLatency: g.Pack().Manifest.World.PaymentLatency}, g.log)
 		if err != nil {
+			return fresh, err
+		}
+		// Session first: a process following it drops a handle the session does not name.
+		if err := g.update(func(s *play.Session) { s.Sandbox = string(st.Run) }); err != nil {
+			st.Close()
 			return fresh, err
 		}
 		g.mu.Lock()
 		g.stack = st
 		g.mu.Unlock()
-		if err := g.update(func(s *play.Session) { s.Sandbox = string(st.Run) }); err != nil {
-			return fresh, err
-		}
 	}
 	if err := g.startBackground(ctx); err != nil {
 		return fresh, err
 	}
 	if fresh {
-		g.Event("scenario_started", map[string]any{"seed": g.Pack.Manifest.Dataset.Seed})
+		g.Event("scenario_started", map[string]any{"seed": g.Pack().Manifest.Dataset.Seed})
 	} else {
 		g.Event("scenario_resumed", map[string]any{"phase": string(g.Session().Phase)})
 	}
@@ -313,7 +401,7 @@ func (g *Game) Next(ctx context.Context) (bool, error) {
 		return true, err
 	}
 	g.Event("growth_event", map[string]any{"calm_seconds": int(now.Sub(s.StartedAt).Seconds())})
-	if c := g.Pack.Manifest.Player.Growth.Crash; c != "" {
+	if c := g.Pack().Manifest.Player.Growth.Crash; c != "" {
 		st, err := g.requireStack()
 		if err != nil {
 			return true, err
@@ -365,7 +453,7 @@ func (g *Game) ensureBackground(ctx context.Context) error {
 // Hint reveals the next rung of the hint ladder; false when none is left.
 func (g *Game) Hint() (scenario.Hint, bool, error) {
 	s := g.Session()
-	h, ok := play.NextHint(g.Pack.Hints, s.HintsShown)
+	h, ok := play.NextHint(g.Pack().Hints, s.HintsShown)
 	if !ok {
 		return h, false, nil
 	}
@@ -382,7 +470,7 @@ func (g *Game) Hint() (scenario.Hint, bool, error) {
 
 // Hints returns the hints revealed so far.
 func (g *Game) Hints() []scenario.Hint {
-	return g.Pack.Hints[:min(g.Session().HintsShown, len(g.Pack.Hints))]
+	return g.Pack().Hints[:min(g.Session().HintsShown, len(g.Pack().Hints))]
 }
 
 // CheckResult is one Quick Check.
@@ -467,7 +555,7 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	if err != nil {
 		return TestResult{}, err
 	}
-	pack := *g.Pack
+	pack := *g.Pack()
 	if runs > 0 {
 		m := pack.Manifest
 		m.Test.Runs = runs

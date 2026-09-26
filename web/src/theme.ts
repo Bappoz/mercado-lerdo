@@ -6,12 +6,14 @@ export type Wallpaper = "cena" | "liso" | "grade";
 export type Coat = "laranja" | "cinza" | "frajola";
 export type TextSize = "P" | "M" | "G";
 export type AppId =
+  | "missions"
   | "inbox"
   | "pulse"
   | "terminal"
   | "tests"
   | "architecture"
   | "deploy"
+  | "git"
   | "lab"
   | "support"
   | "docs"
@@ -185,6 +187,8 @@ const pastelBars: Record<AppId, string> = {
   deploy: "#f6c6a8",
   support: "#f2a2ac",
   lab: "#b9d7b0",
+  missions: "#f5e19a",
+  git: "#d7c7f0",
   docs: "#cfe6f0",
   notes: "#f5e19a",
   settings: "#cfe6f0",

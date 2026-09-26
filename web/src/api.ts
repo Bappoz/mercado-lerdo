@@ -143,7 +143,7 @@ export interface TestResult {
   elapsed: number;
 }
 
-export type JobKind = "play" | "check" | "test" | "deploy" | "lab";
+export type JobKind = "play" | "check" | "test" | "deploy" | "lab" | "advance";
 
 export interface Job {
   id: number;
@@ -185,6 +185,45 @@ export interface LabResult {
     duplicate_orders: number;
   };
   elapsed: number;
+}
+
+export interface Finished {
+  id: string;
+  title: string;
+  started_at: string;
+  done_at: string;
+  checks: number;
+  tests: number;
+  hints: number;
+  canonical?: boolean;
+}
+
+export interface Mission {
+  dir: string;
+  id: string;
+  title: string;
+  state: "done" | "current" | "locked";
+  result?: Finished;
+}
+
+export interface CampaignView {
+  stage?: string;
+  missions: Mission[];
+  can_advance?: boolean;
+}
+
+export interface FileChange {
+  path: string;
+  status: "modified" | "added" | "deleted" | "untracked" | "renamed";
+}
+
+export interface Commit {
+  hash: string;
+  short: string;
+  author: string;
+  date: string;
+  subject: string;
+  refs?: string[];
 }
 
 export interface Ticket {

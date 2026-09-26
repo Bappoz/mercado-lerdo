@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -84,4 +86,57 @@ func mapValue(m *yaml.Node, key string) *yaml.Node {
 		}
 	}
 	return nil
+}
+
+// Set changes component fields of src ("app.replicas": 3), keeping the
+// player's comments, order and style; a missing field is added. The result
+// must still be a valid topology.
+func Set(src []byte, fields map[string]int) ([]byte, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(src, &doc); err != nil {
+		return nil, fmt.Errorf("topology: %w", err)
+	}
+	comps := mapValue(doc.Content[0], "components")
+	for path, v := range fields {
+		comp, field, ok := strings.Cut(path, ".")
+		m := mapValue(comps, comp)
+		if !ok || m == nil || m.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("topology: no component for %q", path)
+		}
+		val := strconv.Itoa(v)
+		if n := mapValue(m, field); n != nil {
+			n.Value, n.Tag = val, "!!int"
+			continue
+		}
+		m.Content = append(m.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: field},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: val})
+	}
+	var out bytes.Buffer
+	enc := yaml.NewEncoder(&out)
+	enc.SetIndent(2)
+	if err := enc.Encode(&doc); err != nil {
+		return nil, fmt.Errorf("topology: %w", err)
+	}
+	if _, err := Parse(out.Bytes()); err != nil {
+		return nil, fmt.Errorf("topology: the change produced an invalid file: %w", err)
+	}
+	return out.Bytes(), nil
+}
+
+// SetFile applies Set to <workspace>/topology.yaml (from Default when missing).
+func SetFile(workspace string, fields map[string]int) error {
+	path := filepath.Join(workspace, File)
+	src, err := os.ReadFile(path) //nolint:gosec // G304: the player's own workspace
+	if errors.Is(err, os.ErrNotExist) {
+		src, err = yaml.Marshal(Default())
+	}
+	if err != nil {
+		return fmt.Errorf("topology: %w", err)
+	}
+	out, err := Set(src, fields)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, 0o644) //nolint:gosec // G306: a source file of the player's repository
 }
