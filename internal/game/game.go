@@ -20,6 +20,7 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
 	"github.com/Bappoz/software-engineering-simulator/internal/events"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
+	"github.com/Bappoz/software-engineering-simulator/internal/power"
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
@@ -62,6 +63,18 @@ type Game struct {
 	saved    bool        // the session exists on disk
 	file     os.FileInfo // the session file this process last read or wrote
 	lastTest *evaluator.Report
+}
+
+// SlowHost explains a report judged on a machine slower than the scenarios
+// were calibrated for (ADR-0021); "" when the machine was fast enough.
+func SlowHost(rep evaluator.Report) string {
+	if rep.Host == nil || !rep.Host.Slow {
+		return ""
+	}
+	return fmt.Sprintf("Esta máquina rodou %.1fx mais devagar do que a máquina em que os cenários foram calibrados (teste de velocidade do banco: %.0f ms; limite: %.0f ms). "+
+		"Um resultado perto do limite ficou INCONCLUSIVE; o que reprova mesmo descontando a lentidão continua FAIL. "+
+		"Ligue o carregador ou saia do modo de economia de energia e teste de novo.",
+		rep.Host.Slowdown, rep.Host.ProbeMS, rep.Host.LimitMS)
 }
 
 // DefaultScenario is where a new game starts: the first scenario of Stage 1.
@@ -564,6 +577,10 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	m := pack.Manifest.Test
 	say(fmt.Sprintf("Production Test: %d execuções de %s até %d req/s, cada uma a partir do banco original + as suas migrações.", m.Runs, m.Profile, m.Rate))
 	say("O tráfego do dia fica pausado enquanto isso. Leva alguns minutos.")
+	if why := power.Saving(); why != "" {
+		say("Atenção: " + why + ". A Nexora roda mais devagar assim, e o que depende de velocidade pode ficar inconclusivo. " +
+			"Para um resultado que vale, ligue o carregador ou use um perfil de energia equilibrado.")
+	}
 	if err := st.StopBackground(ctx); err != nil {
 		return TestResult{}, err
 	}
@@ -585,7 +602,11 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	for d, v := range rep.Dimensions {
 		dims[d] = string(v)
 	}
-	g.Event("production_test_run", map[string]any{"seconds": int(res.Elapsed.Seconds()), "dimensions": dims})
+	run := map[string]any{"seconds": int(res.Elapsed.Seconds()), "dimensions": dims}
+	if h := rep.Host; h != nil {
+		run["db_probe_ms"], run["slow_host"] = int(h.ProbeMS), h.Slow
+	}
+	g.Event("production_test_run", run)
 	res.Path, _ = SaveReport(g.Root, "eval", rep)
 	g.mu.Lock()
 	g.lastTest = &rep

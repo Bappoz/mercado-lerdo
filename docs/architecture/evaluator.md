@@ -93,6 +93,13 @@ Para um objetivo `m < L` com margem relativa `δ` (padrão 10 %):
 
 Execuções em que o gerador ficou limitado (drops com VUs livres) têm as medidas de carga descartadas, e o objetivo é julgado com as execuções que sobraram.
 
+**Máquina lenta (ADR-0021).** Antes de cada execução, o evaluator cronometra uma consulta fixa, que só usa CPU, no Postgres da sandbox, sob a cota do jogador (`db_probe_ms`, `stack.DBProbe`). Acima do piso (`evaluator.DefaultProbeLimit`), o que acontece com cada medida sensível a velocidade (`*_ms`, `db_cpu_*`, `error_rate`) depende do resultado:
+
+- um erro de medida é julgado de novo, com o limiar multiplicado pelo fator de lentidão (a mediana das sondas ÷ `DefaultProbeReference`);
+- se o fator explica o erro, o veredito vira INCONCLUSIVE, com a máquina como motivo;
+- se não explica, continua FAIL;
+- um PASS continua PASS.
+
 **Mudança em relação ao Chunk 1:** a regra "dispersão > 25 % → INCONCLUSIVE" foi removida. Uma execução muito longe do limiar é conclusiva, por mais ruidosa que seja: um p95 entre 10 e 40 ms contra um limiar de 300 ms não deixa dúvida. A dispersão continua no relatório.
 
 - INCONCLUSIVE mostra o motivo ("seu p95 ficou entre 272 e 331 ms; o limiar é 300 ms") e sugere rodar de novo ou investigar a variação. **Para a campanha, INCONCLUSIVE não conta como PASS.**

@@ -101,6 +101,16 @@ function ReportView({ report }: { report: Report }) {
           </li>
         ))}
       </ul>
+      {report.host?.slow && (
+        <p className="warn-text">
+          Esta máquina rodou {report.host.slowdown.toFixed(1)}x mais devagar do que a máquina em que
+          os cenários foram calibrados (teste de velocidade do banco:{" "}
+          {Math.round(report.host.db_probe_ms)} ms; limite: {Math.round(report.host.limit_ms)} ms).
+          Um resultado perto do limite ficou inconclusivo; o que reprova mesmo descontando a
+          lentidão continua reprovado. Ligue o carregador ou saia do modo de economia de energia e
+          teste de novo.
+        </p>
+      )}
       <table className="grid">
         <thead>
           <tr>

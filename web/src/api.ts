@@ -129,6 +129,14 @@ export interface Report {
   finished: string;
   objectives: ObjectiveResult[] | null;
   dimensions: Record<string, Verdict>;
+  /** Present when the sandbox's database speed was probed (ADR-0021). */
+  host?: {
+    db_probe_ms: number;
+    limit_ms: number;
+    reference_ms: number;
+    slowdown: number;
+    slow: boolean;
+  };
 }
 
 export interface CheckResult {

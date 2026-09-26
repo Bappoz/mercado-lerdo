@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -105,5 +106,85 @@ func TestEvaluate(t *testing.T) {
 		if v != Pass {
 			t.Errorf("%s = %s, want PASS; report: %+v", d, v, rep.Objectives)
 		}
+	}
+}
+
+// probingEnv is a fakeEnv whose database answers the speed probes in order.
+type probingEnv struct {
+	*fakeEnv
+	probes []time.Duration
+}
+
+func (p *probingEnv) DBProbe(context.Context) (time.Duration, error) {
+	d := p.probes[0]
+	p.probes = p.probes[1:]
+	return d, nil
+}
+
+// A host slower than the floor cannot fail a solution on a near miss: the
+// miss may be the machine's. A miss beyond what the machine's slowdown
+// explains still fails, and what does not depend on speed keeps its verdict.
+func TestSlowHostCannotFailOnSpeed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(SearchResponse{}) // wrong: finds nothing
+	}))
+	defer srv.Close()
+	load := func(p95 time.Duration) workload.Result {
+		return workload.Result{Endpoints: []workload.Endpoint{{Name: "search", Requests: 100, P95: p95}}}
+	}
+	pack := &scenario.Pack{
+		Manifest: scenario.Manifest{
+			Metadata: scenario.Metadata{ID: "t", Version: "1"},
+			Dataset:  scenario.Dataset{Seed: 3, Users: 1, Products: 200},
+			Test:     scenario.Test{Runs: 3},
+			Objectives: []scenario.Objective{
+				{ID: "c", Dimension: "correctness", Measure: "oracle_pass_ratio", AtLeast: ptr(1)},
+				{ID: "l", Dimension: "latency", Measure: "search_p95_ms", Below: ptr(300), Margin: 0.1},
+				{ID: "e", Dimension: "availability", Measure: "error_rate", Below: ptr(0.005)},
+				{ID: "r", Dimension: "resources", Measure: "db_cpu_p90", Below: ptr(0.7), Margin: 0.1},
+			},
+		},
+		Oracle: []scenario.OracleCase{{Q: "oak", Limit: 20}},
+	}
+	// The reference machine probes 100 ms; the floor is 150 ms.
+	opt := Options{ProbeReference: 100 * time.Millisecond, ProbeLimit: 150 * time.Millisecond}
+	for _, tc := range []struct {
+		name   string
+		probes []time.Duration
+		p95    time.Duration
+		want   map[string]Verdict
+	}{
+		{"fast host, near miss", []time.Duration{100, 110, 90}, 400 * time.Millisecond,
+			map[string]Verdict{"correctness": Fail, "latency": Fail, "availability": Pass, "resources": Fail}},
+		{"one slow probe is noise", []time.Duration{100, 800, 90}, 400 * time.Millisecond,
+			map[string]Verdict{"correctness": Fail, "latency": Fail, "availability": Pass, "resources": Fail}},
+		{"2x slower host, near miss", []time.Duration{200, 210, 190}, 400 * time.Millisecond,
+			map[string]Verdict{"correctness": Fail, "latency": Inconclusive, "availability": Pass, "resources": Inconclusive}},
+		{"2x slower host, gross miss", []time.Duration{200, 210, 190}, 5 * time.Second,
+			map[string]Verdict{"correctness": Fail, "latency": Fail, "availability": Pass, "resources": Inconclusive}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for i := range tc.probes {
+				tc.probes[i] *= time.Millisecond
+			}
+			env := &probingEnv{fakeEnv: &fakeEnv{srv: srv, results: []workload.Result{load(tc.p95), load(tc.p95), load(tc.p95)}, cpu: 0.95}, probes: tc.probes}
+			rep, err := Evaluate(context.Background(), env, pack, "ws", opt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !maps.Equal(rep.Dimensions, tc.want) {
+				t.Errorf("dimensions = %v, want %v; objectives %+v", rep.Dimensions, tc.want, rep.Objectives)
+			}
+			for i, r := range rep.Runs {
+				if r.ProbeMS != float64(tc.probes[i].Milliseconds()) {
+					t.Errorf("run %d probe = %v ms", i, r.ProbeMS)
+				}
+			}
+			for _, o := range rep.Objectives {
+				if o.Verdict == Inconclusive && !strings.Contains(o.Reason, "slower") {
+					t.Errorf("%s: reason %q does not blame the machine", o.ID, o.Reason)
+				}
+			}
+		})
 	}
 }

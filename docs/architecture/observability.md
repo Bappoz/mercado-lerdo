@@ -67,12 +67,14 @@ Local por padrão (`data-model.md` §3). Exportação só com `sesim telemetry e
 | `status_viewed`, `shell_opened` | fase | como a pessoa investiga |
 | `quick_check_run` | build_ms, migrate_ms, restart_ms, total_ms | H4 |
 | `quick_check_failed` | stage (build/migrate/restart) | fricção |
-| `production_test_run` | duração, runs | — |
+| `production_test_run` | duração, vereditos por dimensão, `db_probe_ms` e `slow_host` (velocidade da máquina, ADR-0021) | H5 entre máquinas |
 | `test_passed` / `test_failed` / `test_inconclusive` | dimensões | H1, H5 |
 | `hint_requested` | nível | H1 |
 | `hypothesis_recorded` | nº de evidências | `time_to_first_hypothesis` |
 | `scenario_reset` | nível (dados/completo/hard) | fricção |
-| `canonical_state_adopted` | scenario | campanha |
+| `scenario_advanced` | from, canonical (ADR-0020) | campanha, H6 |
+| `lab_run` | perfil, taxa, duração, queda, segundos | como a pessoa ensaia |
+| `git_commit` | nº de arquivos | como a pessoa versiona |
 | `scenario_completed` | total_minutes, incident_minutes, tests, checks, hints | H1, H6 |
 | `session_paused` | fase | abandono |
 | `debrief_viewed` | tempo na tela | H3 (proxy fraco; a entrevista é o dado real) |
