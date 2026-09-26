@@ -11,7 +11,7 @@ bin/sesim campaign                          # missões do stage e o resultado de
 bin/sesim advance [--canonical]             # depois do PASS: próximo cenário com o seu código (ou do início oficial)
 ```
 
-**NexoraOS** é o computador da empresa, e cada app é uma forma de agir sobre o sistema real:
+**NexoraOS** é o computador da empresa, com janelas que você arrasta, redimensiona pelas bordas e maximiza. Cada app é uma forma de agir sobre o sistema real:
 
 | App | Para quê |
 |---|---|

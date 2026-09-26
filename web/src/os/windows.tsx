@@ -13,8 +13,8 @@ export interface Frame {
 
 export const TOP_BAR = 40;
 export const DOCK_SPACE = 118;
-const MIN_W = 280;
-const MIN_H = 180;
+export const MIN_W = 280;
+export const MIN_H = 180;
 
 // Designed on a 1440×900 desktop; fitted to the real viewport at open.
 const LAYOUT: Record<AppId, { x: number; y: number; w: number; h: number }> = {
@@ -33,16 +33,68 @@ const LAYOUT: Record<AppId, { x: number; y: number; w: number; h: number }> = {
   settings: { x: 240, y: 72, w: 860, h: 640 },
 };
 
+// The smallest size each app stays usable at: two-pane apps keep their list
+// column and ~280 px to read (styles.css: .inbox, .docs, .settings, .git).
+const MIN: Partial<Record<AppId, { w: number; h: number }>> = {
+  inbox: { w: 480, h: 260 },
+  docs: { w: 480, h: 260 },
+  settings: { w: 470, h: 260 },
+  git: { w: 580, h: 320 },
+  terminal: { w: 360, h: 200 },
+};
+
+/** minSize is how small app's window may be pulled. */
+export function minSize(app: AppId): { w: number; h: number } {
+  return MIN[app] ?? { w: MIN_W, h: MIN_H };
+}
+
 const INITIAL: AppId[] = ["inbox"];
 
-function fitFrame(f: Frame, vw: number, vh: number): Frame {
+function fitFrame(f: Frame, vw: number, vh: number, min = { w: MIN_W, h: MIN_H }): Frame {
   const areaH = vh - TOP_BAR - DOCK_SPACE;
-  const w = Math.max(MIN_W, Math.min(f.w, vw - 16));
-  const h = Math.max(MIN_H, Math.min(f.h, areaH - 8));
+  const w = Math.max(Math.min(min.w, vw - 16), Math.min(f.w, vw - 16));
+  const h = Math.max(Math.min(min.h, areaH - 8), Math.min(f.h, areaH - 8));
   const x = Math.max(8, Math.min(f.x, vw - w - 8));
   const y = Math.max(TOP_BAR + 8, Math.min(f.y, TOP_BAR + areaH - h));
   return { ...f, w, h, x, y };
 }
+
+/** Which edge or corner of a window is being pulled. */
+export type Edge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+/**
+ * resizeFrame is start pulled by (dx, dy) from edge: the opposite edge stays
+ * where it was, the window keeps its minimum size and stays on the desktop
+ * (below the top bar, above the dock, inside the sides).
+ */
+export function resizeFrame(
+  start: Frame,
+  edge: Edge,
+  dx: number,
+  dy: number,
+  vp: { w: number; h: number },
+  min: { w: number; h: number } = { w: MIN_W, h: MIN_H },
+): Frame {
+  const minX = 8;
+  const maxX = vp.w - 8;
+  const minY = TOP_BAR + 8;
+  const maxY = vp.h - DOCK_SPACE;
+  let left = start.x;
+  let right = start.x + start.w;
+  let top = start.y;
+  let bottom = start.y + start.h;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  // A viewport smaller than the minimum wins: the window just fills it.
+  const minW = Math.min(min.w, maxX - minX);
+  const minH = Math.min(min.h, maxY - minY);
+  if (edge.includes("w")) left = clamp(left + dx, minX, right - minW);
+  if (edge.includes("e")) right = clamp(right + dx, left + minW, maxX);
+  if (edge.includes("n")) top = clamp(top + dy, minY, bottom - minH);
+  if (edge.includes("s")) bottom = clamp(bottom + dy, top + minH, maxY);
+  return { ...start, x: left, y: top, w: right - left, h: bottom - top };
+}
+
+const EDGES: Edge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 export interface WindowManager {
   frames: Record<AppId, Frame>;
@@ -52,6 +104,7 @@ export interface WindowManager {
   toggle: (app: AppId) => void;
   focus: (app: AppId) => void;
   move: (app: AppId, x: number, y: number) => void;
+  resize: (app: AppId, from: Frame, edge: Edge, dx: number, dy: number) => void;
   toggleMax: (app: AppId) => void;
   top: AppId | null;
 }
@@ -75,7 +128,8 @@ export function useWindows(): WindowManager {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   const frames = {} as Record<AppId, Frame>;
-  for (const app of Object.keys(wanted) as AppId[]) frames[app] = fitFrame(wanted[app], vp.w, vp.h);
+  for (const app of Object.keys(wanted) as AppId[])
+    frames[app] = fitFrame(wanted[app], vp.w, vp.h, minSize(app));
 
   const patch = useCallback((app: AppId, p: Partial<Frame>) => {
     setFrames((fs) => ({ ...fs, [app]: { ...fs[app], ...p } }));
@@ -100,7 +154,18 @@ export function useWindows(): WindowManager {
   }, []);
   const move = useCallback(
     (app: AppId, x: number, y: number) =>
-      setFrames((fs) => ({ ...fs, [app]: fitFrame({ ...fs[app], x, y }, vp.w, vp.h) })),
+      setFrames((fs) => ({
+        ...fs,
+        [app]: fitFrame({ ...fs[app], x, y }, vp.w, vp.h, minSize(app)),
+      })),
+    [vp],
+  );
+  const resize = useCallback(
+    (app: AppId, from: Frame, edge: Edge, dx: number, dy: number) =>
+      setFrames((fs) => ({
+        ...fs,
+        [app]: { ...fs[app], ...pick(resizeFrame(from, edge, dx, dy, vp, minSize(app))) },
+      })),
     [vp],
   );
   const toggleMax = useCallback(
@@ -108,8 +173,10 @@ export function useWindows(): WindowManager {
     [],
   );
 
-  return { frames, compact: vp.w < 760, open, close, toggle, focus, move, toggleMax, top };
+  return { frames, compact: vp.w < 760, open, close, toggle, focus, move, resize, toggleMax, top };
 }
+
+const pick = ({ x, y, w, h }: Frame) => ({ x, y, w, h });
 
 export function Window({
   app,
@@ -131,6 +198,7 @@ export function Window({
   children: ReactNode;
 }) {
   const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const grip = useRef<{ edge: Edge; from: Frame; px: number; py: number } | null>(null);
   if (!frame.open) return null;
   const max = frame.max || compact;
   const style = max
@@ -191,6 +259,30 @@ export function Window({
         </div>
       </header>
       <div className={reading ? "win-body reading" : "win-body"}>{children}</div>
+      {!max &&
+        EDGES.map((edge) => (
+          // biome-ignore lint/a11y/noStaticElementInteractions: resizing is a pointer-only convenience; the maximize button covers the keyboard
+          <div
+            key={edge}
+            className={`win-grip win-grip-${edge}`}
+            aria-hidden="true"
+            onPointerDown={(e) => {
+              grip.current = { edge, from: frame, px: e.clientX, py: e.clientY };
+              e.currentTarget.setPointerCapture(e.pointerId);
+              e.preventDefault(); // no text selection while pulling
+            }}
+            onPointerMove={(e) => {
+              const g = grip.current;
+              if (g) wm.resize(app, g.from, g.edge, e.clientX - g.px, e.clientY - g.py);
+            }}
+            onPointerUp={() => {
+              grip.current = null;
+            }}
+            onPointerCancel={() => {
+              grip.current = null;
+            }}
+          />
+        ))}
     </section>
   );
 }
