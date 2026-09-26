@@ -85,14 +85,21 @@ Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomei
 
 ### C3 — Single Instance Failure
 
-- **Montagem:** o injetor de falhas mata a instância do app no meio do teste.
-- **Sintomas:** 100 % de erro até alguém reiniciar manualmente.
+- **Montagem** (pacote `scenarios/stage1/c3-instance-failure`):
+  - começa onde o C2 terminou (duas transações curtas, pools que cabem), mas com **uma** instância do app ("corte de custos");
+  - o injetor de falhas derruba a instância **duas vezes** em cada execução (crash via `SIGABRT`, ADR-0019);
+  - os clientes do perfil `crash-day` repetem um checkout que falhou, com o mesmo `order_ref` e a mesma `Idempotency-Key`.
+- **Sintomas:** a loja fora do ar durante a queda; na volta, clientes cobrados em dobro (o retry vira um pedido novo e uma cobrança nova).
 - **Soluções válidas:**
-  - ≥2 instâncias atrás do upstream do Nginx com `proxy_next_upstream`/health check;
-  - restart policy + startup rápido: *pode* passar num alvo frouxo, mas falha no estrito. Ensina a diferença entre *recuperação* e *redundância*.
+  - ≥ 2 instâncias atrás do nginx + checkout idempotente (enviar a `Idempotency-Key` ao gateway, e um `order_ref` = um pedido);
+  - a mesma coisa + `proxy_next_upstream … non_idempotent` no nginx, seguro só porque o checkout é idempotente.
 
-  Em qualquer caminho, o checkout precisa ser idempotente para não duplicar pagamento no retry.
-- **Objetivos:** disponibilidade ≥ 99,5 % num teste com um kill de instância, zero pagamento duplicado, custo ≤ orçamento.
+  "Reinício automático" recupera, mas a loja fica fora a cada queda: falha em disponibilidade (recuperação ≠ redundância). Redundância sem idempotência falha em integridade.
+- **Objetivos:**
+  - erro < 0,5 % num teste com as quedas;
+  - nenhuma divergência entre cobranças e pedidos no teste inteiro;
+  - p95 de navegação < 400 ms;
+  - custo ≤ US$ 100/mês.
 
 Cada desafio tem uma solução *tecnicamente atraente mas errada* diante das restrições. É o principal recurso didático.
 
@@ -158,7 +165,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 9 | UI web: **NexoraOS**, com desktop simulado, e-mail (briefing, incidente, debrief), Pulse, Terminal, Testes, Notas, Configurações (3 temas + personalização) e Tabby com roteiro fixo; regras do jogo em `internal/game`, compartilhadas com a CLI (ADR-0016) | feito: C1 jogado de ponta a ponta no navegador, de `play` ao PASS e ao debrief |
 | 10a | Topologia (`topology.yaml`, catálogo fechado, custo modelado, deploy por reconciliação, nginx no workspace, PgBouncer); apps Arquitetura, Deploy e Docs (instalar = editar a topologia); C1 com dimensão custo (ADR-0017) | feito: escalar o app e instalar o PgBouncer pela UI; C1 verificado com 6 casos |
 | 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
-| 10c | C3 + injetor de falhas + Laboratório de carga | C3 jogável |
+| 10c | C3 Single Instance Failure + injetor de falhas (`faults`, crash por `SIGABRT`, `autoRestart`) + clientes que tentam de novo + gateway idempotente + Laboratório de carga (ADR-0019) | feito: C3 jogável e verificado |
 | 10d | App Git + campanha do Stage 1 (C1 → C2 → C3, histórico de missões) | Stage 1 completo |
 | 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
 

@@ -143,7 +143,7 @@ export interface TestResult {
   elapsed: number;
 }
 
-export type JobKind = "play" | "check" | "test" | "deploy";
+export type JobKind = "play" | "check" | "test" | "deploy" | "lab";
 
 export interface Job {
   id: number;
@@ -156,6 +156,35 @@ export interface Job {
   check?: CheckResult;
   test?: TestResult;
   deploy?: Change[];
+  lab?: LabResult;
+}
+
+export interface LabParams {
+  profile: string;
+  rate: number;
+  duration: number;
+  crash: boolean;
+}
+
+export interface LabResult {
+  params: LabParams;
+  endpoints: {
+    name: string;
+    requests: number;
+    error_rate: number;
+    p50_ms: number;
+    p95_ms: number;
+    p99_ms: number;
+  }[];
+  error_rate: number;
+  crashed: boolean;
+  payments?: {
+    lost_orders: number;
+    phantom_orders: number;
+    duplicate_charges: number;
+    duplicate_orders: number;
+  };
+  elapsed: number;
 }
 
 export interface Ticket {

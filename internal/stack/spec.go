@@ -200,11 +200,12 @@ func playerComponents(o Options) []sandbox.Container {
 				"NEXORA_DATABASE_URL": "postgres://nexora:" + o.Secrets.App + "@" + dbHost + "/nexora?sslmode=disable",
 				"NEXORA_PAYMENT_URL":  "http://payments:8090", "NEXORA_DB_MAX_CONNS": strconv.Itoa(c.App.DBMaxConns),
 			},
-			Networks:  []string{netPlay},
-			Mounts:    []sandbox.Mount{{Type: sandbox.VolumeMount, Source: "bin", Target: "/app", ReadOnly: true}, tmpfs("/tmp")},
-			ReadOnly:  true,
-			Resources: res(tier(topology.KindApp, c.App.Size), 256),
-			Health:    health("wget", "-qO-", "http://127.0.0.1:8080/healthz"),
+			Networks:       []string{netPlay},
+			Mounts:         []sandbox.Mount{{Type: sandbox.VolumeMount, Source: "bin", Target: "/app", ReadOnly: true}, tmpfs("/tmp")},
+			ReadOnly:       true,
+			Resources:      res(tier(topology.KindApp, c.App.Size), 256),
+			Health:         health("wget", "-qO-", "http://127.0.0.1:8080/healthz"),
+			RestartOnCrash: c.App.AutoRestart,
 		})
 	}
 	conf := NginxConf(o)

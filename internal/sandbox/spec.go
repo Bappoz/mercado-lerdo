@@ -58,6 +58,9 @@ type Container struct {
 	Resources  Resources
 	ShmBytes   int64
 	Health     *Health
+	// RestartOnCrash makes the runtime start the container again when its
+	// process dies on its own (a crash), not when the platform stops it.
+	RestartOnCrash bool
 }
 
 // MountType is the kind of a mount.

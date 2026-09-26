@@ -107,10 +107,13 @@ func Open(ctx context.Context, o Options) (*Game, error) {
 	}
 	if g.session.Sandbox != "" {
 		rec, err := reg.Get(sandbox.RunID(g.session.Sandbox))
-		if err == nil && rec != nil && rec.State == stack.Ready && g.sandboxRunning(ctx, rec.Run) {
+		if err == nil && rec != nil && rec.State == stack.Ready && g.sandboxRunning(ctx, *rec) {
 			if g.stack, err = stack.Attach(d, reg, *rec, o.Root, log); err != nil {
 				g.Close()
 				return nil, err
+			}
+			if err := g.ensureBackground(ctx); err != nil {
+				log.Warn("could not restart the story's traffic", "err", err)
 			}
 		}
 	}
@@ -128,14 +131,22 @@ func (g *Game) Close() {
 	_ = g.d.Close()
 }
 
-// sandboxRunning reports whether every container of run is up (a reboot or
-// `docker stop` leaves them stopped, and the game then starts over).
-func (g *Game) sandboxRunning(ctx context.Context, run sandbox.RunID) bool {
+// sandboxRunning reports whether the sandbox of rec is up. A crashed app
+// replica is part of the story (C3), and a stopped story traffic generator
+// is started again by the game: neither means the game must start over.
+// Anything else stopped (a reboot, a `docker stop`) does.
+func (g *Game) sandboxRunning(ctx context.Context, rec stack.Record) bool {
 	runs, err := g.d.Runs(ctx)
-	if err != nil || runs[run] == nil {
+	if err != nil || runs[rec.Run] == nil {
 		return false
 	}
-	return runs[run].Containers > 0 && runs[run].Running == runs[run].Containers
+	r := runs[rec.Run]
+	for _, c := range r.Stopped {
+		if c != "app" && c != stack.BackgroundComponent {
+			return false
+		}
+	}
+	return r.Running > 0
 }
 
 // HasSession reports whether this workspace has a game in progress.
@@ -302,7 +313,53 @@ func (g *Game) Next(ctx context.Context) (bool, error) {
 		return true, err
 	}
 	g.Event("growth_event", map[string]any{"calm_seconds": int(now.Sub(s.StartedAt).Seconds())})
+	if c := g.Pack.Manifest.Player.Growth.Crash; c != "" {
+		st, err := g.requireStack()
+		if err != nil {
+			return true, err
+		}
+		// The customers must be in the store when it goes down: a load
+		// generator that cannot log its users in at start gives up.
+		g.waitForTraffic(ctx, st, 30*time.Second)
+		if err := st.Crash(ctx, c, 1); err != nil {
+			return true, err
+		}
+		g.Event("fault_injected", map[string]any{"crash": c})
+	}
 	return true, nil
+}
+
+// waitForTraffic waits until the story's traffic reaches the store, or timeout.
+func (g *Game) waitForTraffic(ctx context.Context, st *stack.Stack, timeout time.Duration) {
+	q := fmt.Sprintf(`sum(k6_http_reqs_total{testid=%q,name!="setup_login",name!=""})`, g.Session().Background)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if v, err := st.Query(ctx, q, time.Now()); err == nil && v > 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// ensureBackground starts the story's traffic again if its generator stopped
+// (e.g. it could not log its users in while the app was down).
+func (g *Game) ensureBackground(ctx context.Context) error {
+	s := g.Session()
+	if s.Background == "" || s.Phase == "" {
+		return nil
+	}
+	runs, err := g.d.Runs(ctx)
+	if err != nil {
+		return err
+	}
+	if r := runs[sandbox.RunID(s.Sandbox)]; r != nil && slices.Contains(r.Stopped, stack.BackgroundComponent) {
+		return g.startBackground(ctx)
+	}
+	return nil
 }
 
 // Hint reveals the next rung of the hint ladder; false when none is left.
@@ -353,6 +410,9 @@ func (g *Game) Deploy(ctx context.Context, say Say) ([]stack.Change, error) {
 		comps = append(comps, c.Component+":"+string(c.Action))
 	}
 	g.Event("deploy_run", map[string]any{"ms": time.Since(start).Milliseconds(), "changes": comps})
+	if err := g.ensureBackground(ctx); err != nil {
+		say("Não consegui religar o tráfego do dia: " + err.Error())
+	}
 	return changes, nil
 }
 
@@ -366,6 +426,9 @@ func (g *Game) Check(ctx context.Context, say Say) (CheckResult, error) {
 	start := time.Now()
 	if _, err := st.Deploy(ctx, say); err != nil {
 		g.Event("quick_check_failed", map[string]any{"stage": "deploy"})
+		return CheckResult{}, err
+	}
+	if err := g.ensureBackground(ctx); err != nil {
 		return CheckResult{}, err
 	}
 	applied := time.Now()

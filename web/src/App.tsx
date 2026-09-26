@@ -12,6 +12,7 @@ import { Architecture } from "./apps/Architecture.tsx";
 import { Deploy } from "./apps/Deploy.tsx";
 import { Docs } from "./apps/Docs.tsx";
 import { Inbox, messageKey } from "./apps/Inbox.tsx";
+import { Lab } from "./apps/Lab.tsx";
 import { Notes } from "./apps/Notes.tsx";
 import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
@@ -40,6 +41,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "support", title: "Suporte · reclamações", label: "Suporte", reading: true },
   { id: "architecture", title: "Arquitetura · topology.yaml", label: "Arquitetura", reading: true },
   { id: "deploy", title: "Deploy", label: "Deploy", reading: true },
+  { id: "lab", title: "Laboratório de carga", label: "Lab", reading: true },
   { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
   { id: "notes", title: "Notas", label: "Notas", reading: true },
   { id: "settings", title: "Configurações", label: "Config.", reading: true },
@@ -124,9 +126,11 @@ export function App() {
       open("pulse");
     } else if (job.kind === "check") setToast("Quick Check pronto.");
     else if (job.kind === "deploy") setToast("Deploy feito.");
+    else if (job.kind === "lab") setToast("Experimento terminado.");
     else setToast(job.test?.passed ? "Production Test: PASS!" : "Production Test terminou.");
     if (job.kind === "check" || job.kind === "test") open("tests");
     if (job.kind === "deploy") open("deploy");
+    if (job.kind === "lab") open("lab");
   }, [job, open]);
 
   // A new mail (the incident, the debrief) pops the inbox up.
@@ -230,6 +234,14 @@ export function App() {
             onInstalled={(name) =>
               setToast(`${name} está no topology.yaml. Faça um deploy para ligar.`)
             }
+          />
+        );
+      case "lab":
+        return (
+          <Lab
+            state={state}
+            busy={busy}
+            onRun={(p) => void game.act(() => api("POST", "/api/lab", p))}
           />
         );
       case "support":

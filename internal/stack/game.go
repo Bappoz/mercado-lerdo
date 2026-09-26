@@ -22,7 +22,8 @@ import (
 // This file holds what the game and the evaluator do with a running sandbox.
 // *Stack implements evaluator.Env.
 
-const backgroundComponent = "k6-background"
+// BackgroundComponent runs the story's traffic.
+const BackgroundComponent = "k6-background"
 
 // SetWorkspace points later builds and migrations at another copy of the app
 // (the scenario harness evaluates every reference in the same sandbox).
@@ -60,6 +61,11 @@ func (s *Stack) Prepare(ctx context.Context, workspace string) error {
 func (s *Stack) Deploy(ctx context.Context, say func(string)) ([]Change, error) {
 	t, err := topology.Load(s.opts.Workspace)
 	if err != nil {
+		return nil, err
+	}
+	// A crashed replica comes back with the deploy; nginx's config test also
+	// needs the app's name to resolve, which a stopped container does not.
+	if err := s.StartApp(ctx); err != nil {
 		return nil, err
 	}
 	// Everything that can be refused is refused before anything changes.
@@ -178,12 +184,12 @@ func (s *Stack) StartBackground(ctx context.Context, profile string, rate int, i
 	if err := s.StopBackground(ctx); err != nil {
 		return err
 	}
-	return s.d.Launch(ctx, s.Run, s.spec, loadGen(s.opts, backgroundComponent, profile, rate, 12*time.Hour, 20*time.Second, id))
+	return s.d.Launch(ctx, s.Run, s.spec, loadGen(s.opts, BackgroundComponent, profile, rate, 12*time.Hour, 20*time.Second, id))
 }
 
 // StopBackground removes the background traffic, if any.
 func (s *Stack) StopBackground(ctx context.Context) error {
-	return s.d.RemoveComponent(ctx, s.Run, backgroundComponent)
+	return s.d.RemoveComponent(ctx, s.Run, BackgroundComponent)
 }
 
 // CPU returns each component's average CPU use over window as a fraction of
@@ -313,4 +319,31 @@ func (s *Stack) StartStats(ctx context.Context) error {
 func lastLines(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	return strings.Join(lines[max(0, len(lines)-n):], " | ")
+}
+
+// StartApp starts every app replica that is not running (a crash left it
+// down) and waits until the app answers. Running replicas are untouched.
+func (s *Stack) StartApp(ctx context.Context) error {
+	if err := s.d.Start(ctx, s.Run, "app"); err != nil {
+		return err
+	}
+	return s.waitHealth(ctx, 60*time.Second, http.StatusOK, http.StatusServiceUnavailable)
+}
+
+// Crash makes replica's process abort, as a panic or an out-of-memory kill
+// would (evaluator.Crasher). SIGABRT, not `docker kill`: the runtime must see
+// the process die on its own, or a restart policy never applies. The Go
+// runtime aborts on SIGABRT even as PID 1.
+func (s *Stack) Crash(ctx context.Context, component string, replica int) error {
+	res, err := s.d.Exec(ctx, s.Run, component, replica, []string{"kill", "-ABRT", "1"}, nil)
+	if errors.Is(err, docker.ErrNotRunning) {
+		return nil // already down: a crash has nothing left to crash
+	}
+	if err != nil {
+		return fmt.Errorf("stack: crash %s#%d: %w", component, replica, err)
+	}
+	if res.ExitCode != 0 {
+		return fmt.Errorf("stack: crash %s#%d: kill exited %d: %s", component, replica, res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	return nil
 }

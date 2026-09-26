@@ -1,0 +1,36 @@
+# Five levels, from observation to implementation (docs/product/mvp.md §4).
+# Never skip a level; the player asks for one at a time.
+- level: 1
+  kind: Observação
+  text: |
+    Em {{architecture}}: quantas instâncias do app atendem a loja? Coloque a loja de volta com
+    {{deploy}} e rode um experimento em {{lab}} marcando "derrubar a instância". O que acontece
+    com os erros durante a queda? E com as cobranças?
+- level: 2
+  kind: Direção
+  text: |
+    Duas perguntas diferentes. (1) Enquanto uma instância está fora, quem atende? Voltar rápido
+    ({{docs}}: `autoRestart`) é diferente de nunca parar. (2) Quando um checkout falha, o cliente
+    clica de novo com o mesmo `order_ref`: o que o seu código faz com esse segundo pedido?
+- level: 3
+  kind: Conceito
+  text: |
+    Pesquise "recuperação vs. redundância" e "idempotência". Uma operação idempotente pode ser
+    repetida sem mudar o resultado. O gateway já é idempotente por `Idempotency-Key`; o seu app
+    manda essa chave? Trata dois checkouts com o mesmo `order_ref` como um pedido só?
+- level: 4
+  kind: Explicação
+  text: |
+    Com uma instância, a queda deixa a loja fora até ela voltar, mesmo com reinício automático.
+    Com duas atrás do nginx, a queda de uma não para a loja. Mas o checkout que estava na
+    instância que caiu volta como retry, e o código atual cria outro pedido e cobra de novo.
+    Redundância traz retries; retries exigem idempotência.
+- level: 5
+  kind: Implementação
+  text: |
+    `topology.yaml`: `replicas: 2` (cabe no orçamento). `internal/payment/client.go`: envie o
+    header `Idempotency-Key` com o `order_ref`. `internal/store/orders.go`: no começo de
+    `PlaceOrder`, procure o pedido pelo `order_ref`; se pago, devolva; se pendente, cobre (a
+    chave evita a cobrança dupla) e marque pago. Crie uma migração com um índice único em
+    `orders (order_ref)` e trate a violação (código 23505) como "continuar o pedido existente".
+    Faça o deploy, ensaie em {{lab}} e rode {{test}}.

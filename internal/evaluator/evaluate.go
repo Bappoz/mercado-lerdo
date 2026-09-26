@@ -84,9 +84,14 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 		if err := env.ResetData(ctx); err != nil {
 			return rep, fmt.Errorf("run %d: reset: %w", i, err)
 		}
+		stopFaults, faultErr := injectFaults(ctx, env, m.Faults, log)
 		res, err := env.RunLoad(ctx, m.Test, id)
+		stopFaults()
 		if err != nil {
 			return rep, fmt.Errorf("run %d: load: %w", i, err)
+		}
+		if err := <-faultErr; err != nil {
+			return rep, fmt.Errorf("run %d: fault: %w", i, err)
 		}
 		end := time.Now()
 		run := Run{ID: id, Values: loadValues(res), Drops: dropName(res.DropCause()), Duration: res.Duration}
@@ -119,7 +124,13 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 		rep.Runs = append(rep.Runs, run)
 	}
 
-	if err := env.Settle(ctx); err != nil {
+	// Correctness is about the code: bring back whatever the faults took down
+	// (availability was already measured by the runs).
+	settle := env.Settle
+	if len(m.Faults) > 0 {
+		settle = env.ResetData
+	}
+	if err := settle(ctx); err != nil {
 		return rep, fmt.Errorf("oracle: %w", err)
 	}
 	rep.Oracle = RunOracle(ctx, env.HTTP(), env.URL(), CatalogFromSeed(m.Dataset), pack.Oracle)
@@ -271,4 +282,44 @@ func reconcileRun(ctx context.Context, env Env, runID string, settle time.Durati
 		return Integrity{}, err
 	}
 	return Reconcile(charges, orders), nil
+}
+
+// Crasher makes a component's process crash (implemented by internal/stack).
+type Crasher interface {
+	Crash(ctx context.Context, component string, replica int) error
+}
+
+// injectFaults schedules the scenario's faults against the running load. stop
+// cancels those not yet due; the channel yields the first error, or nil, once
+// every fault has fired or been cancelled.
+func injectFaults(ctx context.Context, env Env, faults []scenario.Fault, log *slog.Logger) (stop func(), errs <-chan error) {
+	out := make(chan error, 1)
+	if len(faults) == 0 {
+		out <- nil
+		return func() {}, out
+	}
+	c, ok := env.(Crasher)
+	if !ok {
+		out <- errors.New("this sandbox cannot inject faults")
+		return func() {}, out
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	start := time.Now()
+	go func() {
+		var first error
+		for _, f := range faults {
+			select {
+			case <-ctx.Done():
+				out <- first
+				return
+			case <-time.After(time.Until(start.Add(f.After))):
+			}
+			log.Info("fault", "crash", f.Crash, "after", f.After)
+			if err := c.Crash(ctx, f.Crash, 1); err != nil && first == nil {
+				first = err
+			}
+		}
+		out <- first
+	}()
+	return cancel, out
 }

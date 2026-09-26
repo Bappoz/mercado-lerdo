@@ -2,11 +2,14 @@ package cli
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
 	"strings"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/stack"
 	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
@@ -154,6 +157,50 @@ func runSupport(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	}
 	for _, k := range tickets {
 		fmt.Fprintf(stdout, "%-38s ×%-4d \"%s\"\n", k.Subject, k.Count, k.Quote)
+	}
+	return 0
+}
+
+// runLab: an ungraded load experiment against production as it is now.
+func runLab(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("lab", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	var f gameFlags
+	f.register(fs)
+	var p game.LabParams
+	fs.StringVar(&p.Profile, "profile", "rush", "load profile: "+strings.Join(game.LabProfiles, ", "))
+	fs.IntVar(&p.Rate, "rate", 40, "requests per second at peak (1-150)")
+	fs.IntVar(&p.Duration, "duration", 40, "seconds at peak, after a 10 s ramp (20-120)")
+	fs.BoolVar(&p.Crash, "crash", false, "crash the app's first instance halfway")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	g, err := f.open(ctx, slog.New(slog.DiscardHandler))
+	if err != nil {
+		fmt.Fprintln(stderr, "sesim:", err)
+		return 1
+	}
+	t := &terminal{g: g, stdout: stdout, stderr: stderr}
+	defer g.Close()
+	if !g.HasSession() {
+		return t.fail(game.ErrNoSession)
+	}
+	r, err := g.Lab(ctx, p, t.say)
+	if err != nil {
+		return t.fail(err)
+	}
+	fmt.Fprintf(stdout, "\n  %-10s %9s %8s %9s %9s %9s\n", "página", "requests", "erros", "p50", "p95", "p99")
+	for _, e := range r.Endpoints {
+		fmt.Fprintf(stdout, "  %-10s %9d %7.2f%% %7.0fms %7.0fms %7.0fms\n", e.Name, e.Requests, e.ErrorRate*100, e.P50ms, e.P95ms, e.P99ms)
+	}
+	fmt.Fprintf(stdout, "\nErros no total: %.2f%%", r.ErrorRate*100)
+	if r.Crashed {
+		fmt.Fprint(stdout, " (com a instância 1 derrubada no meio)")
+	}
+	fmt.Fprintln(stdout)
+	if in := r.Payments; in != nil {
+		fmt.Fprintf(stdout, "Cobranças × pedidos: %d cobrados sem pedido, %d cobrados em dobro, %d pedidos duplicados, %d pagos sem cobrança.\n",
+			in.Lost, in.DuplicateCharges, in.DuplicateOrders, in.Phantom)
 	}
 	return 0
 }

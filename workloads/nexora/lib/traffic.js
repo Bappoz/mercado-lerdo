@@ -4,18 +4,19 @@
 // (SEED, global iteration number), not from Math.random or the VU that runs it.
 // The same seed therefore replays the same sequence of user intents; only the
 // timing varies between runs.
-import http from 'k6/http';
-import exec from 'k6/execution';
+import { sleep } from "k6";
+import http from "k6/http";
+import exec from "k6/execution";
 
-export const BASE_URL = __ENV.BASE_URL || 'http://nginx:8080';
-export const SEED = parseInt(__ENV.SEED || '4242', 10);
+export const BASE_URL = __ENV.BASE_URL || "http://nginx:8080";
+export const SEED = parseInt(__ENV.SEED || "4242", 10);
 export const RUN_ID = __ENV.RUN_ID || `run${Date.now()}`;
-export const PRODUCTS = parseInt(__ENV.PRODUCTS || '100000', 10);
+export const PRODUCTS = parseInt(__ENV.PRODUCTS || "100000", 10);
 // Users abandon slow requests. This also bounds the VUs an open-model test
 // needs (≈ rate × timeout), so dropped_iterations reflects generator limits,
 // not a stuck system.
-export const TIMEOUT = __ENV.CLIENT_TIMEOUT || '5s';
-const SESSIONS = parseInt(__ENV.SESSIONS || '20', 10);
+export const TIMEOUT = __ENV.CLIENT_TIMEOUT || "5s";
+const SESSIONS = parseInt(__ENV.SESSIONS || "20", 10);
 
 // --- deterministic hashing -------------------------------------------------
 
@@ -36,14 +37,55 @@ export function rand(iteration, salt) {
 // Words that exist in product names (see internal/seed/words.go), plus terms
 // that match nothing — real users misspell and search for things you don't sell.
 const MATCHING = [
-  'lamp', 'chair', 'mug', 'kettle', 'backpack', 'speaker', 'headphones', 'mat',
-  'desk', 'tent', 'lantern', 'bottle', 'oak', 'steel', 'bamboo', 'ceramic',
-  'modern', 'vintage', 'compact', 'premium', 'rug', 'knife', 'pan', 'planter',
-  'walnut', 'linen', 'copper', 'leather', 'nordic', 'portable', 'smart', 'retro',
-  'suitcase', 'hammock', 'grill', 'dumbbell', 'kettlebell', 'earbuds', 'mirror',
-  'clock', 'vase', 'teapot', 'notebook', 'stapler', 'turntable', 'rake', 'hose',
+  "lamp",
+  "chair",
+  "mug",
+  "kettle",
+  "backpack",
+  "speaker",
+  "headphones",
+  "mat",
+  "desk",
+  "tent",
+  "lantern",
+  "bottle",
+  "oak",
+  "steel",
+  "bamboo",
+  "ceramic",
+  "modern",
+  "vintage",
+  "compact",
+  "premium",
+  "rug",
+  "knife",
+  "pan",
+  "planter",
+  "walnut",
+  "linen",
+  "copper",
+  "leather",
+  "nordic",
+  "portable",
+  "smart",
+  "retro",
+  "suitcase",
+  "hammock",
+  "grill",
+  "dumbbell",
+  "kettlebell",
+  "earbuds",
+  "mirror",
+  "clock",
+  "vase",
+  "teapot",
+  "notebook",
+  "stapler",
+  "turntable",
+  "rake",
+  "hose",
 ];
-const NO_MATCH = ['iphone', 'laptop', 'sneakers', 'lamb', 'chiar', 'kettel', 'drone', 'tv'];
+const NO_MATCH = ["iphone", "laptop", "sneakers", "lamb", "chiar", "kettel", "drone", "tv"];
 const TERMS = MATCHING.concat(NO_MATCH);
 const ZIPF_S = 1.1;
 const CUMULATIVE = (() => {
@@ -68,42 +110,52 @@ export function productId(iteration, salt) {
 const params = (name, extra = {}) => ({ timeout: TIMEOUT, tags: { name }, ...extra });
 
 export function browse(it) {
-  http.get(`${BASE_URL}/products?page=${1 + Math.floor(rand(it, 2) * 50)}`, params('products'));
+  http.get(`${BASE_URL}/products?page=${1 + Math.floor(rand(it, 2) * 50)}`, params("products"));
 }
 
 export function search(it) {
-  http.get(`${BASE_URL}/search?q=${encodeURIComponent(searchTerm(it))}`, params('search'));
+  http.get(`${BASE_URL}/search?q=${encodeURIComponent(searchTerm(it))}`, params("search"));
 }
 
 export function viewProduct(it) {
-  http.get(`${BASE_URL}/products/${productId(it, 3)}`, params('product'));
+  http.get(`${BASE_URL}/products/${productId(it, 3)}`, params("product"));
 }
 
-export function checkout(it, tokens) {
+// checkout places one order. With retry, a customer whose checkout failed
+// (server error, connection error or timeout) presses the button again a
+// second later, with the same order and Idempotency-Key, as real ones do.
+export function checkout(it, tokens, retry = false) {
   const token = tokens[it % tokens.length];
   const ref = `${RUN_ID}-${it}`;
-  http.post(
-    `${BASE_URL}/checkout`,
-    JSON.stringify({ order_ref: ref, items: [{ product_id: productId(it, 4), quantity: 1 }] }),
-    params('checkout', {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'Idempotency-Key': ref,
-      },
-    }),
-  );
+  const send = () =>
+    http.post(
+      `${BASE_URL}/checkout`,
+      JSON.stringify({ order_ref: ref, items: [{ product_id: productId(it, 4), quantity: 1 }] }),
+      params("checkout", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "Idempotency-Key": ref,
+        },
+      }),
+    );
+  const res = send();
+  if (retry && (res.status === 0 || res.status >= 500)) {
+    sleep(1);
+    send();
+  }
 }
 
 // runMix picks one journey per iteration according to mix ({name: weight}).
-export function runMix(mix, tokens) {
+// opts.retry makes failed checkouts retry once (see checkout).
+export function runMix(mix, tokens, opts = {}) {
   const it = exec.scenario.iterationInTest;
   const total = Object.values(mix).reduce((a, b) => a + b, 0);
   let r = rand(it, 0) * total;
   for (const [name, weight] of Object.entries(mix)) {
     r -= weight;
     if (r < 0) {
-      JOURNEYS[name](it, tokens);
+      JOURNEYS[name](it, tokens, opts.retry);
       return;
     }
   }
@@ -116,17 +168,21 @@ const JOURNEYS = { browse, search, product: viewProduct, checkout };
 export function setupSessions() {
   const tokens = [];
   for (let i = 1; i <= SESSIONS; i++) {
-    const email = `user${String(i).padStart(5, '0')}@nexora.test`;
+    const email = `user${String(i).padStart(5, "0")}@nexora.test`;
     const res = http.post(
       `${BASE_URL}/auth/login`,
-      JSON.stringify({ email, password: __ENV.USER_PASSWORD || 'nexora-demo' }),
+      JSON.stringify({ email, password: __ENV.USER_PASSWORD || "nexora-demo" }),
       // responseType overrides discardResponseBodies: we need the token.
-      { headers: { 'Content-Type': 'application/json' }, tags: { name: 'setup_login' }, responseType: 'text' },
+      {
+        headers: { "Content-Type": "application/json" },
+        tags: { name: "setup_login" },
+        responseType: "text",
+      },
     );
     if (res.status !== 200) {
       throw new Error(`setup: login ${email} returned ${res.status}`);
     }
-    tokens.push(res.json('token'));
+    tokens.push(res.json("token"));
   }
   return { tokens };
 }
@@ -137,9 +193,9 @@ export function setupSessions() {
 export function endpointThresholds(names) {
   const t = {};
   for (const n of names) {
-    t[`http_req_duration{name:${n}}`] = ['max>=0'];
-    t[`http_req_failed{name:${n}}`] = ['rate>=0'];
-    t[`http_reqs{name:${n}}`] = ['count>=0'];
+    t[`http_req_duration{name:${n}}`] = ["max>=0"];
+    t[`http_req_failed{name:${n}}`] = ["rate>=0"];
+    t[`http_reqs{name:${n}}`] = ["count>=0"];
   }
   return t;
 }

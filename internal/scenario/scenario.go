@@ -47,6 +47,8 @@ type Manifest struct {
 	Start []string `yaml:"start"`
 	// World is what happens outside the player's system.
 	World World `yaml:"world"`
+	// Faults happen during every Production Test run.
+	Faults []Fault `yaml:"faults"`
 	// Broken is the expected verdict of the untouched scenario start.
 	Broken     Expect      `yaml:"broken"`
 	References []Reference `yaml:"references"`
@@ -58,6 +60,18 @@ type World struct {
 	// (e.g. "600ms,2.5s"); empty answers at once.
 	PaymentLatency string `yaml:"paymentLatency"`
 }
+
+// Fault is something the platform does to the player's system on purpose.
+type Fault struct {
+	// After is when, counted from the start of the run's load.
+	After time.Duration `yaml:"after"`
+	// Crash names the component whose first replica's process crashes
+	// (like a panic or an out-of-memory kill: the runtime sees it die).
+	Crash string `yaml:"crash"`
+}
+
+// Crashable are the components a fault may crash.
+var Crashable = map[string]bool{"app": true}
 
 // Metadata identifies the scenario.
 type Metadata struct {
@@ -120,6 +134,8 @@ type Phase struct {
 	Profile  string `yaml:"profile"`
 	Rate     int    `yaml:"rate"`
 	Briefing string `yaml:"briefing"`
+	// Crash names a component whose first replica crashes when the phase starts.
+	Crash string `yaml:"crash"`
 }
 
 // Hint is one rung of the hint ladder.
@@ -267,6 +283,14 @@ func (m Manifest) Validate() error {
 				fail("player.%s needs profile, rate > 0 and briefing", name)
 			}
 		}
+	}
+	for i, f := range m.Faults {
+		if f.After <= 0 || !Crashable[f.Crash] {
+			fail("faults[%d]: needs after > 0 and a crashable component (app)", i)
+		}
+	}
+	if pl := m.Player; pl != nil && pl.Growth.Crash != "" && !Crashable[pl.Growth.Crash] {
+		fail("player.growth.crash: %q cannot crash", pl.Growth.Crash)
 	}
 	if _, err := observer.ParseLatency(m.World.PaymentLatency); err != nil {
 		fail("world.paymentLatency: %v", err)

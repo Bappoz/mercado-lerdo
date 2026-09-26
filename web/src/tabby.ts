@@ -18,6 +18,7 @@ export function tabbyTip(s: GameState | null): Tip {
       check: "o Quick Check",
       test: "o Production Test",
       deploy: "o deploy",
+      lab: "o experimento no laboratório",
     }[job.kind];
     return {
       id: `job-${job.id}`,

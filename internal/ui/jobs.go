@@ -27,6 +27,9 @@ type Job struct {
 	Check    *game.CheckResult `json:"check,omitempty"`
 	Test     *game.TestResult  `json:"test,omitempty"`
 	Deploy   []stack.Change    `json:"deploy,omitempty"`
+	Lab      *game.LabResult   `json:"lab,omitempty"`
+
+	labParams game.LabParams // the experiment a "lab" job runs
 }
 
 const maxJobLines = 200
@@ -64,10 +67,21 @@ func (s *Server) say(line string) {
 }
 
 func (s *Server) startJob(kind string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if kind != "play" && !s.g.HasSession() {
 			writeError(w, http.StatusConflict, game.ErrNoSession)
 			return
+		}
+		var lab game.LabParams
+		if kind == "lab" {
+			if err := readJSON(w, r, &lab); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+			if err := lab.Validate(); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
 		}
 		s.mu.Lock()
 		if s.job != nil && s.job.Running {
@@ -76,7 +90,7 @@ func (s *Server) startJob(kind string) http.HandlerFunc {
 			return
 		}
 		s.nextJob++
-		j := &Job{ID: s.nextJob, Kind: kind, Running: true, Lines: []string{}, Started: time.Now().UTC()}
+		j := &Job{ID: s.nextJob, Kind: kind, Running: true, Lines: []string{}, Started: time.Now().UTC(), labParams: lab}
 		s.job = j
 		s.mu.Unlock()
 		go s.run(j)
@@ -92,6 +106,7 @@ func (s *Server) run(j *Job) {
 		check  *game.CheckResult
 		test   *game.TestResult
 		deploy []stack.Change
+		lab    *game.LabResult
 		err    error
 	)
 	switch j.Kind {
@@ -113,12 +128,17 @@ func (s *Server) run(j *Job) {
 		if deploy, err = s.g.Deploy(ctx, s.say); err == nil && deploy == nil {
 			deploy = []stack.Change{}
 		}
+	case "lab":
+		var r game.LabResult
+		if r, err = s.g.Lab(ctx, j.labParams, s.say); err == nil {
+			lab = &r
+		}
 	default:
 		err = fmt.Errorf("unknown job %q", j.Kind)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	j.Running, j.Finished, j.Check, j.Test, j.Deploy = false, time.Now().UTC(), check, test, deploy
+	j.Running, j.Finished, j.Check, j.Test, j.Deploy, j.Lab = false, time.Now().UTC(), check, test, deploy, lab
 	if err != nil {
 		j.Error = err.Error()
 		if !errors.Is(err, context.Canceled) {
