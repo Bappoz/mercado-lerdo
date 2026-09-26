@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
 // APIVersion is the only manifest version this build reads.
@@ -121,10 +123,11 @@ type OracleCase struct {
 
 // Measures the evaluator knows how to produce.
 var Measures = map[string]bool{
-	"search_p95_ms":     true,
-	"error_rate":        true,
-	"db_cpu_p90":        true,
-	"oracle_pass_ratio": true,
+	"search_p95_ms":      true,
+	"error_rate":         true,
+	"db_cpu_p90":         true,
+	"oracle_pass_ratio":  true,
+	topology.CostMeasure: true, // modeled from topology.yaml; cost dimension only
 }
 
 // Dimensions a scenario may grade.
@@ -213,6 +216,10 @@ func (m Manifest) Validate() error {
 			fail("objective %s: set exactly one of below/atLeast", o.ID)
 		case o.Margin < 0 || o.Margin >= 1:
 			fail("objective %s: margin must be in [0, 1)", o.ID)
+		case (o.Measure == topology.CostMeasure) != (o.Dimension == "cost"):
+			// The topology may say what the system costs, never whether it
+			// works: that would grade the presence of a technology.
+			fail("objective %s: %s belongs to the cost dimension, and only it", o.ID, topology.CostMeasure)
 		}
 		seen[o.ID] = true
 	}

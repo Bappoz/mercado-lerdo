@@ -1,0 +1,16 @@
+# Topologia da Nexora: o que roda em produção, quantas instâncias e de que
+# tamanho. Mude aqui e faça um deploy (app Deploy ou `sesim deploy`).
+# Componentes, tamanhos e preços: app Docs.
+apiVersion: sesim.dev/v0alpha1
+kind: Topology
+components:
+  nginx:
+    size: S
+  app:
+    size: S
+    replicas: 1
+    database: postgres
+    dbMaxConns: 10
+  postgres:
+    size: S
+    maxConnections: 50

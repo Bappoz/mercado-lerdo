@@ -13,9 +13,12 @@ export function tabbyTip(s: GameState | null): Tip {
   if (!s) return { id: "loading", text: "Ligando o computador…" };
   const job = s.job;
   if (job?.running) {
-    const what = { play: "a Nexora subir", check: "o Quick Check", test: "o Production Test" }[
-      job.kind
-    ];
+    const what = {
+      play: "a Nexora subir",
+      check: "o Quick Check",
+      test: "o Production Test",
+      deploy: "o deploy",
+    }[job.kind];
     return {
       id: `job-${job.id}`,
       text: `Estou acompanhando ${what}. Pode continuar investigando enquanto isso.`,

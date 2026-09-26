@@ -15,6 +15,7 @@ import (
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
 // Stack is one running Nexora sandbox.
@@ -25,11 +26,15 @@ type Stack struct {
 	spec sandbox.Spec
 	log  *slog.Logger
 
+	reg *Registry // where Apply records the deployed topology
+
 	http      *http.Client
-	appURL    string // resolved lazily; container IPs are stable for the run
+	appURL    string // resolved lazily; nginx's IP changes only when Apply recreates it
 	promURL   string
 	stopStats context.CancelFunc
 }
+
+const healthyTimeout = 90 * time.Second
 
 // Up creates and starts a Nexora sandbox for opts.Workspace: builds the app,
 // seeds the pristine dataset template, clones it for the app, and starts
@@ -44,8 +49,17 @@ func Up(ctx context.Context, d *docker.Client, reg Registry, opts Options, log *
 		*p = abs
 	}
 	opts.Secrets = NewSecrets()
+	if opts.Topology.APIVersion == "" {
+		t, err := topology.Load(opts.Workspace)
+		if err != nil {
+			return nil, err
+		}
+		opts.Topology = t
+	}
 	s := newStack(sandbox.NewRunID(), d, opts, log)
-	rec := Record{Run: s.Run, PID: os.Getpid(), State: Creating, Workspace: opts.Workspace, Secrets: opts.Secrets, Created: time.Now().UTC()}
+	s.reg = &reg
+	rec := Record{Run: s.Run, PID: os.Getpid(), State: Creating, Workspace: opts.Workspace, Secrets: opts.Secrets,
+		Created: time.Now().UTC(), Topology: &opts.Topology, NginxConfHash: fileHash(NginxConf(opts))}
 	if err := reg.Put(rec); err != nil {
 		return nil, err
 	}
@@ -68,7 +82,7 @@ func Up(ctx context.Context, d *docker.Client, reg Registry, opts Options, log *
 		{"seed template", func() error { return s.seedTemplate(ctx) }},
 		{"reset data", func() error { return s.resetData(ctx) }},
 		{"start services", func() error {
-			for _, c := range []string{"payments", "app", "nginx", "prometheus", "agent", "postgres-exporter", "nginx-exporter", "toolbox"} {
+			for _, c := range s.startOrder() {
 				if err := s.startHealthy(ctx, c); err != nil {
 					return err
 				}
@@ -89,12 +103,27 @@ func Up(ctx context.Context, d *docker.Client, reg Registry, opts Options, log *
 }
 
 // Attach returns a handle to a registered run.
-func Attach(d *docker.Client, rec Record, root string, log *slog.Logger) (*Stack, error) {
+func Attach(d *docker.Client, reg Registry, rec Record, root string, log *slog.Logger) (*Stack, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("stack: %w", err)
 	}
-	return newStack(rec.Run, d, Options{Root: abs, Workspace: rec.Workspace, Secrets: rec.Secrets}, log), nil
+	t := topology.Default()
+	if rec.Topology != nil {
+		t = *rec.Topology
+	}
+	s := newStack(rec.Run, d, Options{Root: abs, Workspace: rec.Workspace, Secrets: rec.Secrets, Topology: t}, log)
+	s.reg = &reg
+	return s, nil
+}
+
+// startOrder is the order services start in after postgres: dependencies first.
+func (s *Stack) startOrder() []string {
+	out := []string{"payments"}
+	if s.opts.Topology.Components.PgBouncer != nil {
+		out = append(out, "pgbouncer")
+	}
+	return append(out, "app", "nginx", "prometheus", "agent", "postgres-exporter", "nginx-exporter", "toolbox")
 }
 
 func newStack(run sandbox.RunID, d *docker.Client, o Options, log *slog.Logger) *Stack {
@@ -105,7 +134,7 @@ func (s *Stack) startHealthy(ctx context.Context, component string) error {
 	if err := s.d.Start(ctx, s.Run, component); err != nil {
 		return err
 	}
-	return s.d.WaitHealthy(ctx, s.Run, component, 90*time.Second)
+	return s.d.WaitHealthy(ctx, s.Run, component, healthyTimeout)
 }
 
 // Build compiles the workspace into the bin volume.

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -171,5 +172,16 @@ func TestDescribe(t *testing.T) {
 		if got := describe(tt.r); got != tt.want {
 			t.Errorf("describe = %q, want %q", got, tt.want)
 		}
+	}
+}
+
+func TestJobLinesNeverNull(t *testing.T) {
+	s := &Server{job: &Job{ID: 1, Kind: "deploy", Running: true, Lines: []string{}}}
+	b, err := json.Marshal(s.currentJob())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"lines":[]`) {
+		t.Errorf("job JSON = %s, want an empty lines array", b)
 	}
 }

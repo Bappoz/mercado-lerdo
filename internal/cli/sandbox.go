@@ -49,7 +49,6 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		fs.SetOutput(stderr)
 		root := fs.String("root", ".", "repository root")
 		ws := fs.String("workspace", "nexora", "the app to run")
-		cpus := fs.Float64("pg-cpus", 0.5, "CPU quota of postgres")
 		if err := fs.Parse(args[1:]); err != nil {
 			return 2
 		}
@@ -58,7 +57,7 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 			fmt.Fprintf(stdout, "collected orphaned sandboxes: %v\n", gone)
 		}
 		log := slog.New(slog.NewTextHandler(stderr, nil))
-		s, err := stack.Up(ctx, d, reg, stack.Options{Root: *root, Workspace: *ws, PGCPUs: *cpus}, log)
+		s, err := stack.Up(ctx, d, reg, stack.Options{Root: *root, Workspace: *ws}, log)
 		if err != nil {
 			if s != nil {
 				fmt.Fprintf(stderr, "sesim: sandbox %s failed; `sesim sandbox down %s` removes it\n", s.Run, s.Run)

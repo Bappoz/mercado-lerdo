@@ -8,11 +8,15 @@ import {
   useState,
 } from "react";
 import { api } from "./api.ts";
+import { Architecture } from "./apps/Architecture.tsx";
+import { Deploy } from "./apps/Deploy.tsx";
+import { Docs } from "./apps/Docs.tsx";
 import { Inbox, messageKey } from "./apps/Inbox.tsx";
 import { Notes } from "./apps/Notes.tsx";
 import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
 import { Tests } from "./apps/Tests.tsx";
+import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
 import { Tabby } from "./os/Tabby.tsx";
 import { useWindows, Window } from "./os/windows.tsx";
@@ -32,6 +36,9 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "pulse", title: "Pulse · produção agora", label: "Pulse" },
   { id: "terminal", title: "Terminal · rede da Nexora", label: "Terminal" },
   { id: "tests", title: "Testes", label: "Testes", reading: true },
+  { id: "architecture", title: "Arquitetura · topology.yaml", label: "Arquitetura", reading: true },
+  { id: "deploy", title: "Deploy", label: "Deploy", reading: true },
+  { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
   { id: "notes", title: "Notas", label: "Notas", reading: true },
   { id: "settings", title: "Configurações", label: "Config.", reading: true },
 ];
@@ -114,8 +121,10 @@ export function App() {
       setToast("A Nexora está no ar.");
       open("pulse");
     } else if (job.kind === "check") setToast("Quick Check pronto.");
+    else if (job.kind === "deploy") setToast("Deploy feito.");
     else setToast(job.test?.passed ? "Production Test: PASS!" : "Production Test terminou.");
-    if (job.kind !== "play") open("tests");
+    if (job.kind === "check" || job.kind === "test") open("tests");
+    if (job.kind === "deploy") open("deploy");
   }, [job, open]);
 
   // A new mail (the incident, the debrief) pops the inbox up.
@@ -196,6 +205,31 @@ export function App() {
             onTest={() => void game.act(() => api("POST", "/api/test"))}
           />
         );
+      case "architecture":
+        return (
+          <Architecture
+            hasSession={state.session !== null}
+            jobVersion={state.job && !state.job.running ? state.job.id : 0}
+            onOpen={open}
+          />
+        );
+      case "deploy":
+        return (
+          <Deploy
+            state={state}
+            busy={busy}
+            onDeploy={() => void game.act(() => api("POST", "/api/deploy"))}
+          />
+        );
+      case "docs":
+        return (
+          <Docs
+            hasSession={state.session !== null}
+            onInstalled={(name) =>
+              setToast(`${name} está no topology.yaml. Faça um deploy para ligar.`)
+            }
+          />
+        );
       case "notes":
         return <Notes hasSession={state.session !== null} />;
       case "settings":
@@ -262,7 +296,7 @@ export function App() {
           titleBar={theme.titleBar(accent, a.id)}
           wm={wm}
         >
-          {body(a.id)}
+          <AppBoundary name={a.label}>{body(a.id)}</AppBoundary>
         </Window>
       ))}
 

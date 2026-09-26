@@ -18,6 +18,9 @@ Não são da sua máquina.
 | Índice em memória no app | 1,9 ms | 22 % | PASS |
 | Busca só por prefixo | 11 ms | 25 % | FAIL em corretude |
 | Full-text search (`tsvector`) | 13 ms | 38 % | FAIL em corretude |
+| Banco 2× maior (Postgres M), busca intocada¹ | 5 s (timeout) | 100 % | FAIL em latência, erros (50 %) e custo (US$ 110) |
+
+¹ 3 execuções, não 9. Dobrar a CPU não tira o trabalho de ler a tabela inteira; só compra tempo, e caro.
 
 - **Trigram:** mantém o banco como fonte da verdade, e a busca sempre vê os dados atuais. Custa
   um índice maior e escritas um pouco mais lentas.

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 	"github.com/Bappoz/software-engineering-simulator/internal/workload"
 )
 
@@ -110,9 +111,17 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 
 	for _, o := range m.Objectives {
 		var values []float64
-		if o.Measure == "oracle_pass_ratio" {
+		switch o.Measure {
+		case "oracle_pass_ratio":
 			values = []float64{rep.Oracle.PassRatio()}
-		} else {
+		case topology.CostMeasure:
+			// Modeled, not measured: the same for every run.
+			t, err := topology.Load(workspace)
+			if err != nil {
+				return rep, err
+			}
+			values = []float64{t.MonthlyCost()}
+		default:
 			for _, r := range rep.Runs {
 				if v, ok := r.Values[o.Measure]; ok {
 					values = append(values, v)

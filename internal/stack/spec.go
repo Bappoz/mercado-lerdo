@@ -6,7 +6,9 @@ package stack
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
+	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
 // Images, pinned by digest. sesim/* images are built locally by `just images`.
@@ -28,6 +31,7 @@ const (
 	imageSeed       = "sesim/nexora-seed:dev"
 	imageObserver   = "sesim/observer-svc:dev"
 	imageToolbox    = "sesim/toolbox:dev"
+	imagePgBouncer  = "sesim/pgbouncer:dev"
 	imageK6         = "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34"
 )
 
@@ -40,10 +44,12 @@ const (
 
 // Options parameterize the Nexora sandbox.
 type Options struct {
-	Root      string  // repository root (configs under deploy/dev)
-	Workspace string  // the player's app
-	PGCPUs    float64 // scaled physics knob (0.5 = C1 calibration)
-	Secrets   Secrets
+	Root      string // repository root (configs under deploy/dev)
+	Workspace string // the player's app
+	// Topology is what the player's system runs (the deployed one, which the
+	// workspace file may have moved past). Its S sizes are the C1 calibration.
+	Topology topology.Topology
+	Secrets  Secrets
 }
 
 // Secrets are per-run database passwords, never shown to the player.
@@ -81,57 +87,16 @@ func tmpfs(target string) sandbox.Mount {
 // Spec is the long-running part of the Nexora sandbox.
 func Spec(o Options) sandbox.Spec {
 	dev := func(p string) string { return filepath.Join(o.Root, "deploy", "dev", p) }
-	appURL := "postgres://nexora:" + o.Secrets.App + "@postgres:5432/nexora?sslmode=disable"
-	return sandbox.Spec{
+	spec := sandbox.Spec{
 		Networks: []sandbox.Network{
 			{Name: netPlay, Internal: true}, {Name: netIngress, Internal: true}, {Name: netTelemetry, Internal: true},
 		},
 		Volumes: []sandbox.Volume{{Name: "pgdata"}, {Name: "bin"}, {Name: "promdata"}, {Name: "go-build", Cache: true}},
 		Containers: []sandbox.Container{
 			{
-				Component: "postgres", Replica: 1, Image: imagePostgres,
-				Cmd: []string{"postgres", "-c", "max_connections=50", "-c", "shared_buffers=64MB", "-c", "shared_preload_libraries=pg_stat_statements"},
-				Env: map[string]string{
-					"POSTGRES_PASSWORD": o.Secrets.Admin, "NEXORA_DB_PASSWORD": o.Secrets.App, "SESIM_OBSERVER_PASSWORD": o.Secrets.Observer,
-				},
-				Networks: []string{netPlay},
-				Mounts: []sandbox.Mount{
-					{Type: sandbox.VolumeMount, Source: "pgdata", Target: "/var/lib/postgresql"},
-					bind(dev("initdb"), "/docker-entrypoint-initdb.d"),
-					tmpfs("/var/run/postgresql"), tmpfs("/tmp"),
-				},
-				ReadOnly: true,
-				// The official entrypoint starts as root, fixes ownership, then drops to postgres.
-				CapAdd:    []string{"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"},
-				Resources: sandbox.Resources{CPUs: o.PGCPUs, Memory: 256 * mb, Pids: 256},
-				ShmBytes:  64 * mb,
-				// TCP, not the socket: during first init the entrypoint runs a temporary
-				// server that listens on the socket only and is then shut down.
-				Health: health("pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "nexora"),
-			},
-			{
 				Component: "payments", Replica: 1, Image: imageObserver, Networks: []string{netPlay}, ReadOnly: true,
 				Resources: sandbox.Resources{CPUs: 0.25, Memory: 64 * mb, Pids: 64},
 				Health:    health("wget", "-qO-", "http://127.0.0.1:8090/healthz"),
-			},
-			{
-				Component: "app", Replica: 1, Image: imageAlpine, User: "10001:10001",
-				Entrypoint: []string{"/app/nexora"},
-				Env: map[string]string{
-					"NEXORA_DATABASE_URL": appURL, "NEXORA_PAYMENT_URL": "http://payments:8090", "NEXORA_DB_MAX_CONNS": "10",
-				},
-				Networks:  []string{netPlay},
-				Mounts:    []sandbox.Mount{{Type: sandbox.VolumeMount, Source: "bin", Target: "/app", ReadOnly: true}, tmpfs("/tmp")},
-				ReadOnly:  true,
-				Resources: sandbox.Resources{CPUs: 0.5, Memory: 128 * mb, Pids: 256},
-				Health:    health("wget", "-qO-", "http://127.0.0.1:8080/healthz"),
-			},
-			{
-				Component: "nginx", Replica: 1, Image: imageNginx, Networks: []string{netPlay, netIngress},
-				Mounts:    []sandbox.Mount{bind(dev("nginx/default.conf"), "/etc/nginx/conf.d/default.conf"), tmpfs("/tmp")},
-				ReadOnly:  true,
-				Resources: sandbox.Resources{CPUs: 0.5, Memory: 64 * mb, Pids: 128},
-				Health:    health("wget", "-qO-", "http://127.0.0.1:8080/nginx-health"),
 			},
 			{
 				Component: "toolbox", Replica: 1, Image: imageToolbox, Networks: []string{netPlay},
@@ -170,6 +135,107 @@ func Spec(o Options) sandbox.Spec {
 			},
 		},
 	}
+	spec.Containers = append(spec.Containers, playerComponents(o)...)
+	return spec
+}
+
+// playerComponents are the containers topology.yaml decides, in start order.
+func playerComponents(o Options) []sandbox.Container {
+	c := o.Topology.Components
+	tier := func(k topology.Kind, s topology.Size) topology.Tier { return topology.Catalog[k].Sizes[s] }
+	res := func(t topology.Tier, pids int64) sandbox.Resources {
+		return sandbox.Resources{CPUs: t.CPUs, Memory: t.Memory, Pids: pids}
+	}
+	out := []sandbox.Container{{
+		Component: "postgres", Replica: 1, Image: imagePostgres,
+		Cmd: []string{"postgres", "-c", "max_connections=" + strconv.Itoa(c.Postgres.MaxConnections),
+			"-c", "shared_buffers=64MB", "-c", "shared_preload_libraries=pg_stat_statements"},
+		Env: map[string]string{
+			"POSTGRES_PASSWORD": o.Secrets.Admin, "NEXORA_DB_PASSWORD": o.Secrets.App, "SESIM_OBSERVER_PASSWORD": o.Secrets.Observer,
+		},
+		Networks: []string{netPlay},
+		Mounts: []sandbox.Mount{
+			{Type: sandbox.VolumeMount, Source: "pgdata", Target: "/var/lib/postgresql"},
+			bind(filepath.Join(o.Root, "deploy", "dev", "initdb"), "/docker-entrypoint-initdb.d"),
+			tmpfs("/var/run/postgresql"), tmpfs("/tmp"),
+		},
+		ReadOnly: true,
+		// The official entrypoint starts as root, fixes ownership, then drops to postgres.
+		CapAdd:    []string{"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"},
+		Resources: res(tier(topology.KindPostgres, c.Postgres.Size), 256),
+		ShmBytes:  64 * mb,
+		// TCP, not the socket: during first init the entrypoint runs a temporary
+		// server that listens on the socket only and is then shut down.
+		Health: health("pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "nexora"),
+	}}
+	dbHost := "postgres:5432"
+	if b := c.PgBouncer; b != nil {
+		out = append(out, sandbox.Container{
+			Component: "pgbouncer", Replica: 1, Image: imagePgBouncer, Networks: []string{netPlay}, ReadOnly: true,
+			Env: map[string]string{
+				"PGB_DB_HOST": "postgres", "PGB_USER": "nexora", "PGB_PASSWORD": o.Secrets.App,
+				"PGB_POOL_MODE": b.PoolMode, "PGB_DEFAULT_POOL_SIZE": strconv.Itoa(b.DefaultPoolSize),
+				"PGB_MAX_CLIENT_CONN": strconv.Itoa(b.MaxClientConn),
+			},
+			Mounts:    []sandbox.Mount{tmpfs("/tmp")},
+			Resources: res(tier(topology.KindPgBouncer, b.Size), 64),
+			Health:    health("nc", "-z", "127.0.0.1", "6432"),
+		})
+		if c.App.Database == "pgbouncer" {
+			dbHost = "pgbouncer:6432"
+		}
+	}
+	for i := 1; i <= c.App.Replicas; i++ {
+		out = append(out, sandbox.Container{
+			Component: "app", Replica: i, Image: imageAlpine, User: "10001:10001",
+			Entrypoint: []string{"/app/nexora"},
+			Env: map[string]string{
+				"NEXORA_DATABASE_URL": "postgres://nexora:" + o.Secrets.App + "@" + dbHost + "/nexora?sslmode=disable",
+				"NEXORA_PAYMENT_URL":  "http://payments:8090", "NEXORA_DB_MAX_CONNS": strconv.Itoa(c.App.DBMaxConns),
+			},
+			Networks:  []string{netPlay},
+			Mounts:    []sandbox.Mount{{Type: sandbox.VolumeMount, Source: "bin", Target: "/app", ReadOnly: true}, tmpfs("/tmp")},
+			ReadOnly:  true,
+			Resources: res(tier(topology.KindApp, c.App.Size), 256),
+			Health:    health("wget", "-qO-", "http://127.0.0.1:8080/healthz"),
+		})
+	}
+	conf := NginxConf(o)
+	out = append(out, sandbox.Container{
+		Component: "nginx", Replica: 1, Image: imageNginx, Networks: []string{netPlay, netIngress},
+		// Not read by nginx: a changed config must change the spec, so a
+		// deploy recreates the container (an editor that replaces the file
+		// would leave a bind mount on the old inode anyway).
+		Env:       map[string]string{"SESIM_CONF_SHA256": fileHash(conf)},
+		Mounts:    []sandbox.Mount{bind(conf, "/etc/nginx/conf.d/default.conf"), tmpfs("/tmp")},
+		ReadOnly:  true,
+		Resources: res(tier(topology.KindNginx, c.Nginx.Size), 128),
+		Health:    health("wget", "-qO-", "http://127.0.0.1:8080/nginx-health"),
+	})
+	return out
+}
+
+// NginxConf is the nginx configuration of the workspace, or the scenario
+// start's for workspaces created before it moved there.
+func NginxConf(o Options) string {
+	if p := filepath.Join(o.Workspace, "nginx", "default.conf"); fileExists(p) {
+		return p
+	}
+	return filepath.Join(o.Root, "nexora", "nginx", "default.conf")
+}
+
+func fileExists(p string) bool {
+	_, err := os.Stat(p)
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+func fileHash(p string) string {
+	b, err := os.ReadFile(p) //nolint:gosec // G304: a config file of the workspace or the repository
+	if err != nil {
+		return "unreadable"
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:8])
 }
 
 // builder compiles the workspace into the bin volume, without network

@@ -43,8 +43,9 @@ func (g *Game) Pulse(ctx context.Context, span, step time.Duration) (Pulse, erro
 	out := Pulse{From: start.Unix(), To: end.Unix(), StepS: int(step.Seconds())}
 	sel := fmt.Sprintf(`testid=~"%s.*",name!="setup_login",name!=""`, backgroundPrefix)
 	q := signalQueries(sel, pulseRate)
-	containers := `container=~"nginx|app|postgres"`
-	q["cpu"] = fmt.Sprintf(`sum by (container) (rate(sesim_container_cpu_usage_seconds_total{%s}[%s])) / on(container) max by (container) (sesim_container_cpu_quota_cores{%s})`,
+	containers := `container=~"nginx|app|postgres|pgbouncer"`
+	// Replicas together: busy cores over the cores all replicas may use.
+	q["cpu"] = fmt.Sprintf(`sum by (container) (rate(sesim_container_cpu_usage_seconds_total{%s}[%s])) / on(container) sum by (container) (sesim_container_cpu_quota_cores{%s})`,
 		containers, pulseRate, containers)
 	for kind, dst := range map[string]*[]Series{"p95": &out.P95, "rps": &out.RPS, "err": &out.Errors, "cpu": &out.CPU} {
 		label := "name"

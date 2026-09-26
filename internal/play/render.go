@@ -30,6 +30,10 @@ var CLIWords = map[string]string{
 	"test":   "`sesim test`",
 	"hint":   "`sesim hint`",
 	"next":   "rode `sesim next`",
+	"deploy": "`sesim deploy`",
+	// Where the player reads the topology and the catalog.
+	"architecture": "`sesim topology`",
+	"docs":         "`sesim docs`",
 }
 
 // NextHint returns the next hint after shown ones, or false when none are left.

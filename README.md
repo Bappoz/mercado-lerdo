@@ -17,6 +17,9 @@ bin/sesim play                              # o mesmo jogo no terminal
 | Pulse | latência, tráfego, erros e CPU ao vivo |
 | Terminal | shell na rede da Nexora, com o `psql` já conectado |
 | Testes | Quick Check (indicativo) e Production Test (o que vale) |
+| Arquitetura | o `topology.yaml`: componentes, réplicas, tamanhos e custo contra o orçamento |
+| Deploy | coloca o workspace em produção (código, migrações, topologia, `nginx/default.conf`) |
+| Docs | catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia |
 | Notas | anotações da investigação |
 | Configurações | escolha entre três temas e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
 

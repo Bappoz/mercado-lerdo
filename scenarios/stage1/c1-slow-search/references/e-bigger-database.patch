@@ -1,0 +1,10 @@
+diff --git a/topology.yaml b/topology.yaml
+--- a/topology.yaml
++++ b/topology.yaml
+@@ -12,5 +12,5 @@
+     database: postgres
+     dbMaxConns: 10
+   postgres:
+-    size: S
++    size: M
+     maxConnections: 50

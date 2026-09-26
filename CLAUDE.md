@@ -8,7 +8,7 @@ Docs em PT-BR; código, comentários, logs e commits em inglês.
 ```bash
 just setup | fmt | doctor | build-all   # npm ci + go mod download | formata Go e web | toolchain + Docker | cross-compile
 just check      # gate completo: fmt-check → lint → typecheck → test → build → licenses → vuln → secrets
-just images && just build && bin/sesim ui   # o jogo no navegador (NexoraOS); `bin/sesim play` = terminal
+just images && just build && bin/sesim ui   # o jogo no navegador (NexoraOS); `bin/sesim play` = terminal (deploy/topology/docs/install também)
 bin/sesim ui --addr 127.0.0.1:7777 --no-open & npm --prefix web run dev   # UI com hot reload (vite faz proxy da API)
 just dev-load normal-day | dev-smoke | dev-telemetry-check   # carga k6 (RATE/DURATION/RAMP/SEED via env); aceites 3 e 5
 just eval | verify --only trigram-index --runs 1   # Production Test do C1 | harness das referências
@@ -19,12 +19,13 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 ## Arquitetura
 - `cmd/sesim` → binário único (CLI + servidor local + SPA embutida), ADR-0002/0003. `internal/` → um pacote por componente (`docs/architecture/overview.md` §4).
 - `internal/sandbox/docker` → único pacote que pode importar `github.com/moby/moby` (depguard garante).
+- `internal/topology` → `topology.yaml`: catálogo fechado, tamanhos, preços, custo, `Install`. `stack.Plan/Apply` reconcilia a sandbox com ele (ADR-0017).
 - `internal/game` → regras de uma partida (sessão, sandbox, check/test/dica); a CLI (`internal/cli`) e a UI (`internal/ui`) só apresentam.
 - `internal/ui` → servidor local do NexoraOS: API JSON com token, terminal por WebSocket, SPA de `web/dist` (`web/embed.go`). Temas = tokens (ADR-0016).
 - `nexora/` → app demo, **módulo Go separado** (`module nexora`) com `vendor/` commitado; é o workspace que o jogador edita. Contrato em `nexora/API.md`.
 - `scenarios/stage1/c1-slow-search/` → pacote do C1. `internal/scenario` lê; `internal/evaluator` julga; `internal/stack` roda a Nexora no driver `internal/sandbox/docker` (spec + hardening em `internal/sandbox`) para `play`/`test`/`verify`.
 - `internal/seed` + `cmd/nexora-seed` → dataset determinístico; `internal/observer` + `cmd/observer-svc` → gateway emulado (zona observadora).
-- `deploy/dev/compose.yml` → só ferramenta de dev do app; o jogo não usa. Os configs em `deploy/dev/{nginx,prometheus,initdb}` são montados pelos dois (mudou um, mudou o jogo).
+- `deploy/dev/compose.yml` → só ferramenta de dev do app; o jogo não usa. Os configs em `deploy/dev/{prometheus,initdb}` e `nexora/nginx/default.conf` (início do cenário; o jogo usa o do workspace) são montados pelos dois.
 - `docs/` → produto, arquitetura, threat model e ADRs (`docs/adr/README.md`). Decisão nova ou alterada = ADR novo.
 
 ## Convenções (não-negociáveis)

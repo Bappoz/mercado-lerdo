@@ -470,6 +470,7 @@ kbd {
 .panel-head p {
   margin: 0;
 }
+
 .panel-head .btn {
   flex: none;
 }
@@ -1025,5 +1026,135 @@ table.grid {
   }
   .tabby {
     bottom: 110px;
+  }
+}
+
+/* ---- architecture, deploy, docs ---- */
+.architecture {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.arch-costs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.arch-costs div {
+  display: flex;
+  flex-direction: column;
+}
+.arch-cost-value {
+  font-family: var(--font-chrome);
+  font-weight: 400;
+  font-size: 22px;
+}
+.cpu-track.budget {
+  display: block;
+}
+.arch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.arch > li {
+  position: relative;
+}
+/* The request path: a pixel arrow between consecutive boxes. */
+.arch > li + li::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  width: var(--bw);
+  height: 14px;
+  margin-left: calc(var(--bw) / -2);
+  background: var(--line);
+}
+.arch-edge-start {
+  font-family: var(--font-chrome);
+  color: var(--muted);
+}
+.arch-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(360px, 100%);
+  padding: 8px 12px;
+  background: var(--panel);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.arch-box[data-change] {
+  border-style: dashed;
+}
+.arch-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.arch-replicas {
+  display: flex;
+  gap: 6px;
+}
+.arch-replica {
+  min-width: 28px;
+  padding: 0 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid var(--line);
+}
+.arch-badge {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chip-bg);
+}
+[data-change="create"] .arch-badge {
+  color: var(--ok);
+}
+[data-change="remove"] .arch-badge {
+  color: var(--danger);
+}
+[data-change="recreate"] .arch-badge {
+  color: var(--warn);
+}
+.panel h3.panel-sub {
+  margin-top: 14px;
+}
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.docs {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) 1fr;
+  height: 100%;
+}
+.panel.install {
+  margin-top: 16px;
+}
+pre.error-text {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .docs {
+    grid-template-columns: 1fr;
   }
 }
