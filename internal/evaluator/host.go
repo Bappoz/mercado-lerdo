@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,16 +25,17 @@ type HostCheck struct {
 	ReferenceMS float64 `json:"reference_ms"` // the calibration machine's probe
 	Slowdown    float64 `json:"slowdown"`     // ProbeMS / ReferenceMS
 	Slow        bool    `json:"slow"`
+	Excused     bool    `json:"excused"` // a verdict became INCONCLUSIVE because of the machine
 }
 
 // Calibration (ADR-0021). The reference is the median probe of the machine
-// the scenarios were calibrated on, plugged in. The floor is where the
-// reference solution closest to a speed threshold (C1 trigram, db_cpu_p90
-// at 0.52 against a PASS bound of 0.72) stops clearing it, if its CPU use
-// grows with the slowdown.
+// the scenarios were calibrated on, plugged in. The floor stays below the
+// smallest slowdown at which a reference solution that passes there could
+// fail (SlowdownTolerance: 1.34, C3 redundancy-only's error_rate), less the
+// probe's own noise: 267 × 1.34 / 1.10 ≈ 325 ms.
 const (
-	DefaultProbeReference = 305 * time.Millisecond
-	DefaultProbeLimit     = 400 * time.Millisecond
+	DefaultProbeReference = 267 * time.Millisecond
+	DefaultProbeLimit     = 325 * time.Millisecond
 )
 
 // speedSensitive reports whether a measure can only get worse on a slower
@@ -59,6 +61,7 @@ func excuseSlowHost(o scenario.Objective, r ObjectiveResult, h *HostCheck) Objec
 		return r
 	}
 	r.Verdict = Inconclusive
+	h.Excused = true
 	r.Reason = fmt.Sprintf("the machine ran %.1fx slower than the scenarios were calibrated for (database probe %.0f ms, limit %.0f ms)",
 		h.Slowdown, h.ProbeMS, h.LimitMS)
 	return r
@@ -78,4 +81,43 @@ func hostCheck(runs []Run, reference, limit time.Duration) *HostCheck {
 	h.Slowdown = h.ProbeMS / h.ReferenceMS
 	h.Slow = h.ProbeMS > h.LimitMS
 	return h
+}
+
+// Tolerance is how much slower than the machine that measured a report a
+// host may be before a speed measure that passed there could fail.
+type Tolerance struct {
+	Slowdown  float64 // the smallest such slowdown
+	Objective string  // the objective closest to failing
+}
+
+// probeNoise is the spread of the median probe between Production Tests on
+// the same plugged-in machine (235–294 ms around 267 ms: the CPU's boost).
+const probeNoise = 0.10
+
+// SlowdownTolerance is the smallest slowdown k at which k times the worst run
+// of a speed objective that passed in rep would miss its threshold by the
+// margin, assuming the measure grows with the slowdown (ADR-0021). ok is
+// false when no speed objective passed.
+func SlowdownTolerance(objectives []scenario.Objective, rep Report) (t Tolerance, ok bool) {
+	for _, r := range rep.Objectives {
+		i := slices.IndexFunc(objectives, func(o scenario.Objective) bool { return o.ID == r.ID })
+		if i < 0 || r.Verdict != Pass || len(r.Values) == 0 || !speedSensitive(r.Measure) || objectives[i].Below == nil {
+			continue
+		}
+		worst := slices.Max(r.Values)
+		if worst <= 0 {
+			continue
+		}
+		o := objectives[i]
+		if k := *o.Below * (1 + o.Margin) / worst; !ok || k < t.Slowdown {
+			t, ok = Tolerance{Slowdown: k, Objective: o.ID}, true
+		}
+	}
+	return t, ok
+}
+
+// FloorFor is the probe limit that tolerance allows on a machine whose
+// median probe is referenceMS: below the slowdown, less the probe's noise.
+func FloorFor(t Tolerance, referenceMS float64) float64 {
+	return referenceMS * t.Slowdown / (1 + probeNoise)
 }

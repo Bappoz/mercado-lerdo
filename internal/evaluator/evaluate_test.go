@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -180,11 +181,39 @@ func TestSlowHostCannotFailOnSpeed(t *testing.T) {
 					t.Errorf("run %d probe = %v ms", i, r.ProbeMS)
 				}
 			}
+			excused := slices.Contains(slices.Collect(maps.Values(tc.want)), Inconclusive)
+			if rep.Host == nil || rep.Host.Excused != excused {
+				t.Errorf("host = %+v, want excused %v", rep.Host, excused)
+			}
 			for _, o := range rep.Objectives {
 				if o.Verdict == Inconclusive && !strings.Contains(o.Reason, "slower") {
 					t.Errorf("%s: reason %q does not blame the machine", o.ID, o.Reason)
 				}
 			}
 		})
+	}
+}
+
+func TestSlowdownTolerance(t *testing.T) {
+	objs := []scenario.Objective{
+		{ID: "lat", Dimension: "latency", Measure: "search_p95_ms", Below: ptr(300), Margin: 0.1},
+		{ID: "cpu", Dimension: "resources", Measure: "db_cpu_p90", Below: ptr(0.8), Margin: 0.1},
+		{ID: "cost", Dimension: "cost", Measure: "monthly_cost", Below: ptr(100)},
+	}
+	rep := Report{Objectives: []ObjectiveResult{
+		{ID: "lat", Measure: "search_p95_ms", Values: []float64{20, 33}, Verdict: Pass},
+		{ID: "cpu", Measure: "db_cpu_p90", Values: []float64{0.5, 0.55}, Verdict: Pass},
+		{ID: "cost", Measure: "monthly_cost", Values: []float64{99}, Verdict: Pass}, // not about speed
+	}}
+	tol, ok := SlowdownTolerance(objs, rep)
+	if !ok || tol.Objective != "cpu" || math.Abs(tol.Slowdown-0.88/0.55) > 1e-9 {
+		t.Errorf("tolerance = %+v, %v; want cpu at %.3f", tol, ok, 0.88/0.55)
+	}
+	if f := FloorFor(tol, 267); math.Abs(f-267*1.6/1.10) > 1e-6 {
+		t.Errorf("floor = %v", f)
+	}
+	rep.Objectives[0].Verdict, rep.Objectives[1].Verdict = Fail, Inconclusive
+	if _, ok := SlowdownTolerance(objs, rep); ok {
+		t.Error("a report with no speed objective passing has no tolerance")
 	}
 }

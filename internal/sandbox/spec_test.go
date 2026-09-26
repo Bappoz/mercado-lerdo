@@ -1,6 +1,8 @@
 package sandbox
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -73,5 +75,45 @@ func TestNewRunID(t *testing.T) {
 	a, b := NewRunID(), NewRunID()
 	if a == b || !strings.HasPrefix(string(a), "r-") || len(a) != 12 {
 		t.Errorf("run ids %q %q", a, b)
+	}
+}
+
+// Docker, as root, follows a symlink in a bind source on the host: a link in
+// the player's workspace must not mount a file from outside it.
+func TestValidateBindFollowsSymlinks(t *testing.T) {
+	ws, outside := t.TempDir(), t.TempDir()
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(ws, "nginx"), 0o750))
+	must(os.WriteFile(filepath.Join(ws, "nginx", "real.conf"), []byte("server {}\n"), 0o600))
+	must(os.WriteFile(filepath.Join(outside, "secret"), []byte("x\n"), 0o600))
+	must(os.Symlink("real.conf", filepath.Join(ws, "nginx", "inside.conf")))
+	must(os.Symlink(filepath.Join(outside, "secret"), filepath.Join(ws, "nginx", "outside.conf")))
+	must(os.Symlink("/etc/hostname", filepath.Join(outside, "etc-link")))
+
+	for _, tc := range []struct {
+		name    string
+		m       Mount
+		wantErr string
+	}{
+		{"file in the workspace", Mount{Source: filepath.Join(ws, "nginx", "real.conf"), Within: ws}, ""},
+		{"link that stays in the workspace", Mount{Source: filepath.Join(ws, "nginx", "inside.conf"), Within: ws}, ""},
+		{"the workspace itself", Mount{Source: ws, Within: ws}, ""},
+		{"link out of the workspace", Mount{Source: filepath.Join(ws, "nginx", "outside.conf"), Within: ws}, "outside"},
+		{"link into /etc", Mount{Source: filepath.Join(outside, "etc-link")}, "off-limits"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := okContainer()
+			tc.m.Type, tc.m.Target, tc.m.ReadOnly = BindMount, "/x", true
+			c.Mounts = []Mount{tc.m}
+			err := spec(c).Validate()
+			if tc.wantErr == "" && err != nil || tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Errorf("err = %v, want %q", err, tc.wantErr)
+			}
+		})
 	}
 }

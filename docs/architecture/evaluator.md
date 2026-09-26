@@ -93,7 +93,7 @@ Para um objetivo `m < L` com margem relativa `δ` (padrão 10 %):
 
 Execuções em que o gerador ficou limitado (drops com VUs livres) têm as medidas de carga descartadas, e o objetivo é julgado com as execuções que sobraram.
 
-**Máquina lenta (ADR-0021).** Antes de cada execução, o evaluator cronometra uma consulta fixa, que só usa CPU, no Postgres da sandbox, sob a cota do jogador (`db_probe_ms`, `stack.DBProbe`). Acima do piso (`evaluator.DefaultProbeLimit`), o que acontece com cada medida sensível a velocidade (`*_ms`, `db_cpu_*`, `error_rate`) depende do resultado:
+**Máquina lenta (ADR-0021).** Antes de cada execução, o evaluator cronometra uma consulta fixa, que só usa CPU, no Postgres da sandbox, sob a cota do jogador, depois de um `CHECKPOINT`, e fica com a mais rápida de 5 (`db_probe_ms`, `stack.DBProbe`). Acima do piso (`evaluator.DefaultProbeLimit`), o que acontece com cada medida sensível a velocidade (`*_ms`, `db_cpu_*`, `error_rate`) depende do resultado:
 
 - um erro de medida é julgado de novo, com o limiar multiplicado pelo fator de lentidão (a mediana das sondas ÷ `DefaultProbeReference`);
 - se o fator explica o erro, o veredito vira INCONCLUSIVE, com a máquina como motivo;

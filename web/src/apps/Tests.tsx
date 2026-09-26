@@ -20,6 +20,8 @@ const DIMENSION: Record<string, string> = {
   latency: "Latência",
   availability: "Disponibilidade",
   resources: "Recursos",
+  cost: "Custo",
+  integrity: "Integridade",
 };
 
 const seconds = (ns: number) => `${Math.round(ns / 1e9)} s`;
@@ -101,7 +103,7 @@ function ReportView({ report }: { report: Report }) {
           </li>
         ))}
       </ul>
-      {report.host?.slow && (
+      {report.host?.excused && (
         <p className="warn-text">
           Esta máquina rodou {report.host.slowdown.toFixed(1)}x mais devagar do que a máquina em que
           os cenários foram calibrados (teste de velocidade do banco:{" "}

@@ -163,7 +163,9 @@ func CreateWorkspace(ctx context.Context, base, dst, tag string, start ...string
 		return fmt.Errorf("play: %w", err)
 	}
 	git := func(args ...string) error {
-		full := append([]string{"-c", "user.name=sesim", "-c", "user.email=sesim@localhost", "-c", "commit.gpgsign=false"}, args...)
+		// The player's global hooks and signing must not run on (or break) the game's own commits.
+		full := append([]string{"-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "user.name=sesim",
+			"-c", "user.email=sesim@localhost", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"}, args...)
 		cmd := exec.CommandContext(ctx, "git", full...) //nolint:gosec // G204: fixed binary and arguments built here
 		cmd.Dir = dst
 		var errb bytes.Buffer

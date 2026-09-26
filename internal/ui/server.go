@@ -63,9 +63,10 @@ type Server struct {
 
 	hosts map[string]bool // allowed Host headers (T2), set by Listen
 
-	mu      sync.Mutex
-	job     *Job
-	nextJob int
+	mu          sync.Mutex
+	job         *Job
+	nextJob     int
+	lastTickets []game.Ticket // shown while a job runs (tickets)
 }
 
 // New creates the server. ctx bounds every job it starts.
@@ -382,6 +383,10 @@ func (s *Server) install(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if s.busy() { // a deploy or test in progress reads topology.yaml
+		writeError(w, http.StatusConflict, errBusy)
+		return
+	}
 	switch err := s.g.Install(body.Kind); {
 	case errors.Is(err, topology.ErrInstalled), errors.Is(err, game.ErrNoSession):
 		writeError(w, http.StatusConflict, err)
@@ -500,6 +505,19 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tickets(w http.ResponseWriter, r *http.Request) {
+	// A Production Test recreates the database under the story's traffic and
+	// measures it: reconciling now would query that database and report its
+	// reset as lost orders. Show what was true before the job started.
+	if s.busy() {
+		s.mu.Lock()
+		t := s.lastTickets
+		s.mu.Unlock()
+		if t == nil {
+			t = []game.Ticket{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"tickets": t})
+		return
+	}
 	t, err := s.g.Tickets(r.Context())
 	if err != nil {
 		writeError(w, statusOf(err), err)
@@ -508,6 +526,9 @@ func (s *Server) tickets(w http.ResponseWriter, r *http.Request) {
 	if t == nil {
 		t = []game.Ticket{}
 	}
+	s.mu.Lock()
+	s.lastTickets = t
+	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"tickets": t})
 }
 

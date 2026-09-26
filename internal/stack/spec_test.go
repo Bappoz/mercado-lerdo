@@ -1,6 +1,8 @@
 package stack
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -132,5 +134,26 @@ func TestPlan(t *testing.T) {
 	bad.Components.App.Replicas = 0
 	if _, err := s.Plan(bad); err == nil {
 		t.Error("Plan accepted an invalid topology")
+	}
+}
+
+// A player's nginx config that is a symlink out of the workspace must not be
+// mounted: the daemon would follow it on the host, and `nginx -t` would print
+// the file it reached (threat model T17b).
+func TestWorkspaceLinksStayInside(t *testing.T) {
+	o := testOptions()
+	o.Workspace = t.TempDir()
+	outside := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(outside, []byte("x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(o.Workspace, "nginx"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(o.Workspace, "nginx", "default.conf")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Spec(o).Validate(); err == nil || !strings.Contains(err.Error(), "outside") {
+		t.Errorf("a config linked out of the workspace was accepted: %v", err)
 	}
 }

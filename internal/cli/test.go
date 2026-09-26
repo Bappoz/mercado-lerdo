@@ -216,6 +216,14 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	for i, in := range inputs {
 		cases[i] = &verifyCase{Name: in.name, Expect: expect[in.name]}
 	}
+	// Calibration of the slow-host floor (ADR-0021): how close the passing
+	// references come to failing, and how fast this machine probes.
+	var (
+		tol     evaluator.Tolerance
+		tolOK   bool
+		tolCase string
+		probes  []float64
+	)
 	// One sandbox for the whole matrix: every case rebuilds the app from its
 	// own workspace and every run restores the pristine dataset.
 	err := withSandbox(ctx, ef.root, *base, pack, log, func(sb *stack.Stack) error {
@@ -232,6 +240,12 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 					return fmt.Errorf("%s: %w", in.name, err)
 				}
 				cases[i].Rounds = append(cases[i].Rounds, rep.Dimensions)
+				if t, ok := evaluator.SlowdownTolerance(pack.Manifest.Objectives, rep); ok && (!tolOK || t.Slowdown < tol.Slowdown) {
+					tol, tolOK, tolCase = t, true, in.name
+				}
+				if rep.Host != nil {
+					probes = append(probes, rep.Host.ProbeMS)
+				}
 				_, _ = game.SaveReport(ef.root, "eval-"+in.name, rep)
 			}
 		}
@@ -251,6 +265,12 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 		fmt.Fprintf(stdout, " (flip rate %.1f%%)", 100*float64(flips)/float64(cells))
 	}
 	fmt.Fprintln(stdout)
+	if tolOK && len(probes) > 0 {
+		slices.Sort(probes)
+		ref := probes[len(probes)/2]
+		fmt.Fprintf(stdout, "slowdown tolerance: %.2fx (%s, %s) · median probe %.0f ms → floor %.0f ms (evaluator.DefaultProbeLimit: %v, ADR-0021)\n",
+			tol.Slowdown, tolCase, tol.Objective, ref, evaluator.FloorFor(tol, ref), evaluator.DefaultProbeLimit)
+	}
 	if mismatches > 0 || flips > 0 {
 		return 3
 	}
