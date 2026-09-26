@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -36,6 +37,7 @@ type Run struct {
 	Drops    string             `json:"drops"`
 	Note     string             `json:"note,omitempty"`
 	Duration time.Duration      `json:"duration"`
+	ProbeMS  float64            `json:"db_probe_ms,omitempty"` // Prober, before the load
 }
 
 // Report is the outcome of evaluating one workspace against one scenario.
@@ -49,6 +51,7 @@ type Report struct {
 	Oracle     OracleResult       `json:"oracle"`
 	Objectives []ObjectiveResult  `json:"objectives"`
 	Dimensions map[string]Verdict `json:"dimensions"`
+	Host       *HostCheck         `json:"host,omitempty"` // nil when the env cannot probe
 }
 
 // dbCPUQuery is the p90 of Postgres CPU use relative to its quota over a window.
@@ -64,6 +67,9 @@ type Options struct {
 	// payments: checkouts the clients gave up on may still be running on the
 	// server (up to the app's payment timeout).
 	IntegritySettle time.Duration
+	// ProbeReference and ProbeLimit override DefaultProbeReference and
+	// DefaultProbeLimit.
+	ProbeReference, ProbeLimit time.Duration
 }
 
 // Evaluate runs the scenario's Production Test against workspace:
@@ -84,6 +90,15 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 		if err := env.ResetData(ctx); err != nil {
 			return rep, fmt.Errorf("run %d: reset: %w", i, err)
 		}
+		probeMS := 0.0
+		if p, ok := env.(Prober); ok {
+			// On the fresh database, before the load: how fast this host computes now.
+			if d, err := p.DBProbe(ctx); err == nil {
+				probeMS = float64(d.Milliseconds())
+			} else {
+				log.Warn("db probe failed", "run", i, "err", err)
+			}
+		}
 		stopFaults, faultErr := injectFaults(ctx, env, m.Faults, log)
 		res, err := env.RunLoad(ctx, m.Test, id)
 		stopFaults()
@@ -94,7 +109,7 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 			return rep, fmt.Errorf("run %d: fault: %w", i, err)
 		}
 		end := time.Now()
-		run := Run{ID: id, Values: loadValues(res), Drops: dropName(res.DropCause()), Duration: res.Duration}
+		run := Run{ID: id, Values: loadValues(res), Drops: dropName(res.DropCause()), Duration: res.Duration, ProbeMS: probeMS}
 		if res.DropCause() == workload.GeneratorLimited {
 			// The generator fell behind: client-side numbers are not trustworthy.
 			run.Values = map[string]float64{}
@@ -135,6 +150,8 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 	}
 	rep.Oracle = RunOracle(ctx, env.HTTP(), env.URL(), CatalogFromSeed(m.Dataset), pack.Oracle)
 
+	reference, limit := cmp.Or(opt.ProbeReference, DefaultProbeReference), cmp.Or(opt.ProbeLimit, DefaultProbeLimit)
+	rep.Host = hostCheck(rep.Runs, reference, limit)
 	for _, o := range m.Objectives {
 		var values []float64
 		switch {
@@ -162,7 +179,7 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 				}
 			}
 		}
-		rep.Objectives = append(rep.Objectives, Judge(o, values))
+		rep.Objectives = append(rep.Objectives, excuseSlowHost(o, Judge(o, values), rep.Host))
 	}
 	rep.Dimensions = Dimensions(rep.Objectives)
 	rep.Finished = time.Now().UTC()
@@ -212,10 +229,14 @@ func dropName(d workload.Drops) string {
 // WriteTable prints a human-readable report.
 func (r Report) WriteTable(w io.Writer) {
 	fmt.Fprintf(w, "scenario %s@%s · workspace %s · %s\n\n", r.Scenario, r.Version, r.Workspace, r.Finished.Sub(r.Started).Round(time.Second))
-	fmt.Fprintf(w, "%-8s %14s %12s %12s  %s\n", "run", "search p95", "errors", "db cpu p90", "drops")
+	fmt.Fprintf(w, "%-8s %14s %12s %12s %10s  %s\n", "run", "search p95", "errors", "db cpu p90", "db probe", "drops")
 	for i, run := range r.Runs {
-		fmt.Fprintf(w, "%-8d %14s %12s %12s  %s %s\n", i+1, fmtVal(run.Values, "search_p95_ms", "%.1f ms"),
-			fmtVal(run.Values, "error_rate", "%.2f%%", 100), fmtVal(run.Values, "db_cpu_p90", "%.0f%%", 100), run.Drops, run.Note)
+		probe := "—"
+		if run.ProbeMS > 0 {
+			probe = fmt.Sprintf("%.0f ms", run.ProbeMS)
+		}
+		fmt.Fprintf(w, "%-8d %14s %12s %12s %10s  %s %s\n", i+1, fmtVal(run.Values, "search_p95_ms", "%.1f ms"),
+			fmtVal(run.Values, "error_rate", "%.2f%%", 100), fmtVal(run.Values, "db_cpu_p90", "%.0f%%", 100), probe, run.Drops, run.Note)
 	}
 	fmt.Fprintf(w, "\noracle: %d/%d cases passed\n", r.Oracle.Passed, r.Oracle.Cases)
 	for _, f := range r.Oracle.Failures {

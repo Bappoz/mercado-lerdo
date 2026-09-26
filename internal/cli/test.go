@@ -14,6 +14,7 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
+	"github.com/Bappoz/software-engineering-simulator/internal/power"
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox/docker"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 	"github.com/Bappoz/software-engineering-simulator/internal/stack"
@@ -125,6 +126,9 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func reportTest(rep evaluator.Report, root string, stdout io.Writer) int {
 	rep.WriteTable(stdout)
+	if msg := game.SlowHost(rep); msg != "" {
+		fmt.Fprintln(stdout, "\n"+msg)
+	}
 	if path, err := game.SaveReport(root, "eval", rep); err == nil {
 		fmt.Fprintln(stdout, "report:", path)
 	}
@@ -149,6 +153,9 @@ func runPlayerTest(ctx context.Context, ef evalFlags, ws string, stdout, stderr 
 		return t.fail(err)
 	}
 	res.Report.WriteTable(stdout)
+	if msg := game.SlowHost(res.Report); msg != "" {
+		fmt.Fprintln(stdout, "\n"+msg)
+	}
 	if res.Path != "" {
 		fmt.Fprintln(stdout, "report:", res.Path)
 	}
@@ -202,6 +209,9 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 		inputs = slices.DeleteFunc(inputs, func(in input) bool { return !slices.Contains(keep, in.name) })
 	}
 
+	if why := power.Saving(); why != "" {
+		fmt.Fprintf(stderr, "sesim: warning: %s; speed verdicts will not match the calibration (ADR-0021)\n", why)
+	}
 	cases := make([]*verifyCase, len(inputs))
 	for i, in := range inputs {
 		cases[i] = &verifyCase{Name: in.name, Expect: expect[in.name]}

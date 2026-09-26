@@ -125,7 +125,7 @@ Detalhado em `docs/architecture/sandbox.md`. Resumo: containers no Docker local,
 | H2 | O briefing só com sintomas motiva em vez de paralisar, *dado* o onboarding calmo. | Playtest; perguntar o momento de maior frustração | tempo até a primeira ação; desistências |
 | H3 | Depois do debrief, o jogador explica por que a correção funcionou e cita uma alternativa. | Entrevista de 3 perguntas | % de explicações corretas |
 | H4 | Quick Check ≤ 90 s mantém a iteração fluindo. | Tempos instrumentados | mediana do loop; nº de iterações |
-| H5 | O evaluator é estável o bastante para ser confiável. | Rodar cada solução de referência N vezes em 3 máquinas | taxa de inversão PASS/FAIL. **1 de 3 máquinas medida (2026-09-25): 0 % em 45 testes**, com uma célula frágil (`evaluator.md` §4) |
+| H5 | O evaluator é estável o bastante para ser confiável. | Rodar cada solução de referência N vezes em 3 máquinas | taxa de inversão PASS/FAIL. **1 de 3 máquinas medida (2026-09-25): 0 % em 45 testes**, com uma célula frágil (`evaluator.md` §4). A mesma máquina em `power-saver` inverte o C1: a sonda `db_probe_ms` detecta e o veredito vira INCONCLUSIVE (ADR-0021) |
 | H6 | O jogador quer o próximo cenário. | "Começaria o C2 agora?" + retorno em 7 dias | % sim; retorno |
 | H7 | O setup local é aceitável para a persona. | Tempo do download até o primeiro dashboard | mediana do setup; falhas |
 
@@ -167,7 +167,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
 | 10c | C3 Single Instance Failure + injetor de falhas (`faults`, crash por `SIGABRT`, `autoRestart`) + clientes que tentam de novo + gateway idempotente + Laboratório de carga (ADR-0019) | feito: C3 jogável e verificado |
 | 10d | App Git + campanha do Stage 1 (C1 → C2 → C3 com o workspace da pessoa, história por topologia, estado canônico opcional, histórico de missões; ADR-0020) | feito: Stage 1 completo |
-| 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
+| 11 | **Playtest #2**: campanha do Stage 1 no NexoraOS ([`playtest-2.md`](playtest-2.md)); antes, a velocidade da máquina entra no veredito (ADR-0021) | decisão sobre Stage 2 e modo hospedado |
 
 ## 9. Decisões tomadas (2026-09-24)
 
