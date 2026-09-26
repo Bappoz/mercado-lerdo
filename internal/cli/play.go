@@ -25,7 +25,7 @@ type gameFlags struct {
 
 func (f *gameFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&f.root, "root", ".", "repository root")
-	fs.StringVar(&f.scenario, "scenario", defaultScenario, "scenario pack directory")
+	fs.StringVar(&f.scenario, "scenario", "", "scenario pack directory (default: the workspace's current scenario, or C1 for a new game)")
 	fs.StringVar(&f.workspace, "workspace", defaultWorkspace, "your workspace (a copy of the app you edit)")
 }
 
@@ -94,7 +94,7 @@ func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return t.fail(err)
 	}
 	if t.g.Session().Phase == play.Completed {
-		fmt.Fprintln(stdout, "Este cenário já foi concluído. O debrief está em:", filepath.Join(t.g.Pack.Dir, t.g.Pack.Manifest.Player.Debrief))
+		fmt.Fprintln(stdout, "Este cenário já foi concluído. O debrief está em:", filepath.Join(t.g.Pack().Dir, t.g.Pack().Manifest.Player.Debrief))
 	}
 	fmt.Fprintln(stdout)
 	if err := t.printDoc(ctx, t.g.Phase().Briefing); err != nil {
@@ -179,7 +179,7 @@ func runHint(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "Não há mais dicas. As anteriores continuam valendo; releia com calma.")
 		return 0
 	}
-	fmt.Fprintf(stdout, "Dica %d de %d · %s\n\n%s\n", h.Level, len(t.g.Pack.Hints), h.Kind, play.RenderBriefing(h.Text, play.CLIWords))
+	fmt.Fprintf(stdout, "Dica %d de %d · %s\n\n%s\n", h.Level, len(t.g.Pack().Hints), h.Kind, play.RenderBriefing(h.Text, play.CLIWords))
 	return 0
 }
 

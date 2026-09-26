@@ -30,6 +30,7 @@ type Job struct {
 	Lab      *game.LabResult   `json:"lab,omitempty"`
 
 	labParams game.LabParams // the experiment a "lab" job runs
+	canonical bool           // how an "advance" job enters the next scenario
 }
 
 const maxJobLines = 200
@@ -73,6 +74,15 @@ func (s *Server) startJob(kind string) http.HandlerFunc {
 			return
 		}
 		var lab game.LabParams
+		var adv struct {
+			Canonical bool `json:"canonical"`
+		}
+		if kind == "advance" {
+			if err := readJSON(w, r, &adv); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+		}
 		if kind == "lab" {
 			if err := readJSON(w, r, &lab); err != nil {
 				writeError(w, http.StatusBadRequest, err)
@@ -90,7 +100,7 @@ func (s *Server) startJob(kind string) http.HandlerFunc {
 			return
 		}
 		s.nextJob++
-		j := &Job{ID: s.nextJob, Kind: kind, Running: true, Lines: []string{}, Started: time.Now().UTC(), labParams: lab}
+		j := &Job{ID: s.nextJob, Kind: kind, Running: true, Lines: []string{}, Started: time.Now().UTC(), labParams: lab, canonical: adv.Canonical}
 		s.job = j
 		s.mu.Unlock()
 		go s.run(j)
@@ -128,6 +138,8 @@ func (s *Server) run(j *Job) {
 		if deploy, err = s.g.Deploy(ctx, s.say); err == nil && deploy == nil {
 			deploy = []stack.Change{}
 		}
+	case "advance":
+		_, err = s.g.Advance(ctx, j.canonical, s.say)
 	case "lab":
 		var r game.LabResult
 		if r, err = s.g.Lab(ctx, j.labParams, s.say); err == nil {

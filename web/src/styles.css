@@ -1226,3 +1226,150 @@ pre.error-text {
   border: var(--bw) solid var(--line);
   border-radius: var(--radius-sm);
 }
+
+/* ---- missions ---- */
+.missions-stage {
+  margin: 0;
+  font-family: var(--font-chrome);
+  font-weight: 400;
+}
+.missions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mission[data-state="locked"] {
+  opacity: 0.6;
+}
+.mission[data-state="current"] {
+  border-color: var(--accent-dark);
+}
+.mission-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mission-head .arch-badge {
+  margin-left: auto;
+}
+.mission-n {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-chrome);
+  background: var(--accent);
+  color: var(--on-accent);
+  border: var(--bw) solid var(--line);
+}
+
+/* ---- git ---- */
+.git {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  height: 100%;
+}
+.git-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  border-right: var(--bw) solid var(--line);
+}
+.git-side h3 {
+  margin: 6px 0 0;
+  font-family: var(--font-chrome);
+  font-weight: 400;
+  font-size: 15px;
+}
+.git-files,
+.git-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.git-files button {
+  width: 100%;
+  padding: 3px 6px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  overflow-wrap: anywhere;
+}
+.git-files button[aria-pressed="true"] {
+  background: var(--panel);
+  border-color: var(--line);
+}
+.git-status {
+  font-weight: 700;
+  color: var(--warn);
+}
+.git-status[data-status="untracked"],
+.git-status[data-status="added"] {
+  color: var(--ok);
+}
+.git-status[data-status="deleted"] {
+  color: var(--danger);
+}
+.git-log li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--chart-grid);
+}
+.git-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.git-commit label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.git-commit textarea {
+  padding: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--panel);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.git-diff {
+  min-width: 0;
+  overflow: auto;
+  background: var(--term-bg);
+}
+pre.diff {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--term-ink);
+}
+.d-add {
+  color: #7dd3a8;
+}
+.d-del {
+  color: #ff8a7a;
+}
+.d-hunk {
+  color: var(--term-accent);
+}
+.d-file {
+  color: var(--term-dim);
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .git {
+    grid-template-columns: 1fr;
+  }
+}

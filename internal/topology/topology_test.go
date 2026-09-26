@@ -108,3 +108,32 @@ func TestInstallFileWithoutTopology(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSetKeepsTheRest(t *testing.T) {
+	src := []byte("# my notes\napiVersion: sesim.dev/v0alpha1\nkind: Topology\ncomponents:\n" +
+		"  nginx: {size: S}\n  app: {size: M, replicas: 2, database: postgres, dbMaxConns: 10} # tuned\n" +
+		"  postgres: {size: S, maxConnections: 50}\n")
+	out, err := Set(src, map[string]int{"app.replicas": 3, "app.dbMaxConns": 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	top, err := Parse(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := top.Components.App
+	if a.Replicas != 3 || a.DBMaxConns != 20 || a.Size != M {
+		t.Errorf("app = %+v, want replicas 3, pool 20, and the player's size M kept", a)
+	}
+	for _, want := range []string{"# my notes", "# tuned"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("comment %q lost:\n%s", want, out)
+		}
+	}
+	if _, err := Set(src, map[string]int{"app.replicas": 9}); err == nil {
+		t.Error("an invalid result must be refused")
+	}
+	if _, err := Set(src, map[string]int{"cache.size": 1}); err == nil {
+		t.Error("an unknown component must be refused")
+	}
+}

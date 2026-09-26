@@ -26,6 +26,8 @@ const LAYOUT: Record<AppId, { x: number; y: number; w: number; h: number }> = {
   deploy: { x: 700, y: 120, w: 560, h: 520 },
   support: { x: 1000, y: 64, w: 400, h: 520 },
   lab: { x: 180, y: 90, w: 700, h: 600 },
+  missions: { x: 300, y: 70, w: 640, h: 560 },
+  git: { x: 140, y: 64, w: 900, h: 600 },
   docs: { x: 200, y: 80, w: 820, h: 600 },
   notes: { x: 1000, y: 420, w: 380, h: 320 },
   settings: { x: 240, y: 72, w: 860, h: 640 },

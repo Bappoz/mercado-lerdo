@@ -204,3 +204,49 @@ func runLab(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	return 0
 }
+
+var missionMark = map[string]string{"done": "[x]", "current": "[>]", "locked": "[ ]"}
+
+// runCampaign: the stage's missions.
+func runCampaign(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	t, code := openGame(ctx, "campaign", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	v, err := t.g.Campaign()
+	if err != nil {
+		return t.fail(err)
+	}
+	fmt.Fprintln(stdout, v.Stage)
+	fmt.Fprintln(stdout)
+	for _, m := range v.Missions {
+		fmt.Fprintf(stdout, "  %s %s", missionMark[m.State], m.Title)
+		if r := m.Result; r != nil {
+			fmt.Fprintf(stdout, "  (%d min, %d testes, %d dicas%s)", int(r.DoneAt.Sub(r.StartedAt).Minutes()), r.Tests, r.Hints,
+				map[bool]string{true: ", do estado canônico", false: ""}[r.Canonical])
+		}
+		fmt.Fprintln(stdout)
+	}
+	if v.CanAdvance {
+		fmt.Fprintln(stdout, "\nPróximo: `sesim advance` (com o seu código) ou `sesim advance --canonical` (do estado canônico).")
+	}
+	return 0
+}
+
+// runAdvance: move a completed game to the next scenario of its stage.
+func runAdvance(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	canonical := slices.Contains(args, "--canonical")
+	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--canonical" })
+	t, code := openGame(ctx, "advance", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	next, err := t.g.Advance(ctx, canonical, t.say)
+	if err != nil {
+		return t.fail(err)
+	}
+	fmt.Fprintf(stdout, "Pronto: próximo cenário, %s. `sesim play` sobe a Nexora e mostra o briefing.\n", next.Manifest.Metadata.Title)
+	return 0
+}

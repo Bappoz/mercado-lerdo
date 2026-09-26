@@ -20,7 +20,7 @@ type TopologyView struct {
 // Topology describes the workspace's topology against the running one.
 func (g *Game) Topology() TopologyView {
 	var v TopologyView
-	for _, o := range g.Pack.Manifest.Objectives {
+	for _, o := range g.Pack().Manifest.Objectives {
 		if o.Measure == topology.CostMeasure && o.Below != nil {
 			v.Budget = *o.Below
 		}

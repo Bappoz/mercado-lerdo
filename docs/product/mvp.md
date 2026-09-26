@@ -166,7 +166,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 10a | Topologia (`topology.yaml`, catálogo fechado, custo modelado, deploy por reconciliação, nginx no workspace, PgBouncer); apps Arquitetura, Deploy e Docs (instalar = editar a topologia); C1 com dimensão custo (ADR-0017) | feito: escalar o app e instalar o PgBouncer pela UI; C1 verificado com 6 casos |
 | 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
 | 10c | C3 Single Instance Failure + injetor de falhas (`faults`, crash por `SIGABRT`, `autoRestart`) + clientes que tentam de novo + gateway idempotente + Laboratório de carga (ADR-0019) | feito: C3 jogável e verificado |
-| 10d | App Git + campanha do Stage 1 (C1 → C2 → C3, histórico de missões) | Stage 1 completo |
+| 10d | App Git + campanha do Stage 1 (C1 → C2 → C3 com o workspace da pessoa, história por topologia, estado canônico opcional, histórico de missões; ADR-0020) | feito: Stage 1 completo |
 | 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
 
 ## 9. Decisões tomadas (2026-09-24)
