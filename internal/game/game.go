@@ -226,7 +226,7 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 	if fresh {
 		base := filepath.Join(g.Root, g.Pack.Manifest.Player.WorkspaceBase)
 		tag := "sesim/scenario-start/" + filepath.Base(g.Pack.Dir)
-		if err := play.CreateWorkspace(ctx, base, s.Workspace, tag); err != nil {
+		if err := play.CreateWorkspace(ctx, base, s.Workspace, tag, g.Pack.StartPatches()...); err != nil {
 			return false, err
 		}
 		if err := g.update(func(s *play.Session) { s.Phase, s.StartedAt = play.Calm, time.Now().UTC() }); err != nil {
@@ -245,7 +245,7 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 			_ = stack.Down(ctx, g.d, g.reg, old) // a stopped sandbox of this game; start clean
 		}
 		say("Subindo a Nexora (a primeira vez leva alguns minutos)…")
-		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace}, g.log)
+		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace, PaymentLatency: g.Pack.Manifest.World.PaymentLatency}, g.log)
 		if err != nil {
 			return fresh, err
 		}
@@ -418,7 +418,7 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	}
 	start := time.Now()
 	s := g.Session()
-	rep, err := evaluator.Evaluate(ctx, st, &pack, s.Workspace, evaluator.Options{Log: g.log, TelemetryLag: 5 * time.Second})
+	rep, err := evaluator.Evaluate(ctx, st, &pack, s.Workspace, evaluator.Options{Log: g.log, TelemetryLag: 5 * time.Second, IntegritySettle: 12 * time.Second})
 	if bgErr := g.startBackground(context.WithoutCancel(ctx)); bgErr != nil {
 		say("Não consegui retomar o tráfego: " + bgErr.Error())
 	}

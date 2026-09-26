@@ -1,0 +1,89 @@
+# C2 — Connection Pressure (Stage 1). Format: docs/architecture/simulation-engine.md §2 (v0alpha1, unstable).
+apiVersion: sesim.dev/v0alpha1
+kind: Scenario
+metadata:
+  id: stage1/c2-connection-pressure
+  version: 0.1.0
+  title: Connection Pressure
+
+# Must match what the seed tool loaded; the oracle regenerates it to know the truth.
+dataset: {seed: 4242, users: 5000, products: 100000, orders: 20000}
+
+# The start is where C1 ended (the trigram index) plus the story's "we added
+# instances because it was slow": 3 app replicas with a pool of 20 each.
+start:
+  - ../c1-slow-search/references/a-trigram.patch
+  - start/c2-start.patch
+
+world:
+  # The payment gateway is slow (outside the player's reach).
+  paymentLatency: 2s,4.5s
+
+test:
+  profile: rush
+  rate: 60
+  ramp: 15s
+  duration: 45s
+  runs: 3
+
+oracle: oracle/cases.yaml
+
+player:
+  workspaceBase: nexora
+  calm: {profile: normal-day, rate: 20, briefing: player/calm.md}
+  growth: {profile: rush, rate: 55, briefing: player/growth.md}
+  hints: player/hints.yaml
+  debrief: player/debrief.md
+
+objectives:
+  - id: search-matches-contract
+    dimension: correctness
+    measure: oracle_pass_ratio
+    atLeast: 1
+  # Browsing pages (list, product), not search: the connection starvation hits
+  # every page alike, and search latency is C1's property (and noisy here: the
+  # checkouts' stock updates feed its GIN index).
+  - id: browse-p95
+    dimension: latency
+    measure: browse_p95_ms
+    below: 400
+    margin: 0.10
+  - id: errors
+    dimension: availability
+    measure: error_rate
+    below: 0.01
+    margin: 0.10
+  # Judged on the total over the runs: no order lost in the whole test.
+  - id: payments-match-orders
+    dimension: integrity
+    measure: payment_mismatches
+    below: 1
+  - id: budget
+    dimension: cost
+    measure: monthly_cost
+    below: 130
+
+# The store's pages stay fast: the pain is errors and money, not slowness.
+broken: {correctness: PASS, latency: PASS, availability: FAIL, integrity: FAIL, cost: PASS}
+
+references:
+  - name: release-connection
+    patch: references/a-release-connection.patch
+    why: The order is reserved in one short transaction and marked paid in another; no connection is held while the gateway answers, and 3 x 15 connections fit under max_connections.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: PASS, cost: PASS}
+  - name: pool-sizing
+    patch: references/b-pool-sizing.patch
+    why: 3 replicas x 15 connections fit under max_connections, so the database never refuses one. A client that gives up mid-payment still cancels the transaction after the charge.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: FAIL, cost: PASS}
+  - name: pgbouncer
+    patch: references/c-pgbouncer.patch
+    why: The replicas share 40 real connections through PgBouncer in transaction mode. No more refused connections, but a client that gives up mid-payment still loses the order.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: FAIL, cost: PASS}
+  - name: sized-pools-no-cancel
+    patch: references/e-sized-pools-no-cancel.patch
+    why: Keeps the transaction around the charge, but a client that gives up no longer cancels it, and 3 x 15 connections fit under max_connections.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: PASS, cost: PASS}
+  - name: bigger-database
+    patch: references/d-bigger-database.patch
+    why: A bigger database has room for 100 connections. The errors go, the lost orders stay, and it costs 150 a month.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: FAIL, cost: FAIL}

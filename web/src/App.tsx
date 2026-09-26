@@ -15,6 +15,7 @@ import { Inbox, messageKey } from "./apps/Inbox.tsx";
 import { Notes } from "./apps/Notes.tsx";
 import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
+import { Support } from "./apps/Support.tsx";
 import { Tests } from "./apps/Tests.tsx";
 import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
@@ -36,6 +37,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "pulse", title: "Pulse · produção agora", label: "Pulse" },
   { id: "terminal", title: "Terminal · rede da Nexora", label: "Terminal" },
   { id: "tests", title: "Testes", label: "Testes", reading: true },
+  { id: "support", title: "Suporte · reclamações", label: "Suporte", reading: true },
   { id: "architecture", title: "Arquitetura · topology.yaml", label: "Arquitetura", reading: true },
   { id: "deploy", title: "Deploy", label: "Deploy", reading: true },
   { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
@@ -230,6 +232,8 @@ export function App() {
             }
           />
         );
+      case "support":
+        return <Support running={state.running} />;
       case "notes":
         return <Notes hasSession={state.session !== null} />;
       case "settings":

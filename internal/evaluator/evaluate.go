@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -59,6 +60,10 @@ type Options struct {
 	// TelemetryLag is how long to wait after a run for the last remote-write
 	// and OTLP batches to land before querying the window.
 	TelemetryLag time.Duration
+	// IntegritySettle is how long to wait after a run before reconciling
+	// payments: checkouts the clients gave up on may still be running on the
+	// server (up to the app's payment timeout).
+	IntegritySettle time.Duration
 }
 
 // Evaluate runs the scenario's Production Test against workspace:
@@ -95,6 +100,16 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 			return rep, ctx.Err()
 		case <-time.After(opt.TelemetryLag):
 		}
+		if needsLedger(m.Objectives) {
+			in, err := reconcileRun(ctx, env, id, opt.IntegritySettle)
+			if err != nil {
+				return rep, fmt.Errorf("run %d: integrity: %w", i, err)
+			}
+			run.Values["payment_mismatches"] = float64(in.Mismatches())
+			run.Values["lost_orders"] = float64(in.Lost)
+			run.Values["phantom_orders"] = float64(in.Phantom)
+			run.Values["duplicate_charges"] = float64(in.DuplicateCharges)
+		}
 		window := int(math.Ceil(res.Duration.Seconds()))
 		if v, err := env.Query(ctx, fmt.Sprintf(dbCPUQuery, window), end); err == nil {
 			run.Values["db_cpu_p90"] = v
@@ -111,10 +126,18 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 
 	for _, o := range m.Objectives {
 		var values []float64
-		switch o.Measure {
-		case "oracle_pass_ratio":
+		switch {
+		case o.Measure == "oracle_pass_ratio":
 			values = []float64{rep.Oracle.PassRatio()}
-		case topology.CostMeasure:
+		case summed[o.Measure]:
+			// Counts of rare events are a property of the whole test ("no
+			// order lost in the Production Test"): judged on the total.
+			total := 0.0
+			for _, r := range rep.Runs {
+				total += r.Values[o.Measure]
+			}
+			values = []float64{total}
+		case o.Measure == topology.CostMeasure:
 			// Modeled, not measured: the same for every run.
 			t, err := topology.Load(workspace)
 			if err != nil {
@@ -143,8 +166,15 @@ func loadValues(r workload.Result) map[string]float64 {
 	for _, e := range r.Endpoints {
 		reqs += e.Requests
 		failed += e.Failed
-		if e.Name == "search" {
-			v["search_p95_ms"] = float64(e.P95) / float64(time.Millisecond)
+		ms := float64(e.P95) / float64(time.Millisecond)
+		switch e.Name {
+		case "search":
+			v["search_p95_ms"] = ms
+		case "products", "product":
+			// Browsing: the catalog list and product pages, the slower of the
+			// two. Not search (C1's property, noisy under writes because of
+			// its GIN index) and not checkout (it includes the gateway's time).
+			v["browse_p95_ms"] = max(v["browse_p95_ms"], ms)
 		}
 	}
 	if r.DropCause() == workload.SystemSaturated {
@@ -208,4 +238,37 @@ func fmtVal(vals map[string]float64, key, format string, scale ...float64) strin
 		v *= scale[0]
 	}
 	return fmt.Sprintf(format, v)
+}
+
+func needsLedger(objectives []scenario.Objective) bool {
+	for _, o := range objectives {
+		if integrityMeasures[o.Measure] {
+			return true
+		}
+	}
+	return false
+}
+
+// reconcileRun compares what the gateway charged with what the system stored
+// for one run (the load generator prefixes every order_ref with the run id).
+func reconcileRun(ctx context.Context, env Env, runID string, settle time.Duration) (Integrity, error) {
+	l, ok := env.(Ledger)
+	if !ok {
+		return Integrity{}, errors.New("this sandbox cannot read the payment ledger")
+	}
+	select {
+	case <-ctx.Done():
+		return Integrity{}, ctx.Err()
+	case <-time.After(settle):
+	}
+	prefix := runID + "-"
+	charges, err := l.Charges(ctx, prefix)
+	if err != nil {
+		return Integrity{}, err
+	}
+	orders, err := l.PaidOrders(ctx, prefix)
+	if err != nil {
+		return Integrity{}, err
+	}
+	return Reconcile(charges, orders), nil
 }

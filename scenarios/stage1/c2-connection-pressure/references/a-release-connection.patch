@@ -1,0 +1,87 @@
+diff --git a/internal/store/orders.go b/internal/store/orders.go
+--- a/internal/store/orders.go
++++ b/internal/store/orders.go
+@@ -31,8 +31,32 @@
+ // order total is known.
+ type ChargeFunc func(ctx context.Context, orderRef string, amountCents int) error
+ 
+-// PlaceOrder reserves stock, charges the customer and records the order.
++// PlaceOrder reserves stock, records the order as pending, charges the
++// customer and marks the order paid. No database connection is held while
++// the gateway answers: the charge happens between two short transactions.
+ func (s *Store) PlaceOrder(ctx context.Context, userID int64, orderRef string, items []Item, charge ChargeFunc) (Order, error) {
++	o, err := s.reserve(ctx, userID, orderRef, items)
++	if err != nil {
++		return Order{}, err
++	}
++	// Once the gateway is asked, the outcome must be recorded even if the
++	// client stops waiting: otherwise the customer pays for nothing.
++	ctx = context.WithoutCancel(ctx)
++	if err := charge(ctx, orderRef, o.TotalCents); err != nil {
++		if rerr := s.release(ctx, o.ID, items); rerr != nil {
++			return Order{}, fmt.Errorf("charge: %w (and releasing the order failed: %v)", err, rerr)
++		}
++		return Order{}, fmt.Errorf("charge: %w", err)
++	}
++	if _, err := s.pool.Exec(ctx, `UPDATE orders SET status = 'paid' WHERE id = $1`, o.ID); err != nil {
++		return Order{}, fmt.Errorf("mark order paid: %w", err)
++	}
++	o.Status = "paid"
++	return o, nil
++}
++
++// reserve takes the stock and stores the order as pending, in one short transaction.
++func (s *Store) reserve(ctx context.Context, userID int64, orderRef string, items []Item) (Order, error) {
+ 	tx, err := s.pool.Begin(ctx)
+ 	if err != nil {
+ 		return Order{}, fmt.Errorf("begin checkout: %w", err)
+@@ -63,11 +87,7 @@
+ 		total += price * it.Quantity
+ 	}
+ 
+-	if err := charge(ctx, orderRef, total); err != nil {
+-		return Order{}, fmt.Errorf("charge: %w", err)
+-	}
+-
+-	o := Order{OrderRef: orderRef, Status: "paid", TotalCents: total}
++	o := Order{OrderRef: orderRef, Status: "pending", TotalCents: total}
+ 	err = tx.QueryRow(ctx, `
+ 		INSERT INTO orders (user_id, order_ref, status, total_cents)
+ 		VALUES ($1, $2, $3, $4)
+@@ -88,6 +108,24 @@
+ 	return o, nil
+ }
+ 
++// release gives the stock of an unpaid order back and marks it failed.
++func (s *Store) release(ctx context.Context, orderID int64, items []Item) error {
++	tx, err := s.pool.Begin(ctx)
++	if err != nil {
++		return err
++	}
++	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
++	for _, it := range items {
++		if _, err := tx.Exec(ctx, `UPDATE products SET stock = stock + $1 WHERE id = $2`, it.Quantity, it.ProductID); err != nil {
++			return err
++		}
++	}
++	if _, err := tx.Exec(ctx, `UPDATE orders SET status = 'failed' WHERE id = $1`, orderID); err != nil {
++		return err
++	}
++	return tx.Commit(ctx)
++}
++
+ // OrdersByUser lists a user's orders, newest first.
+ func (s *Store) OrdersByUser(ctx context.Context, userID int64, limit int) ([]Order, error) {
+ 	rows, err := s.pool.Query(ctx, `
+diff --git a/topology.yaml b/topology.yaml
+--- a/topology.yaml
++++ b/topology.yaml
+@@ -10,7 +10,7 @@
+     size: S
+     replicas: 3
+     database: postgres
+-    dbMaxConns: 20
++    dbMaxConns: 15
+   postgres:
+     size: S
+     maxConnections: 50

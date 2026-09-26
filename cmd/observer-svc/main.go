@@ -21,7 +21,12 @@ func main() {
 	if addr == "" {
 		addr = ":8090"
 	}
-	srv := &http.Server{Addr: addr, Handler: observer.NewPayments().Handler(), ReadHeaderTimeout: 5 * time.Second}
+	latency, err := observer.ParseLatency(os.Getenv("PAYMENTS_LATENCY"))
+	if err != nil {
+		log.Error("observer-svc", "err", err)
+		os.Exit(2)
+	}
+	srv := &http.Server{Addr: addr, Handler: observer.NewPayments(latency).Handler(), ReadHeaderTimeout: 5 * time.Second}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -31,7 +36,7 @@ func main() {
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
 	}()
-	log.Info("observer-svc listening", "addr", addr)
+	log.Info("observer-svc listening", "addr", addr, "latency_median", latency.Median, "latency_p99", latency.P99)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Error("observer-svc stopped", "err", err)
 		os.Exit(1)

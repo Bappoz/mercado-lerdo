@@ -141,7 +141,9 @@ func (t Topology) Validate() error {
 	size(KindPostgres, c.Postgres.Size)
 	between("app.replicas", c.App.Replicas, 1, 4)
 	between("app.dbMaxConns", c.App.DBMaxConns, 1, 100)
-	between("postgres.maxConnections", c.Postgres.MaxConnections, 20, 400)
+	if tier, ok := Catalog[KindPostgres].Sizes[c.Postgres.Size]; ok {
+		between("postgres.maxConnections", c.Postgres.MaxConnections, 20, tier.MaxConnections)
+	}
 	switch c.App.Database {
 	case "postgres":
 	case "pgbouncer":

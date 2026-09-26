@@ -2,7 +2,7 @@
 
 Jogo para aprender engenharia de software operando um sistema **real**: você recebe uma aplicação rodando, vê ela degradar sob carga, investiga com métricas, logs e terminal, muda o código ou a infraestrutura e prova a correção com um teste objetivo. Várias soluções podem estar certas.
 
-> Estado: o primeiro cenário (**C1 — Slow Search**) é jogável ponta a ponta no navegador (**NexoraOS**) e no terminal. Roadmap em [`docs/product/mvp.md`](docs/product/mvp.md) §8.
+> Estado: **C1 — Slow Search** e **C2 — Connection Pressure** são jogáveis ponta a ponta no navegador (**NexoraOS**) e no terminal (`--scenario scenarios/stage1/c2-connection-pressure` para o C2). Roadmap em [`docs/product/mvp.md`](docs/product/mvp.md) §8.
 
 ```bash
 just images && just build && bin/sesim ui   # o jogo no navegador; requisitos em docs/development/local-setup.md
@@ -20,6 +20,7 @@ bin/sesim play                              # o mesmo jogo no terminal
 | Arquitetura | o `topology.yaml`: componentes, réplicas, tamanhos e custo contra o orçamento |
 | Deploy | coloca o workspace em produção (código, migrações, topologia, `nginx/default.conf`) |
 | Docs | catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia |
+| Suporte | reclamações dos clientes, tiradas do que eles viveram de fato: erros, lentidão, cobrança sem pedido |
 | Notas | anotações da investigação |
 | Configurações | escolha entre três temas e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
 

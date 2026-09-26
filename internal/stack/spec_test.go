@@ -111,7 +111,7 @@ func TestPlan(t *testing.T) {
 			[]Change{{"pgbouncer", Create}}},
 		{"app moves to pgbouncer", with(func(c *topology.Components) { c.PgBouncer = bouncer; c.App.Database = "pgbouncer" }),
 			[]Change{{"pgbouncer", Create}, {"app", Recreate}, {"nginx", Recreate}}},
-		{"postgres setting only", with(func(c *topology.Components) { c.Postgres.MaxConnections = 100 }),
+		{"postgres setting only", with(func(c *topology.Components) { c.Postgres.MaxConnections = 40 }),
 			[]Change{{"postgres", Recreate}}},
 		{"nginx size only", with(func(c *topology.Components) { c.Nginx.Size = topology.M }),
 			[]Change{{"nginx", Recreate}}},

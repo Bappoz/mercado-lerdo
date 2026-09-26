@@ -32,13 +32,14 @@ import (
 // Words name the game's tools in the scenario's texts as NexoraOS shows them
 // (the terminal's are play.CLIWords).
 var Words = map[string]string{
-	"status": "o **Pulse**",
-	"shell":  "o **Terminal**",
-	"check":  "o **Quick Check** (app Testes)",
-	"test":   "o **Production Test** (app Testes)",
-	"hint":   "a **Tabby** (pedir dica)",
-	"next":   "clique em **Começar o expediente**, aqui embaixo",
-	"deploy": "o **Deploy**",
+	"status":  "o **Pulse**",
+	"shell":   "o **Terminal**",
+	"check":   "o **Quick Check** (app Testes)",
+	"test":    "o **Production Test** (app Testes)",
+	"hint":    "a **Tabby** (pedir dica)",
+	"next":    "clique em **Começar o expediente**, aqui embaixo",
+	"deploy":  "o **Deploy**",
+	"support": "o **Suporte**",
 	// Where the player reads the topology and the catalog.
 	"architecture": "o app **Arquitetura**",
 	"docs":         "o app **Docs**",
@@ -112,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/hint", s.hint)
 	api.HandleFunc("POST /api/stop", s.stop)
 	api.HandleFunc("GET /api/pulse", s.pulse)
+	api.HandleFunc("GET /api/tickets", s.tickets)
 	api.HandleFunc("POST /api/viewed", s.viewed)
 	api.HandleFunc("GET /api/notes", s.getNotes)
 	api.HandleFunc("PUT /api/notes", s.putNotes)
@@ -402,11 +404,25 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 		s.g.Event("debrief_viewed", props)
 	case "pulse":
 		s.g.Event("status_viewed", props)
+	case "support":
+		s.g.Event("support_viewed", props)
 	default:
 		writeError(w, http.StatusBadRequest, fmt.Errorf("unknown view %q", body.What))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) tickets(w http.ResponseWriter, r *http.Request) {
+	t, err := s.g.Tickets(r.Context())
+	if err != nil {
+		writeError(w, statusOf(err), err)
+		return
+	}
+	if t == nil {
+		t = []game.Ticket{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tickets": t})
 }
 
 // ---- notes and preferences ----

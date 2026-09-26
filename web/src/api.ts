@@ -63,7 +63,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
 }
 
 /** viewed records that the player looked at something (product events, as the CLI records them). */
-export function viewed(what: "debrief" | "pulse"): Promise<void> {
+export function viewed(what: "debrief" | "pulse" | "support"): Promise<void> {
   return api<void>("POST", "/api/viewed", { what }).catch(() => undefined);
 }
 
@@ -156,6 +156,16 @@ export interface Job {
   check?: CheckResult;
   test?: TestResult;
   deploy?: Change[];
+}
+
+export interface Ticket {
+  id: string;
+  kind: "error" | "slow" | "lost_payment" | "double_charge";
+  endpoint?: string;
+  count: number;
+  subject: string;
+  quote: string;
+  since: string;
 }
 
 // ---- topology (internal/topology, internal/stack) ----
