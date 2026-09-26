@@ -55,5 +55,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # build-all embeds the web bundle, so the web dependencies are needed too.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - uses: extractions/setup-just@v4
+      - run: npm --prefix web ci
       - run: just build-all
