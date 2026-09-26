@@ -24,13 +24,14 @@ func RenderBriefing(md string, vars map[string]string) string {
 // CLIWords name the game's tools in the player's briefings, hints and
 // debrief ({{status}}, {{next}}…) when they are read in the terminal.
 var CLIWords = map[string]string{
-	"status": "`sesim status`",
-	"shell":  "`sesim shell`",
-	"check":  "`sesim check`",
-	"test":   "`sesim test`",
-	"hint":   "`sesim hint`",
-	"next":   "rode `sesim next`",
-	"deploy": "`sesim deploy`",
+	"status":  "`sesim status`",
+	"shell":   "`sesim shell`",
+	"check":   "`sesim check`",
+	"test":    "`sesim test`",
+	"hint":    "`sesim hint`",
+	"next":    "rode `sesim next`",
+	"deploy":  "`sesim deploy`",
+	"support": "`sesim support`",
 	// Where the player reads the topology and the catalog.
 	"architecture": "`sesim topology`",
 	"docs":         "`sesim docs`",

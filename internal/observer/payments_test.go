@@ -2,14 +2,18 @@ package observer
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDuplicateChargesAreCounted(t *testing.T) {
-	p := NewPayments()
+	p := NewPayments(Latency{})
 	srv := httptest.NewServer(p.Handler())
 	defer srv.Close()
 
@@ -48,5 +52,68 @@ func TestDuplicateChargesAreCounted(t *testing.T) {
 	var body struct{ Count int }
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil || body.Count != 2 {
 		t.Errorf("GET /charges/ref-1 count = %d (err %v), want 2", body.Count, err)
+	}
+}
+
+func TestLatencyDistribution(t *testing.T) {
+	l := Latency{Median: 600 * time.Millisecond, P99: 2500 * time.Millisecond}
+	if a, b := l.For("run-1"), l.For("run-1"); a != b {
+		t.Fatalf("latency is not deterministic: %v vs %v", a, b)
+	}
+	var ds []time.Duration
+	for i := range 20000 {
+		ds = append(ds, l.For(fmt.Sprintf("r-%d", i)))
+	}
+	slices.Sort(ds)
+	med, p99 := ds[len(ds)/2], ds[len(ds)*99/100]
+	near := func(got, want time.Duration) bool { return math.Abs(float64(got-want)) < 0.05*float64(want) }
+	if !near(med, l.Median) || !near(p99, l.P99) {
+		t.Errorf("median %v, p99 %v; want ≈ %v, %v", med, p99, l.Median, l.P99)
+	}
+	if (Latency{}).For("x") != 0 {
+		t.Error("zero latency must not delay")
+	}
+}
+
+func TestParseLatency(t *testing.T) {
+	if l, err := ParseLatency("600ms,2.5s"); err != nil || l.Median != 600*time.Millisecond || l.P99 != 2500*time.Millisecond {
+		t.Errorf("ParseLatency = %+v, %v", l, err)
+	}
+	for _, bad := range []string{"600ms", "2s,1s", "x,y", "0s,1s"} {
+		if _, err := ParseLatency(bad); err == nil {
+			t.Errorf("ParseLatency(%q) accepted", bad)
+		}
+	}
+}
+
+func TestListByPrefix(t *testing.T) {
+	p := NewPayments(Latency{})
+	srv := httptest.NewServer(p.Handler())
+	defer srv.Close()
+	for _, ref := range []string{"runA-1", "runA-1", "runA-2", "runB-1"} {
+		resp, err := http.Post(srv.URL+"/charge", "application/json", strings.NewReader(`{"order_ref":"`+ref+`","amount_cents":10}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	got := p.List("runA-")
+	for i := range got {
+		if got[i].LastAt.IsZero() {
+			t.Errorf("%s has no last charge time", got[i].OrderRef)
+		}
+		got[i].LastAt = time.Time{}
+	}
+	want := []RefCharges{{OrderRef: "runA-1", Count: 2, AmountCents: 20}, {OrderRef: "runA-2", Count: 1, AmountCents: 10}}
+	if !slices.Equal(got, want) {
+		t.Errorf("List = %+v, want %+v", got, want)
+	}
+	resp, err := http.Get(srv.URL + "/charges?prefix=r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("short prefix status = %d, want 400", resp.StatusCode)
 	}
 }

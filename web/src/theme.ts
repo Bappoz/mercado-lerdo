@@ -12,6 +12,7 @@ export type AppId =
   | "tests"
   | "architecture"
   | "deploy"
+  | "support"
   | "docs"
   | "notes"
   | "settings";
@@ -181,6 +182,7 @@ const pastelBars: Record<AppId, string> = {
   tests: "#d7c7f0",
   architecture: "#b9d7b0",
   deploy: "#f6c6a8",
+  support: "#f2a2ac",
   docs: "#cfe6f0",
   notes: "#f5e19a",
   settings: "#cfe6f0",

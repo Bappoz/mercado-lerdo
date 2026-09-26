@@ -69,6 +69,6 @@ export function tabbyTip(s: GameState | null): Tip {
   }
   return {
     id: "incident",
-    text: "Algo mudou. Compare o Pulse de agora com o que você anotou no dia calmo: o que está diferente?",
+    text: "Algo mudou. Compare o Pulse de agora com o que você anotou no dia calmo, e leia o Suporte: o que os clientes estão sentindo?",
   };
 }

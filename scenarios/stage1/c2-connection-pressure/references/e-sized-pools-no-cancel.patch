@@ -1,0 +1,25 @@
+diff --git a/internal/store/orders.go b/internal/store/orders.go
+--- a/internal/store/orders.go
++++ b/internal/store/orders.go
+@@ -33,6 +33,9 @@
+ 
+ // PlaceOrder reserves stock, charges the customer and records the order.
+ func (s *Store) PlaceOrder(ctx context.Context, userID int64, orderRef string, items []Item, charge ChargeFunc) (Order, error) {
++	// A checkout that reached the gateway must finish even if the client
++	// stops waiting: cancelling it after the charge would lose the order.
++	ctx = context.WithoutCancel(ctx)
+ 	tx, err := s.pool.Begin(ctx)
+ 	if err != nil {
+ 		return Order{}, fmt.Errorf("begin checkout: %w", err)
+diff --git a/topology.yaml b/topology.yaml
+--- a/topology.yaml
++++ b/topology.yaml
+@@ -10,7 +10,7 @@
+     size: S
+     replicas: 3
+     database: postgres
+-    dbMaxConns: 20
++    dbMaxConns: 15
+   postgres:
+     size: S
+     maxConnections: 50

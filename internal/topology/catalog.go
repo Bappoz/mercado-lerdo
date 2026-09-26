@@ -18,6 +18,9 @@ type Tier struct {
 	CPUs   float64 `json:"cpus"`
 	Memory int64   `json:"memory"` // bytes
 	Price  float64 `json:"price"`  // modeled US$ per month, per instance
+	// MaxConnections is how many connections this size has memory for
+	// (postgres only).
+	MaxConnections int `json:"max_connections,omitempty"`
 }
 
 // Setting documents one field of a component in topology.yaml.
@@ -82,12 +85,12 @@ var Catalog = map[Kind]Entry{
 		Tradeoffs: "É o componente mais caro. Cada conexão aberta ocupa memória no servidor; `maxConnections` alto sem memória para acompanhar vira outro problema.",
 		Settings: []Setting{
 			{"size", "S | M | L", "CPU e memória do banco."},
-			{"maxConnections", "20–400", "Máximo de conexões simultâneas (max_connections). Acima disso, o banco recusa novas conexões."},
+			{"maxConnections", "20 até o teto do tamanho", "Máximo de conexões simultâneas (max_connections). Acima disso, o banco recusa novas conexões (\"too many clients\"). Cada conexão ocupa memória: S aguenta até 50, M até 150, L até 400."},
 		},
 		Sizes: map[Size]Tier{
-			S: {CPUs: 0.5, Memory: 256 * mib, Price: 40},
-			M: {CPUs: 1, Memory: 512 * mib, Price: 80},
-			L: {CPUs: 2, Memory: 1024 * mib, Price: 160},
+			S: {CPUs: 0.5, Memory: 256 * mib, Price: 40, MaxConnections: 50},
+			M: {CPUs: 1, Memory: 512 * mib, Price: 80, MaxConnections: 150},
+			L: {CPUs: 2, Memory: 1024 * mib, Price: 160, MaxConnections: 400},
 		},
 	},
 	KindPgBouncer: {

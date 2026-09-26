@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/Bappoz/software-engineering-simulator/internal/workspace"
 )
 
 // Phase of the story.
@@ -83,14 +85,18 @@ func (s *Session) Save() error {
 	return os.Rename(tmp, statePath(s.Workspace))
 }
 
-// CreateWorkspace copies base into dst (which must not exist), makes it a git
-// repository and tags the scenario start, so the player's changes are a diff.
-func CreateWorkspace(ctx context.Context, base, dst, tag string) error {
+// CreateWorkspace copies base into dst (which must not exist), applies the
+// scenario's start patches, makes it a git repository and tags the scenario
+// start, so the player's changes are a diff.
+func CreateWorkspace(ctx context.Context, base, dst, tag string, start ...string) error {
 	if _, err := os.Stat(dst); err == nil {
 		return fmt.Errorf("play: %s already exists", dst)
 	}
 	if err := os.CopyFS(dst, os.DirFS(base)); err != nil {
 		return fmt.Errorf("play: copy %s: %w", base, err)
+	}
+	if err := workspace.Apply(ctx, dst, start...); err != nil {
+		return fmt.Errorf("play: scenario start: %w", err)
 	}
 	if err := os.WriteFile(filepath.Join(dst, ".gitignore"), []byte(".sesim/\n"), 0o600); err != nil {
 		return fmt.Errorf("play: %w", err)

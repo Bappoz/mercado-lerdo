@@ -26,6 +26,7 @@ Playing (output in PT-BR):
   shell          terminal inside the Nexora network
   deploy         ship the workspace (code, migrations, topology.yaml, nginx config)
   topology       the workspace's topology, its modeled cost and pending changes
+  support        customer complaints of the last 10 minutes
   docs [c]       the component catalog, or one component's page
   install <c>    add an optional component to topology.yaml (deploy applies it)
   stop           stop the background traffic (--down: also destroy the sandbox)
@@ -80,6 +81,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runDeploy(ctx, args[1:], stdout, stderr)
 	case "topology":
 		return runTopology(ctx, args[1:], stdout, stderr)
+	case "support":
+		return runSupport(ctx, args[1:], stdout, stderr)
 	case "docs":
 		return runDocs(ctx, args[1:], stdout, stderr)
 	case "install":

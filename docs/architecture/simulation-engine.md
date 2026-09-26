@@ -110,6 +110,20 @@ Os valores (taxas, limiares, recursos) são **ilustrativos** e serão calibrados
 - Todo cenário tem ≥2 referências `PASS` distintas. É o princípio "várias soluções válidas" imposto pelo formato.
 - Todo cenário tem o estado quebrado implícito, que precisa dar FAIL em pelo menos uma dimensão.
 
+### O que o v0 de fato implementa (Chunks 6–10b)
+
+O esboço acima é de antes da calibração. O formato lido por `internal/scenario` (v0alpha1) é mais simples; os manifestos de referência são `scenarios/stage1/c1-slow-search/scenario.yaml` e `scenarios/stage1/c2-connection-pressure/scenario.yaml`.
+
+| Campo | O que é |
+|---|---|
+| `dataset` | seed e tamanhos; o oráculo regenera a verdade a partir deles |
+| `start` | patches, em ordem, que levam o workspace-base ao início do cenário (o C2 começa com a correção do C1 e a topologia "subimos réplicas"). As referências são patches sobre esse início |
+| `world` | o que acontece fora do sistema do jogador; hoje `paymentLatency: "mediana,p99"` do gateway emulado (ADR-0018) |
+| `test` | perfil k6, taxa, rampa, duração e execuções do Production Test |
+| `objectives` | `measure` + `below`/`atLeast` + `margin` (ADR-0015). Medidas: `oracle_pass_ratio`, `search_p95_ms`, `browse_p95_ms`, `error_rate`, `db_cpu_p90`, `payment_mismatches`, `monthly_cost` (só na dimensão `cost`, ADR-0017) |
+| `player` | workspace-base, fases calma e de crescimento (perfil, taxa, briefing), dicas e debrief |
+| `broken`, `references` | vereditos esperados do início e de cada solução; `sesim scenario verify` confere |
+
 ## 3. Ciclo de vida do cenário
 
 ```mermaid

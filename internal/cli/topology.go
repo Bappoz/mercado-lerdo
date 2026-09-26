@@ -135,3 +135,25 @@ func runInstall(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fmt.Fprintf(stdout, "%s adicionado ao topology.yaml. Nada muda em produção até o próximo `sesim deploy`.\n", topology.Catalog[k].Name)
 	return 0
 }
+
+// runSupport: what customers complained about in the last ten minutes.
+func runSupport(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	t, code := openGame(ctx, "support", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	tickets, err := t.g.Tickets(ctx)
+	if err != nil {
+		return t.fail(err)
+	}
+	t.g.Event("support_viewed", map[string]any{"view": "cli", "tickets": len(tickets)})
+	if len(tickets) == 0 {
+		fmt.Fprintln(stdout, "Nenhuma reclamação nos últimos 10 minutos.")
+		return 0
+	}
+	for _, k := range tickets {
+		fmt.Fprintf(stdout, "%-38s ×%-4d \"%s\"\n", k.Subject, k.Count, k.Quote)
+	}
+	return 0
+}

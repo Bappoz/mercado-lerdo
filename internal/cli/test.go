@@ -47,7 +47,7 @@ func (f *evalFlags) load(stderr io.Writer) (*scenario.Pack, *slog.Logger, bool) 
 
 // withSandbox brings up a throwaway sandbox for workspace, runs f and always
 // destroys it (and verifies the cleanup) afterwards.
-func withSandbox(ctx context.Context, root, workspace string, log *slog.Logger, f func(*stack.Stack) error) error {
+func withSandbox(ctx context.Context, root, workspace string, pack *scenario.Pack, log *slog.Logger, f func(*stack.Stack) error) error {
 	d, err := docker.New()
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func withSandbox(ctx context.Context, root, workspace string, log *slog.Logger, 
 		log.Warn("gc of orphaned sandboxes failed", "err", err)
 	}
 	log.Info("creating sandbox", "workspace", workspace)
-	s, err := stack.Up(ctx, d, reg, stack.Options{Root: root, Workspace: workspace}, log)
+	s, err := stack.Up(ctx, d, reg, stack.Options{Root: root, Workspace: workspace, PaymentLatency: pack.Manifest.World.PaymentLatency}, log)
 	if s != nil {
 		defer func() {
 			s.Close()
@@ -100,9 +100,9 @@ func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	var rep evaluator.Report
-	err := withSandbox(ctx, ef.root, *ws, log, func(s *stack.Stack) error {
+	err := withSandbox(ctx, ef.root, *ws, pack, log, func(s *stack.Stack) error {
 		var err error
-		rep, err = evaluator.Evaluate(ctx, s, pack, *ws, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+		rep, err = evaluator.Evaluate(ctx, s, pack, *ws, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second, IntegritySettle: 12 * time.Second})
 		return err
 	})
 	if err != nil {
@@ -193,15 +193,15 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	}
 	// One sandbox for the whole matrix: every case rebuilds the app from its
 	// own workspace and every run restores the pristine dataset.
-	err := withSandbox(ctx, ef.root, *base, log, func(sb *stack.Stack) error {
+	err := withSandbox(ctx, ef.root, *base, pack, log, func(sb *stack.Stack) error {
 		for round := 1; round <= *rounds; round++ {
 			for i, in := range inputs {
 				log.Info("verify", "round", round, "case", in.name)
-				dir, cleanup, err := workspace.Materialize(ctx, *base, in.patch)
+				dir, cleanup, err := workspace.Materialize(ctx, *base, append(pack.StartPatches(), in.patch)...)
 				if err != nil {
 					return err
 				}
-				rep, err := evaluator.Evaluate(ctx, sb, pack, dir, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second})
+				rep, err := evaluator.Evaluate(ctx, sb, pack, dir, evaluator.Options{Log: log, TelemetryLag: 5 * time.Second, IntegritySettle: 12 * time.Second})
 				cleanup()
 				if err != nil {
 					return fmt.Errorf("%s: %w", in.name, err)

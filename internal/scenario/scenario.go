@@ -13,6 +13,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/observer"
 	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
@@ -40,9 +41,22 @@ type Manifest struct {
 	Objectives []Objective `yaml:"objectives"`
 	// Player is what the player sees (sesim play); optional for harness-only packs.
 	Player *Player `yaml:"player"`
+	// Start lists patches (relative to the pack) that turn the workspace base
+	// into this scenario's start, in order: e.g. C2 starts where C1 ended.
+	// References are patches against the start.
+	Start []string `yaml:"start"`
+	// World is what happens outside the player's system.
+	World World `yaml:"world"`
 	// Broken is the expected verdict of the untouched scenario start.
 	Broken     Expect      `yaml:"broken"`
 	References []Reference `yaml:"references"`
+}
+
+// World sets the conditions outside the player's reach.
+type World struct {
+	// PaymentLatency is the emulated gateway's "median,p99" answer time
+	// (e.g. "600ms,2.5s"); empty answers at once.
+	PaymentLatency string `yaml:"paymentLatency"`
 }
 
 // Metadata identifies the scenario.
@@ -123,10 +137,13 @@ type OracleCase struct {
 
 // Measures the evaluator knows how to produce.
 var Measures = map[string]bool{
-	"search_p95_ms":      true,
-	"error_rate":         true,
-	"db_cpu_p90":         true,
-	"oracle_pass_ratio":  true,
+	"search_p95_ms":     true,
+	"error_rate":        true,
+	"db_cpu_p90":        true,
+	"oracle_pass_ratio": true,
+	"browse_p95_ms":     true, // the slower of the catalog list and product pages
+	// The gateway's charges reconciled with the stored paid orders (evaluator.Reconcile).
+	"payment_mismatches": true,
 	topology.CostMeasure: true, // modeled from topology.yaml; cost dimension only
 }
 
@@ -151,6 +168,11 @@ func Load(dir string) (*Pack, error) {
 	for _, r := range m.References {
 		if _, err := os.Stat(filepath.Join(dir, r.Patch)); err != nil {
 			return nil, fmt.Errorf("scenario %s: reference %s: %w", dir, r.Name, err)
+		}
+	}
+	for _, s := range m.Start {
+		if _, err := os.Stat(filepath.Join(dir, s)); err != nil {
+			return nil, fmt.Errorf("scenario %s: start: %w", dir, err)
 		}
 	}
 	if pl := m.Player; pl != nil {
@@ -246,10 +268,22 @@ func (m Manifest) Validate() error {
 			}
 		}
 	}
+	if _, err := observer.ParseLatency(m.World.PaymentLatency); err != nil {
+		fail("world.paymentLatency: %v", err)
+	}
 	if len(m.Broken) == 0 || m.Broken.AllPass() {
 		fail("broken: the scenario start must be expected to FAIL at least one dimension")
 	}
 	return errors.Join(errs...)
+}
+
+// StartPatches returns the Start patches as paths.
+func (p *Pack) StartPatches() []string {
+	out := make([]string, len(p.Manifest.Start))
+	for i, s := range p.Manifest.Start {
+		out[i] = filepath.Join(p.Dir, s)
+	}
+	return out
 }
 
 // AllPass reports whether every listed dimension is expected to PASS.

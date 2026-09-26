@@ -49,6 +49,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 - k6 remote write envia duração em **segundos**, como histograma nativo (`K6_FEATURES=native-histograms`): p95 = `histogram_quantile(0.95, sum by (name) (rate(k6_http_req_duration_seconds[..])))`. Não use `k6_http_req_duration_p95`: é cumulativo desde o início do run. O texto das queries do `pg_stat_statements` fica em `pg_stat_statements_query_id` (join por `queryid`).
 - O reset do evaluator clona `nexora_seed`, que é criado uma vez com as migrações do **repo**. Mudou o schema base (`nexora/migrations/0001…`) ou a seed? `DROP DATABASE nexora_seed` (com `ALTER DATABASE … IS_TEMPLATE false` antes), senão os testes medem o dataset antigo.
 - Não rode `just check`/builds pesados durante `just verify` ou um Production Test: disputa de CPU vira ruído na medição.
+- O Postgres da sandbox roda com `synchronous_commit=off` (ADR-0018): a latência de fsync do disco do host não pode decidir veredito. Mudou a física do Postgres? Reverifique **todos** os cenários.
 - Postgres: health check por TCP (`pg_isready -h 127.0.0.1`; pelo socket ele fica "pronto" no servidor temporário do init). `docker compose exec -T` consome o stdin: em scripts, `</dev/null`.
 
 ## Evitar

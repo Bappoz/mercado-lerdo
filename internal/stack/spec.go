@@ -50,6 +50,8 @@ type Options struct {
 	// workspace file may have moved past). Its S sizes are the C1 calibration.
 	Topology topology.Topology
 	Secrets  Secrets
+	// PaymentLatency is the emulated gateway's "median,p99" (scenario world).
+	PaymentLatency string
 }
 
 // Secrets are per-run database passwords, never shown to the player.
@@ -95,6 +97,7 @@ func Spec(o Options) sandbox.Spec {
 		Containers: []sandbox.Container{
 			{
 				Component: "payments", Replica: 1, Image: imageObserver, Networks: []string{netPlay}, ReadOnly: true,
+				Env:       map[string]string{"PAYMENTS_LATENCY": o.PaymentLatency},
 				Resources: sandbox.Resources{CPUs: 0.25, Memory: 64 * mb, Pids: 64},
 				Health:    health("wget", "-qO-", "http://127.0.0.1:8090/healthz"),
 			},
@@ -148,8 +151,12 @@ func playerComponents(o Options) []sandbox.Container {
 	}
 	out := []sandbox.Container{{
 		Component: "postgres", Replica: 1, Image: imagePostgres,
+		// synchronous_commit=off: a commit does not wait for the WAL fsync. The
+		// sandbox is disposable, and fsync latency is the host disk's (SSD,
+		// HDD, Docker Desktop), which must not decide a verdict.
 		Cmd: []string{"postgres", "-c", "max_connections=" + strconv.Itoa(c.Postgres.MaxConnections),
-			"-c", "shared_buffers=64MB", "-c", "shared_preload_libraries=pg_stat_statements"},
+			"-c", "shared_buffers=64MB", "-c", "shared_preload_libraries=pg_stat_statements",
+			"-c", "synchronous_commit=off"},
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": o.Secrets.Admin, "NEXORA_DB_PASSWORD": o.Secrets.App, "SESIM_OBSERVER_PASSWORD": o.Secrets.Observer,
 		},

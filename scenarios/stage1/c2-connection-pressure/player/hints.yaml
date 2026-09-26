@@ -1,0 +1,36 @@
+# Five levels, from observation to implementation (docs/product/mvp.md §4).
+# Never skip a level; the player asks for one at a time.
+- level: 1
+  kind: Observação
+  text: |
+    Em {{status}}, a CPU do banco está no teto, como no C1? Em quais páginas aparecem os erros?
+    Leia {{support}} com atenção: há dois problemas diferentes nas reclamações.
+- level: 2
+  kind: Direção
+  text: |
+    Pergunte ao banco quantas conexões ele tem e quantas aceita (pelo {{shell}} → `psql`):
+    `SELECT count(*) FROM pg_stat_activity;` e `SHOW max_connections;`.
+    Agora faça a conta em `topology.yaml`: quantas conexões as instâncias do app podem abrir juntas?
+- level: 3
+  kind: Conceito
+  text: |
+    Uma conexão fica presa ao pedido durante toda a transação. Quanto tempo dura a transação
+    do checkout, contando a espera pelo gateway? E o que acontece com essa transação quando o
+    cliente desiste de esperar no meio do pagamento, depois que o gateway já cobrou?
+    Pesquise "connection pool sizing" e "chamadas externas dentro de transações".
+- level: 4
+  kind: Explicação
+  text: |
+    São dois problemas. (1) A soma dos pools (3 × 20) passa do `max_connections` do banco:
+    quando os pools crescem, o banco recusa conexões ("too many clients") e o app devolve erro.
+    (2) O checkout abre a transação, chama o gateway (segundos) e só então grava o pedido. A
+    conexão fica presa o tempo todo, e, se o cliente desiste, o cancelamento desfaz a transação
+    depois da cobrança: o dinheiro sai e o pedido some. Diminuir o pool resolve só o (1).
+- level: 5
+  kind: Implementação
+  text: |
+    Em `internal/store/orders.go`, `PlaceOrder`: reserve o estoque e grave o pedido como
+    `pending` numa transação curta; cobre fora de qualquer transação; marque `paid` depois.
+    Uma cobrança iniciada não pode ser cancelada pelo cliente (`context.WithoutCancel`).
+    Confira também `replicas × dbMaxConns` contra `postgres.maxConnections` e faça o deploy.
+    Depois {{check}} para ver o efeito e {{test}} para valer.

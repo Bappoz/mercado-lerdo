@@ -58,14 +58,30 @@ Regra comum aos três: **o evaluator verifica resultados; o briefing nunca nomei
 
 ### C2 — Connection Pressure
 
-- **Montagem:** depois do C1, o tráfego cresce de novo e o app ganha mais instâncias (história: "subimos mais instâncias porque estava lento"). Cada instância tem um `pgxpool` grande demais, e a soma passa de `max_connections`. O checkout segura a conexão durante uma chamada lenta a um pagamento externo emulado.
-- **Sintomas:** 5xx intermitentes (`too many clients`) e picos de latência com CPU do banco *moderada*. É o enigma "CPU baixa mas lento".
-- **Soluções válidas:**
-  - dimensionar os pools de acordo com `max_connections`;
-  - PgBouncer em transaction pooling;
-  - liberar a conexão antes da chamada externa (a correção mais didática);
-  - aumentar `max_connections` e a memória. Funciona, mas pesa na dimensão de custo.
-- **Objetivos:** taxa de erro < 0,1 %, p95 < 400 ms, **zero pedido perdido ou pagamento duplicado** (verificado contra registros do gerador de carga e do mock de pagamento, ambos fora do controle do jogador), custo ≤ orçamento.
+- **Montagem** (pacote `scenarios/stage1/c2-connection-pressure`):
+  - começa onde o C1 terminou (índice trigram) e com a história "subimos para 3 instâncias", cada uma com pool de 20 (3 × 20 = 60 > 50 do `max_connections`);
+  - o checkout segura a transação e a conexão durante a chamada ao gateway emulado (lognormal, mediana 2 s, p99 4,5 s; `world.paymentLatency`);
+  - clientes desistem aos 5 s.
+- **Sintomas:**
+  - erros intermitentes (`too many clients`) com CPU do banco moderada (~55%);
+  - reclamações de "cobrado e sem pedido": o cancelamento do cliente desfaz a transação *depois* da cobrança.
+- **Refinado na calibração (Chunk 10b):** só infraestrutura não basta.
+  - Pool menor, PgBouncer ou banco maior acabam com os erros, mas não com os pedidos perdidos. Esse bug está no código.
+  - As soluções válidas precisam das duas correções:
+    - duas transações curtas + pools que cabem (a mais didática);
+    - transação mantida, mas sem cancelamento após a cobrança, + pools que cabem.
+  - O plano original ("dimensionar os pools" ou "PgBouncer" sozinhos) foi medido e reprova em integridade. Aumentar `max_connections` exige um Postgres M (catálogo) e estoura o orçamento.
+- **Objetivos:**
+
+  | Dimensão | Critério |
+  |---|---|
+  | Disponibilidade | taxa de erro < 1 % |
+  | Latência | p95 das páginas de navegação (lista e produto) < 400 ms |
+  | Integridade | **nenhuma divergência entre cobranças do gateway e pedidos pagos no teste inteiro** (ADR-0018) |
+  | Custo | ≤ US$ 130/mês |
+  | Corretude | a busca continua correta |
+
+  Production Test: perfil `rush` (25 % checkout) a 60 req/s, 3 execuções.
 
 ### C3 — Single Instance Failure
 
@@ -141,7 +157,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 8b | Jogo (`play`/`test`/`verify`) sobre o driver; aposentar `internal/devstack` e o compose no caminho do jogador | feito: fluxo do jogador e `verify` (20/20) com o compose desligado |
 | 9 | UI web: **NexoraOS**, com desktop simulado, e-mail (briefing, incidente, debrief), Pulse, Terminal, Testes, Notas, Configurações (3 temas + personalização) e Tabby com roteiro fixo; regras do jogo em `internal/game`, compartilhadas com a CLI (ADR-0016) | feito: C1 jogado de ponta a ponta no navegador, de `play` ao PASS e ao debrief |
 | 10a | Topologia (`topology.yaml`, catálogo fechado, custo modelado, deploy por reconciliação, nginx no workspace, PgBouncer); apps Arquitetura, Deploy e Docs (instalar = editar a topologia); C1 com dimensão custo (ADR-0017) | feito: escalar o app e instalar o PgBouncer pela UI; C1 verificado com 6 casos |
-| 10b | C2 Connection Pressure + app Suporte (reclamações vindas dos erros reais) | C2 jogável |
+| 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
 | 10c | C3 + injetor de falhas + Laboratório de carga | C3 jogável |
 | 10d | App Git + campanha do Stage 1 (C1 → C2 → C3, histórico de missões) | Stage 1 completo |
 | 11 | **Playtest #2** | decisão sobre Stage 2 e modo hospedado |
