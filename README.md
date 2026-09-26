@@ -2,7 +2,7 @@
 
 Jogo para aprender engenharia de software operando um sistema **real**: você recebe uma aplicação rodando, vê ela degradar sob carga, investiga com métricas, logs e terminal, muda o código ou a infraestrutura e prova a correção com um teste objetivo. Várias soluções podem estar certas.
 
-> Estado: **C1 — Slow Search** e **C2 — Connection Pressure** são jogáveis ponta a ponta no navegador (**NexoraOS**) e no terminal (`--scenario scenarios/stage1/c2-connection-pressure` para o C2). Roadmap em [`docs/product/mvp.md`](docs/product/mvp.md) §8.
+> Estado: os três cenários do Stage 1 (**C1 — Slow Search**, **C2 — Connection Pressure**, **C3 — Single Instance Failure**) são jogáveis ponta a ponta no navegador (**NexoraOS**) e no terminal. Escolha com `--scenario scenarios/stage1/<cenário>`. Roadmap em [`docs/product/mvp.md`](docs/product/mvp.md) §8.
 
 ```bash
 just images && just build && bin/sesim ui   # o jogo no navegador; requisitos em docs/development/local-setup.md
@@ -19,6 +19,7 @@ bin/sesim play                              # o mesmo jogo no terminal
 | Testes | Quick Check (indicativo) e Production Test (o que vale) |
 | Arquitetura | o `topology.yaml`: componentes, réplicas, tamanhos e custo contra o orçamento |
 | Deploy | coloca o workspace em produção (código, migrações, topologia, `nginx/default.conf`) |
+| Lab | laboratório de carga: ensaie tráfego (e a queda de uma instância) antes do teste que vale |
 | Docs | catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia |
 | Suporte | reclamações dos clientes, tiradas do que eles viveram de fato: erros, lentidão, cobrança sem pedido |
 | Notas | anotações da investigação |

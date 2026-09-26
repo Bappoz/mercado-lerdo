@@ -63,6 +63,7 @@ B1 navegador ↔ sesim · B2 sesim ↔ Docker daemon · B3 zona do jogador ↔ z
 | T10 | T | App falsifica respostas para o oráculo ou pula escritas | Oráculo com dados escritos durante o teste + integridade cruzada observer-svc × probe | Médio (local) |
 | T11 | T | Jogador edita SQLite ou relatório | **Aceito no MVP** (sem leaderboard) | Aceito |
 | T10b | T | O app forja pedidos pagos ou esconde pedidos perdidos (Chunk 10b) | A integridade é conciliada contra o registro do gateway emulado, fora do alcance do jogador: pedido pago sem cobrança conta como fantasma, cobrança sem pedido como perdido (ADR-0018). O evaluator lê o banco como superusuário, pelo `docker exec` no container do Postgres (não pela rede do jogador), com o prefixo passado como variável do `psql`, nunca concatenado no SQL | Baixo |
+| T12b | T | A injeção de falhas (Chunk 10c) vira um meio de executar comandos no container | O único comando é fixo (`kill -ABRT 1`, no container de um componente da lista `scenario.Crashable`, hoje só `app`), vindo do pacote de cenário embutido ou do laboratório; nenhum texto do jogador entra no comando | Baixo |
 | T12 | S | Container da zona do jogador fala com o Prometheus ou o k6 e injeta dados | Prometheus e k6 só na rede `obs`; o exporter e o observer-svc (nas duas redes) só expõem as portas necessárias e ignoram endpoints de escrita vindos da rede `play` (o recorder só aceita na interface `obs`) | Baixo |
 
 ### B4 — Sandbox ↔ host/LAN

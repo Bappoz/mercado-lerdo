@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -115,5 +116,45 @@ func TestListByPrefix(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("short prefix status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestIdempotencyKeyChargesOnce(t *testing.T) {
+	p := NewPayments(Latency{Median: 50 * time.Millisecond, P99: 50 * time.Millisecond})
+	srv := httptest.NewServer(p.Handler())
+	defer srv.Close()
+	post := func(key string) int {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/charge", strings.NewReader(`{"order_ref":"k-1","amount_cents":100}`))
+		if key != "" {
+			req.Header.Set("Idempotency-Key", key)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Error(err)
+			return 0
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	// Two concurrent requests with the same key, then a late retry.
+	var wg sync.WaitGroup
+	codes := make([]int, 2)
+	for i := range 2 {
+		wg.Go(func() { codes[i] = post("key-1") })
+	}
+	wg.Wait()
+	slices.Sort(codes)
+	if !slices.Equal(codes, []int{http.StatusOK, http.StatusCreated}) {
+		t.Errorf("concurrent codes = %v, want one 201 and one replayed 200", codes)
+	}
+	if code := post("key-1"); code != http.StatusOK {
+		t.Errorf("late retry = %d, want 200", code)
+	}
+	if s := p.Stats(); s.Charges != 1 || s.Duplicated != 0 {
+		t.Errorf("stats = %+v, want exactly one charge", s)
+	}
+	post("") // without a key, a repeat is a new charge
+	if s := p.Stats(); s.Charges != 2 || s.Duplicated != 1 {
+		t.Errorf("stats without key = %+v, want a duplicate", s)
 	}
 }

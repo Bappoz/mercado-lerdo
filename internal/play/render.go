@@ -32,6 +32,7 @@ var CLIWords = map[string]string{
 	"next":    "rode `sesim next`",
 	"deploy":  "`sesim deploy`",
 	"support": "`sesim support`",
+	"lab":     "`sesim lab`",
 	// Where the player reads the topology and the catalog.
 	"architecture": "`sesim topology`",
 	"docs":         "`sesim docs`",

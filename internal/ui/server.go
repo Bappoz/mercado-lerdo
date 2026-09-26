@@ -40,6 +40,7 @@ var Words = map[string]string{
 	"next":    "clique em **Começar o expediente**, aqui embaixo",
 	"deploy":  "o **Deploy**",
 	"support": "o **Suporte**",
+	"lab":     "o **Laboratório de carga**",
 	// Where the player reads the topology and the catalog.
 	"architecture": "o app **Arquitetura**",
 	"docs":         "o app **Docs**",
@@ -106,6 +107,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/check", s.startJob("check"))
 	api.HandleFunc("POST /api/test", s.startJob("test"))
 	api.HandleFunc("POST /api/deploy", s.startJob("deploy"))
+	api.HandleFunc("POST /api/lab", s.startJob("lab"))
 	api.HandleFunc("GET /api/topology", s.topology)
 	api.HandleFunc("GET /api/catalog", s.catalog)
 	api.HandleFunc("POST /api/install", s.install)

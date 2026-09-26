@@ -27,11 +27,18 @@ type Payments struct {
 	now     func() time.Time
 	latency Latency
 	sleep   func(time.Duration)
+	keys    map[string]*keyed // Idempotency-Key -> its one charge
+}
+
+// keyed is the single outcome of an idempotency key; done closes when known.
+type keyed struct {
+	done   chan struct{}
+	charge Charge
 }
 
 // NewPayments returns an empty gateway that answers after latency.
 func NewPayments(latency Latency) *Payments {
-	return &Payments{charges: map[string][]Charge{}, now: time.Now, latency: latency, sleep: time.Sleep}
+	return &Payments{charges: map[string][]Charge{}, now: time.Now, latency: latency, sleep: time.Sleep, keys: map[string]*keyed{}}
 }
 
 // Handler routes the gateway API.
@@ -54,15 +61,39 @@ func (p *Payments) charge(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "order_ref and positive amount_cents required"})
 		return
 	}
-	// The charge is captured when the gateway answers: a client that gives
-	// up waiting has still paid.
+	// An Idempotency-Key is charged once, like a real gateway: a repeat
+	// (even one arriving while the first is in flight) gets the original.
+	if key := r.Header.Get("Idempotency-Key"); key != "" {
+		p.mu.Lock()
+		k, seen := p.keys[key]
+		if !seen {
+			k = &keyed{done: make(chan struct{})}
+			p.keys[key] = k
+		}
+		p.mu.Unlock()
+		if seen {
+			<-k.done
+			writeJSON(w, http.StatusOK, map[string]any{"charge": k.charge, "replayed": true})
+			return
+		}
+		k.charge = p.capture(c)
+		close(k.done)
+		writeJSON(w, http.StatusCreated, k.charge)
+		return
+	}
+	writeJSON(w, http.StatusCreated, p.capture(c))
+}
+
+// capture waits the gateway's latency and records the charge. The charge
+// happens when the gateway answers: a client that gave up waiting has paid.
+func (p *Payments) capture(c Charge) Charge {
 	p.sleep(p.latency.For(c.OrderRef))
 	c.At = p.now().UTC()
 	p.mu.Lock()
 	p.charges[c.OrderRef] = append(p.charges[c.OrderRef], c)
 	p.total++
 	p.mu.Unlock()
-	writeJSON(w, http.StatusCreated, c)
+	return c
 }
 
 func (p *Payments) chargesFor(w http.ResponseWriter, r *http.Request) {

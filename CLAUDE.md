@@ -11,8 +11,7 @@ just check      # gate completo: fmt-check → lint → typecheck → test → b
 just images && just build && bin/sesim ui   # o jogo no navegador (NexoraOS); `bin/sesim play` = terminal (deploy/topology/docs/install também)
 bin/sesim ui --addr 127.0.0.1:7777 --no-open & npm --prefix web run dev   # UI com hot reload (vite faz proxy da API)
 just dev-load normal-day | dev-smoke | dev-telemetry-check   # carga k6 (RATE/DURATION/RAMP/SEED via env); aceites 3 e 5
-just eval | verify --only trigram-index --runs 1   # Production Test do C1 | harness das referências
-just images && just sandbox-check           # sandbox pela Docker API (sem compose): aceite do Chunk 8
+just eval | verify [--scenario scenarios/stage1/c2-…] | sandbox-check | topology-check   # teste do C1 | harness | aceites 8 e 10a
 ```
 Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas em `tools/*.go.mod`, compiladas em `bin/tools/` (`just tools`); nunca as do sistema. Prometheus de dev em `127.0.0.1:9090`; stats de containers só enquanto `sesim dev container-stats` roda (o `dev-load` liga sozinho).
 
@@ -49,6 +48,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 - k6 remote write envia duração em **segundos**, como histograma nativo (`K6_FEATURES=native-histograms`): p95 = `histogram_quantile(0.95, sum by (name) (rate(k6_http_req_duration_seconds[..])))`. Não use `k6_http_req_duration_p95`: é cumulativo desde o início do run. O texto das queries do `pg_stat_statements` fica em `pg_stat_statements_query_id` (join por `queryid`).
 - O reset do evaluator clona `nexora_seed`, que é criado uma vez com as migrações do **repo**. Mudou o schema base (`nexora/migrations/0001…`) ou a seed? `DROP DATABASE nexora_seed` (com `ALTER DATABASE … IS_TEMPLATE false` antes), senão os testes medem o dataset antigo.
 - Não rode `just check`/builds pesados durante `just verify` ou um Production Test: disputa de CPU vira ruído na medição.
+- Falha injetada = `kill -ABRT 1` no container (não `docker kill`, que desliga a política de reinício). App caído não é sandbox morta (`game.sandboxRunning`).
 - O Postgres da sandbox roda com `synchronous_commit=off` (ADR-0018): a latência de fsync do disco do host não pode decidir veredito. Mudou a física do Postgres? Reverifique **todos** os cenários.
 - Postgres: health check por TCP (`pg_isready -h 127.0.0.1`; pelo socket ele fica "pronto" no servidor temporário do init). `docker compose exec -T` consome o stdin: em scripts, `</dev/null`.
 

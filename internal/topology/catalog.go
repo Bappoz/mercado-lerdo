@@ -71,6 +71,7 @@ var Catalog = map[Kind]Entry{
 			{"replicas", "1–4", "Quantas instâncias rodam."},
 			{"database", "postgres | pgbouncer", "Para onde o app conecta."},
 			{"dbMaxConns", "1–100", "Tamanho do pool de conexões de cada réplica (NEXORA_DB_MAX_CONNS)."},
+			{"autoRestart", "true | false", "Se o processo de uma réplica cair (crash), o runtime a inicia de novo. Enquanto ela volta, quem estava nela fica sem resposta."},
 		},
 		Sizes: map[Size]Tier{
 			S: {CPUs: 0.5, Memory: 128 * mib, Price: 20},

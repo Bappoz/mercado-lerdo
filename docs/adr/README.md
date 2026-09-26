@@ -22,3 +22,4 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0016](0016-nexoraos-desktop-simulado-e-temas-por-tokens.md) | NexoraOS: desktop simulado; temas como conjuntos de tokens; bibliotecas do 0011 adiadas | Proposto |
 | [0017](0017-topologia-catalogo-fechado-e-deploy-por-reconciliacao.md) | Topologia: `topology.yaml` com catálogo fechado, custo modelado, deploy por reconciliação | Proposto |
 | [0018](0018-integridade-por-conciliacao-e-mundo-do-cenario.md) | Integridade por conciliação gateway × banco; `start` e `world` no cenário; commit sem fsync na sandbox | Proposto |
+| [0019](0019-injecao-de-falhas-retries-e-laboratorio.md) | Falhas por crash (`SIGABRT`), clientes que tentam de novo, gateway idempotente, laboratório de carga | Proposto |

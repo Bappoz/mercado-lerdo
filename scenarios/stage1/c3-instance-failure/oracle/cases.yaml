@@ -1,0 +1,11 @@
+# Correctness probes for GET /search (nexora/API.md). Expected results are
+# regenerated from the dataset seed, never read from the player's database.
+- {q: lamp, limit: 20}        # common word; prefix search misses it (names start with an adjective)
+- {q: Oak, limit: 20}         # case-insensitive
+- {q: ette, limit: 20}        # inside a word (Kettle, Kettlebell): full-text search misses it
+- {q: amp, limit: 20}         # inside a word (Lamp)
+- {q: oak lamp, limit: 10}    # a contiguous phrase, not "both words anywhere"
+- {q: a1, limit: 50}          # model codes; many matches, larger limit
+- {q: heavy-duty, limit: 5}   # hyphen; small limit keeps only the newest
+- {q: chiar, limit: 20}       # misspelling: no results is the right answer
+- {q: 100%, limit: 20}        # % is literal, not a wildcard

@@ -62,6 +62,8 @@ type App struct {
 	Database string `yaml:"database" json:"database"`
 	// DBMaxConns is the size of each replica's connection pool (NEXORA_DB_MAX_CONNS).
 	DBMaxConns int `yaml:"dbMaxConns" json:"dbMaxConns"`
+	// AutoRestart starts a replica again when its process crashes.
+	AutoRestart bool `yaml:"autoRestart,omitempty" json:"autoRestart"`
 }
 
 // Postgres is the database.

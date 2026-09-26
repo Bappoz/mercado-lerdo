@@ -1195,3 +1195,34 @@ pre.error-text {
   border-left: var(--bw) solid var(--muted);
   font-style: italic;
 }
+
+/* ---- lab ---- */
+.lab-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-top: 10px;
+}
+.lab-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.lab-form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.lab-form select,
+.lab-form input[type="number"] {
+  min-height: 36px;
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--chip-bg);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--radius-sm);
+}

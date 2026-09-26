@@ -147,6 +147,10 @@ func (c *Client) createContainer(ctx context.Context, run sandbox.RunID, spec sa
 		ShmSize:        ct.ShmBytes,
 		NetworkMode:    "none",
 	}
+	if ct.RestartOnCrash {
+		// on-failure, not always: a container the platform stops stays stopped.
+		hc.RestartPolicy = container.RestartPolicy{Name: container.RestartPolicyOnFailure, MaximumRetryCount: 10}
+	}
 	for _, m := range ct.Mounts {
 		dm := mount.Mount{Target: m.Target, ReadOnly: m.ReadOnly}
 		switch m.Type {
@@ -372,6 +376,9 @@ func (c *Client) tail(ctx context.Context, id string, n int) string {
 	return strings.TrimSpace(out + errb)
 }
 
+// ErrNotRunning means the container exists but its process is not running.
+var ErrNotRunning = errors.New("docker: container is not running")
+
 // ExecResult is the outcome of a non-interactive exec.
 type ExecResult struct {
 	ExitCode int
@@ -388,6 +395,9 @@ func (c *Client) Exec(ctx context.Context, run sandbox.RunID, component string, 
 	ex, err := c.api.ExecCreate(ctx, id, client.ExecCreateOptions{
 		Cmd: cmd, AttachStdout: true, AttachStderr: true, AttachStdin: stdin != nil,
 	})
+	if cerrdefs.IsConflict(err) {
+		return ExecResult{}, fmt.Errorf("docker: exec in %s: %w", component, ErrNotRunning)
+	}
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("docker: exec in %s: %w", component, err)
 	}
@@ -564,6 +574,8 @@ type RunInfo struct {
 	Running    int
 	Networks   int
 	Volumes    int
+	// Stopped lists the component of every container that is not running.
+	Stopped []string
 }
 
 // Runs lists every run that still owns resources on the host.
@@ -589,6 +601,8 @@ func (c *Client) Runs(ctx context.Context) (map[sandbox.RunID]*RunInfo, error) {
 			ri.Containers++
 			if s.State == container.StateRunning {
 				ri.Running++
+			} else {
+				ri.Stopped = append(ri.Stopped, s.Labels[labelComponent])
 			}
 		}
 	}

@@ -87,3 +87,19 @@ The caller's 50 most recent orders.
 | `NEXORA_DB_MAX_CONNS` | `10` | Connection pool size per instance |
 | `NEXORA_ADDR` | `:8080` | API listen address |
 | `NEXORA_METRICS_ADDR` | `:9091` | Metrics listen address |
+
+## Payment gateway (external)
+
+Nexora calls it; it is not part of Nexora's API. Base URL: `NEXORA_PAYMENT_URL`.
+
+### `POST /charge`
+
+```json
+{"order_ref": "c0ffee-000123", "amount_cents": 4990}
+```
+
+- Charges the customer and answers `201` with the charge. It can take seconds.
+- Honors an optional `Idempotency-Key` header: the first request with a key is
+  charged; any later request with the same key (even one sent while the first is
+  still in flight) gets the original charge back with `200` and is not charged again.
+- Without the header, every request is a new charge.

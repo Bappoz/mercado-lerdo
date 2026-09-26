@@ -2,9 +2,12 @@ package evaluator
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -75,5 +78,44 @@ func TestIntegrityIsJudgedOnTheWholeTest(t *testing.T) {
 	// Browsing is the slower of list and product; search is not part of it.
 	if got := rep.Objectives[1]; got.Verdict != Pass || got.Median != 80 {
 		t.Errorf("browse = %s %v, want PASS at 80 ms", got.Verdict, got.Values)
+	}
+}
+
+type crashEnv struct {
+	fakeEnv
+	mu      sync.Mutex
+	crashed []string
+}
+
+func (c *crashEnv) Crash(_ context.Context, component string, replica int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.crashed = append(c.crashed, fmt.Sprintf("%s#%d", component, replica))
+	return nil
+}
+
+func TestInjectFaults(t *testing.T) {
+	env := &crashEnv{}
+	faults := []scenario.Fault{{After: 10 * time.Millisecond, Crash: "app"}, {After: 20 * time.Millisecond, Crash: "app"}}
+	stop, errs := injectFaults(context.Background(), env, faults, slog.New(slog.DiscardHandler))
+	time.Sleep(60 * time.Millisecond)
+	stop()
+	if err := <-errs; err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(env.crashed, []string{"app#1", "app#1"}) {
+		t.Errorf("crashed = %v", env.crashed)
+	}
+	// A load that ends first cancels the faults not yet due.
+	env.crashed = nil
+	stop, errs = injectFaults(context.Background(), env, []scenario.Fault{{After: time.Hour, Crash: "app"}}, slog.New(slog.DiscardHandler))
+	stop()
+	if err := <-errs; err != nil || len(env.crashed) != 0 {
+		t.Errorf("cancelled fault: err %v, crashed %v", err, env.crashed)
+	}
+	// Faults need a sandbox that can crash things.
+	_, errs = injectFaults(context.Background(), &fakeEnv{}, faults, slog.New(slog.DiscardHandler))
+	if err := <-errs; err == nil {
+		t.Error("want an error from a sandbox without Crash")
 	}
 }

@@ -1,0 +1,95 @@
+# C3 — Single Instance Failure (Stage 1). Format: docs/architecture/simulation-engine.md §2 (v0alpha1, unstable).
+apiVersion: sesim.dev/v0alpha1
+kind: Scenario
+metadata:
+  id: stage1/c3-instance-failure
+  version: 0.1.0
+  title: Single Instance Failure
+
+# Must match what the seed tool loaded; the oracle regenerates it to know the truth.
+dataset: {seed: 4242, users: 5000, products: 100000, orders: 20000}
+
+# Where C2 ended (two short transactions, pools that fit), and then the story's
+# cost cut: back to a single app instance.
+start:
+  - ../c1-slow-search/references/a-trigram.patch
+  - ../c2-connection-pressure/start/c2-start.patch
+  - ../c2-connection-pressure/references/a-release-connection.patch
+  - start/c3-start.patch
+
+world:
+  paymentLatency: 1s,3s
+
+# Every run: the app's first instance crashes twice (the same bug hit again),
+# counted from the start of the load (k6 setup takes a few seconds).
+faults:
+  - after: 30s
+    crash: app
+  - after: 50s
+    crash: app
+
+test:
+  profile: crash-day
+  rate: 50
+  ramp: 15s
+  duration: 45s
+  runs: 3
+
+oracle: oracle/cases.yaml
+
+player:
+  workspaceBase: nexora
+  calm: {profile: normal-day, rate: 15, briefing: player/calm.md}
+  # The incident starts with the instance going down.
+  growth: {profile: crash-day, rate: 40, briefing: player/growth.md, crash: app}
+  hints: player/hints.yaml
+  debrief: player/debrief.md
+
+objectives:
+  - id: search-matches-contract
+    dimension: correctness
+    measure: oracle_pass_ratio
+    atLeast: 1
+  - id: browse-p95
+    dimension: latency
+    measure: browse_p95_ms
+    below: 400
+    margin: 0.10
+  - id: errors
+    dimension: availability
+    measure: error_rate
+    below: 0.005
+    margin: 0.10
+  # Judged on the total over the runs: no order lost or charged twice in the whole test.
+  - id: payments-match-orders
+    dimension: integrity
+    measure: payment_mismatches
+    below: 1
+  - id: budget
+    dimension: cost
+    measure: monthly_cost
+    below: 100
+
+broken: {correctness: PASS, latency: FAIL, availability: FAIL, integrity: FAIL, cost: PASS}
+
+references:
+  - name: redundancy-idempotent
+    patch: references/a-redundancy-idempotent.patch
+    why: Two instances behind nginx, and a checkout that a retry continues instead of repeating (order_ref unique, Idempotency-Key to the gateway).
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: PASS, cost: PASS}
+  - name: redundancy-retry-idempotent
+    patch: references/b-redundancy-retry-idempotent.patch
+    why: As above, and nginx retries a failed request, POST included, on the other instance; safe only because the checkout is idempotent.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: PASS, cost: PASS}
+  - name: restart-idempotent
+    patch: references/c-restart-idempotent.patch
+    why: One instance that restarts after the crash. It recovers, but nobody is served while it comes back.
+    expect: {correctness: PASS, latency: PASS, availability: FAIL, integrity: PASS, cost: PASS}
+  - name: redundancy-only
+    patch: references/d-redundancy-only.patch
+    why: Two instances, but a retried checkout places and charges the order again.
+    expect: {correctness: PASS, latency: PASS, availability: PASS, integrity: FAIL, cost: PASS}
+  - name: restart-only
+    patch: references/e-restart-only.patch
+    why: Restart and nothing else.
+    expect: {correctness: PASS, latency: PASS, availability: FAIL, integrity: FAIL, cost: PASS}
