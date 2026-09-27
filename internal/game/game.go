@@ -425,6 +425,9 @@ func (g *Game) Next(ctx context.Context) (bool, error) {
 		if err := st.Crash(ctx, c, 1); err != nil {
 			return true, err
 		}
+		if err := g.update(func(s *play.Session) { s.CrashedAt = time.Now().UTC() }); err != nil {
+			return true, err
+		}
 		g.Event("fault_injected", map[string]any{"crash": c})
 	}
 	return true, nil
@@ -461,6 +464,20 @@ func (g *Game) ensureBackground(ctx context.Context) error {
 		return g.startBackground(ctx)
 	}
 	return nil
+}
+
+// MarkViewed records that the player looked at a view ("pulse", "support"):
+// the story's requests can ask for it.
+func (g *Game) MarkViewed(what string) error {
+	if !g.HasSession() {
+		return nil
+	}
+	return g.update(func(s *play.Session) {
+		if s.Viewed == nil {
+			s.Viewed = map[string]time.Time{}
+		}
+		s.Viewed[what] = time.Now().UTC()
+	})
 }
 
 // Hint reveals the next rung of the hint ladder; false when none is left.
@@ -511,6 +528,9 @@ func (g *Game) Deploy(ctx context.Context, say Say) ([]stack.Change, error) {
 		comps = append(comps, c.Component+":"+string(c.Action))
 	}
 	g.Event("deploy_run", map[string]any{"ms": time.Since(start).Milliseconds(), "changes": comps})
+	if err := g.update(func(s *play.Session) { s.DeployedAt = time.Now().UTC() }); err != nil {
+		return changes, err
+	}
 	if err := g.ensureBackground(ctx); err != nil {
 		say("Não consegui religar o tráfego do dia: " + err.Error())
 	}
@@ -612,6 +632,11 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	g.lastTest = &rep
 	g.mu.Unlock()
 	saveLastTest(s.Workspace, rep)
+	if !res.Passed {
+		if err := g.update(func(s *play.Session) { s.LastFailAt = time.Now().UTC() }); err != nil {
+			return res, err
+		}
+	}
 	if !res.Passed || s.Phase == play.Completed {
 		return res, nil
 	}

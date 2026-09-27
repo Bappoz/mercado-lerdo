@@ -132,6 +132,27 @@ func (s *Stack) RestartApp(ctx context.Context) error {
 	return s.waitHealth(ctx, 60*time.Second, http.StatusOK, http.StatusServiceUnavailable) // 503 comes from the app itself
 }
 
+// Healthy reports whether the store answers /healthz with 200 through nginx
+// right now: one quick request, for the story's "the store is back up".
+func (s *Stack) Healthy(ctx context.Context) bool {
+	base, err := s.NginxURL(ctx)
+	if err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/healthz", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := s.http.Do(req)
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
 // Settle waits until /healthz answers 200 through nginx (evaluator.Env).
 func (s *Stack) Settle(ctx context.Context) error {
 	return s.waitHealth(ctx, 90*time.Second, http.StatusOK)

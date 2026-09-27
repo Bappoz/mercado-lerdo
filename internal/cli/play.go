@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
@@ -100,6 +101,7 @@ func runPlay(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err := t.printDoc(ctx, t.g.Phase().Briefing); err != nil {
 		return t.fail(err)
 	}
+	t.tellStory(ctx)
 	return 0
 }
 
@@ -124,6 +126,55 @@ func runNext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// tellStory prints what the story said since it was last advanced, and the
+// open deadline (ADR-0022). Commands call it last, after their own output.
+func (t *terminal) tellStory(ctx context.Context) {
+	v, err := t.g.Story(ctx)
+	if err != nil {
+		fmt.Fprintln(t.stderr, "sesim: story:", err)
+		return
+	}
+	for _, m := range v.Messages {
+		if m.New {
+			printStoryMessage(t.stdout, m)
+		}
+	}
+	printDeadline(t.stdout, v.Deadline)
+}
+
+func printStoryMessage(w io.Writer, m game.StoryMessage) {
+	fmt.Fprintf(w, "\n── %s · %s · %s\n%s\n", m.At.Local().Format("15:04"), m.From, m.Title, strings.TrimSpace(play.RenderBriefing(m.Text, play.CLIWords)))
+}
+
+func printDeadline(w io.Writer, d *game.Deadline) {
+	if d == nil {
+		return
+	}
+	left := time.Until(d.Until).Round(time.Minute)
+	fmt.Fprintf(w, "\n⏱  %s (%s): até %s, faltam %s. `sesim inbox` mostra o pedido.\n", d.Title, d.From, d.Until.Local().Format("15:04"), left)
+}
+
+// runInbox: every message of the story so far, and the open deadline.
+func runInbox(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	t, code := openGame(ctx, "inbox", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	v, err := t.g.Story(ctx)
+	if err != nil {
+		return t.fail(err)
+	}
+	if len(v.Messages) == 0 {
+		fmt.Fprintln(stdout, "Nenhuma mensagem do pessoal ainda.")
+	}
+	for _, m := range v.Messages {
+		printStoryMessage(stdout, m)
+	}
+	printDeadline(stdout, v.Deadline)
+	return 0
+}
+
 // runStatus: production signals right now.
 func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	t, code := openGame(ctx, "status", args, stdout, stderr, true)
@@ -144,6 +195,10 @@ func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 	sig.Write(stdout, nil)
 	t.g.Event("status_viewed", map[string]any{"phase": string(t.g.Session().Phase)})
+	if err := t.g.MarkViewed("pulse"); err != nil {
+		return t.fail(err)
+	}
+	t.tellStory(ctx)
 	return 0
 }
 
@@ -154,6 +209,7 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return code
 	}
 	defer t.g.Close()
+	defer t.tellStory(ctx) // after the command's own output
 	res, err := t.g.Check(ctx, t.say)
 	if err != nil {
 		return t.fail(err)
@@ -180,6 +236,7 @@ func runHint(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stdout, "Dica %d de %d · %s\n\n%s\n", h.Level, len(t.g.Pack().Hints), h.Kind, play.RenderBriefing(h.Text, play.CLIWords))
+	t.tellStory(ctx)
 	return 0
 }
 

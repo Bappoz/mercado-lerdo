@@ -25,7 +25,8 @@ type Pack struct {
 	Dir      string
 	Manifest Manifest
 	Oracle   []OracleCase
-	Hints    []Hint // empty when the pack has no player section
+	Hints    []Hint       // empty when the pack has no player section
+	Events   []StoryEvent // player.events; none when the pack has no story events
 }
 
 // Manifest is scenario.yaml.
@@ -127,6 +128,7 @@ type Player struct {
 	Growth        Phase  `yaml:"growth"`
 	Hints         string `yaml:"hints"`
 	Debrief       string `yaml:"debrief"`
+	Events        string `yaml:"events"` // optional: the story's events (ADR-0022)
 }
 
 // Phase is one step of the story: a briefing and the background traffic.
@@ -203,6 +205,14 @@ func Load(dir string) (*Pack, error) {
 		for i, h := range p.Hints {
 			if h.Level != i+1 || h.Text == "" {
 				return nil, fmt.Errorf("scenario %s: hints must be levels 1..n in order, each with text", dir)
+			}
+		}
+		if pl.Events != "" {
+			if err := readYAML(filepath.Join(dir, pl.Events), &p.Events); err != nil {
+				return nil, err
+			}
+			if err := ValidateStory(p.Events); err != nil {
+				return nil, fmt.Errorf("scenario %s: %s: %w", dir, pl.Events, err)
 			}
 		}
 	}

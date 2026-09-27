@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "./api.ts";
+import { api, type Deadline } from "./api.ts";
 import { Architecture } from "./apps/Architecture.tsx";
 import { Deploy } from "./apps/Deploy.tsx";
 import { Docs } from "./apps/Docs.tsx";
@@ -86,6 +86,29 @@ function usePrefs(onError: (msg: string) => void): [Prefs, (p: Prefs) => void, b
     [onError, loaded],
   );
   return [prefs, save, loaded];
+}
+
+/** Countdown shows how long is left to answer the story's most urgent request. */
+function Countdown({ deadline, onOpen }: { deadline: Deadline; onOpen: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const left = Math.max(0, new Date(deadline.until).getTime() - now);
+  const mm = String(Math.floor(left / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
+  const label = deadline.kind === "emergencia" ? "Emergência" : "Pedido";
+  return (
+    <button
+      type="button"
+      className={deadline.kind === "emergencia" ? "pill emergency" : "pill request"}
+      title={`${deadline.from}: ${deadline.title}`}
+      onClick={onOpen}
+    >
+      {label} · {mm}:{ss}
+    </button>
+  );
 }
 
 function Clock() {
@@ -329,6 +352,7 @@ export function App() {
               {state.running ? "Loja no ar" : "Loja desligada"}
             </span>
           )}
+          {state?.deadline && <Countdown deadline={state.deadline} onOpen={() => open("inbox")} />}
           {busy && <span className="pill busy">trabalhando…</span>}
         </span>
         <Clock />

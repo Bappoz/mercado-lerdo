@@ -15,7 +15,7 @@ Você é a primeira pessoa de engenharia do **Mercado Lerdo**, o marketplace dos
 
 | App | Para quê |
 |---|---|
-| E-mail | recados do fundador: o briefing, o incidente e o debrief |
+| E-mail | a empresa falando com você: o briefing, o incidente, o debrief e, no meio, pedidos, broncas, emergências com prazo (contagem regressiva no topo) e elogios. No terminal: `sesim inbox` |
 | Missões | os cenários do stage, o resultado de cada um e o botão de seguir para o próximo |
 | Pulse | latência, tráfego, erros e CPU ao vivo |
 | Terminal | shell na rede da loja, com o `psql` já conectado |

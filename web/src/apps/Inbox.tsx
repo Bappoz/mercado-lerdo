@@ -23,6 +23,14 @@ const WELCOME: Message = {
   ].join("\n"),
 };
 
+const KIND: Record<string, string> = {
+  pedido: "Pedido",
+  bronca: "Bronca",
+  emergencia: "Emergência",
+  elogio: "Elogio",
+  noticia: "Notícia",
+};
+
 export function Inbox({
   state,
   seen,
@@ -77,7 +85,12 @@ export function Inbox({
                 {m.from}
                 <time>{fmtTime(m.at)}</time>
               </span>
-              <span className="inbox-subject">{m.subject}</span>
+              <span className="inbox-subject">
+                {m.kind && m.kind !== "reply" && (
+                  <span className={`tag ${m.kind}`}>{KIND[m.kind]}</span>
+                )}
+                {m.subject}
+              </span>
             </button>
           );
         })}

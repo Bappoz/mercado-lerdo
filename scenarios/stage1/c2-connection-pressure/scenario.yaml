@@ -34,6 +34,7 @@ player:
   growth: {profile: rush, rate: 55, briefing: player/growth.md}
   hints: player/hints.yaml
   debrief: player/debrief.md
+  events: player/events.yaml
 
 objectives:
   - id: search-matches-contract
