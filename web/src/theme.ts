@@ -273,6 +273,7 @@ export interface Prefs {
   motion: boolean;
   coat: Coat;
   seen: string[]; // inbox messages already read
+  tour: boolean; // the first-day training was seen (or skipped)
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -284,6 +285,7 @@ export const DEFAULT_PREFS: Prefs = {
   motion: true,
   coat: "laranja",
   seen: [],
+  tour: false,
 };
 
 function oneOf<T>(v: unknown, allowed: readonly T[], fallback: T): T {
@@ -305,6 +307,7 @@ export function normalizePrefs(raw: unknown): Prefs {
     seen: Array.isArray(r.seen)
       ? r.seen.filter((s): s is string => typeof s === "string").slice(-50)
       : [],
+    tour: r.tour === true,
   };
 }
 

@@ -29,7 +29,7 @@ Você é a primeira pessoa de engenharia do **Mercado Lerdo**, o marketplace dos
 | Notas | anotações da investigação |
 | Configurações | escolha entre três temas e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
 
-A Tabby, a mascote, dá uma dica por vez quando você pede.
+A Tabby, a gata do escritório, conduz o treinamento do primeiro dia (ela anda pelo LerdOS mostrando cada app) e depois dá uma dica por vez quando você pede.
 
 O código é editado no seu editor, dentro do workspace.
 
