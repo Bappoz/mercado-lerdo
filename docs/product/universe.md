@@ -26,7 +26,7 @@
 | **Jéssica** | suporte (a primeira contratada) | direta, cita os clientes pelo nome, não aceita "está funcionando aqui" | reclamações (app Suporte), `#geral` |
 | **Otávio** | financeiro, meio período | seco, planilha na mão; fala em reais e em "runway" | orçamento da empresa; salário, bônus e aumentos do jogador |
 | **Kleber** | o freelancer da primeira versão | ausente; aparece em comentários, commits antigos e, mais tarde, em pessoa | o código herdado e os bugs plantados |
-| **Tabby** | gata tricolor que apareceu no coworking e ficou; vive no LerdOS | calma e curiosa; nunca entrega a resposta pronta, aponta onde olhar | treinamento do primeiro dia, dicas, comentários |
+| **Tabby** | gata listrada (daí o nome: *tabby* é o padrão de listras) que apareceu no coworking num dia de chuva e ficou; vive no LerdOS | calma e curiosa; nunca entrega a resposta pronta, aponta onde olhar | treinamento do primeiro dia, dicas, comentários |
 | **Bia** *(Stage 2)* | primeira PM | organizada, traduz pedido do Álvaro em requisito | pedidos com prazo |
 | **Rafa** *(Stage 2)* | júnior que você mentora | ansioso, erra de boa-fé | missões em que você revisa o trabalho de alguém |
 | **Dra. Helena Prado** *(Stage 3)* | investidora do conselho | fria, faz perguntas de risco | metas de disponibilidade e custo |

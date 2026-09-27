@@ -66,12 +66,14 @@ export function Settings({
   state,
   busy,
   onStop,
+  onReplayTour,
 }: {
   prefs: Prefs;
   setPrefs: (p: Prefs) => void;
   state: GameState;
   busy: boolean;
   onStop: (down: boolean) => void;
+  onReplayTour: () => void;
 }) {
   const [section, setSection] = useState<Section>("aparencia");
   const theme = THEMES.find((t) => t.id === prefs.theme) ?? THEMES[0];
@@ -183,6 +185,11 @@ export function Settings({
                 { v: false, label: "Desligadas" },
               ]}
             />
+          </div>
+          <div className="actions">
+            <button type="button" className="btn small ghost" onClick={onReplayTour}>
+              Rever o treinamento do primeiro dia
+            </button>
           </div>
           <p className="muted small">
             As preferências ficam neste computador (~/.config/sesim/ui.json). Com &ldquo;reduzir

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type GameState, type Hint } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
-import { tabbyTip } from "../tabby.ts";
+import { tabbyMood, tabbyTip } from "../tabby.ts";
 import type { AppId } from "../theme.ts";
 import { TabbySprite } from "./pixel.tsx";
+import { useAnimate, useIdlePose } from "./TabbyActor.tsx";
 
 type View = { kind: "tip" } | { kind: "hint"; hint: Hint } | { kind: "history" } | { kind: "none" };
 
@@ -25,22 +26,13 @@ export function Tabby({
   const tip = tabbyTip(state);
   const [view, setView] = useState<View>({ kind: "tip" });
   const [tipId, setTipId] = useState(tip.id);
-  const [blink, setBlink] = useState(false);
   const self = useRef<HTMLElement>(null);
+  const animate = useAnimate(motion);
   // A new situation reopens the bubble (derived during render, not in an effect).
   if (tip.id !== tipId) {
     setTipId(tip.id);
     setView({ kind: "tip" });
   }
-
-  useEffect(() => {
-    if (!motion || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => {
-      setBlink(true);
-      setTimeout(() => setBlink(false), 160);
-    }, 4200);
-    return () => clearInterval(id);
-  }, [motion]);
 
   // The bubble floats over the windows: any click elsewhere puts it away, so
   // it never swallows a click meant for the app under it.
@@ -53,6 +45,15 @@ export function Tabby({
     document.addEventListener("pointerdown", onDown, true);
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, [showing]);
+
+  // She talks whenever a new line appears in her bubble.
+  const talkKey =
+    view.kind === "tip"
+      ? `tip-${tip.id}`
+      : view.kind === "hint"
+        ? `hint-${view.hint.level}`
+        : view.kind;
+  const pose = useIdlePose(tabbyMood(state), animate, view.kind === "none" ? "" : talkKey);
 
   const hints = state?.hints ?? [];
   const total = state?.hints_total ?? 0;
@@ -127,7 +128,7 @@ export function Tabby({
         aria-label={view.kind === "none" ? "Falar com a Tabby" : "Esconder a Tabby"}
         onClick={() => setView(view.kind === "none" ? { kind: "tip" } : { kind: "none" })}
       >
-        <TabbySprite blink={blink} />
+        <TabbySprite pose={pose} />
       </button>
     </aside>
   );

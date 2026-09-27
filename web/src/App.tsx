@@ -23,6 +23,7 @@ import { Tests } from "./apps/Tests.tsx";
 import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
 import { Tabby } from "./os/Tabby.tsx";
+import { Tour } from "./os/Tour.tsx";
 import { useWindows, Window } from "./os/windows.tsx";
 import {
   type AppId,
@@ -111,6 +112,18 @@ export function App() {
     },
     [prefs, setPrefs, prefsLoaded],
   );
+
+  // The first-day training: shown on a first visit (no game yet, never seen),
+  // and again when the player asks for it in Settings.
+  const [touring, setTouring] = useState(false);
+  const showTour =
+    touring || (prefsLoaded && !prefs.tour && state !== null && state.session === null);
+  const openApp = wm.open; // stable (useCallback in useWindows)
+  const endTour = useCallback(() => {
+    setTouring(false);
+    if (!prefs.tour) setPrefs({ ...prefs, tour: true });
+    openApp("inbox");
+  }, [prefs, setPrefs, openApp]);
 
   // Announce jobs this page saw running when they finish, and open what they produced.
   const watching = useRef<number | null>(null);
@@ -275,6 +288,7 @@ export function App() {
             state={state}
             busy={busy}
             onStop={(down) => void game.act(() => api("POST", "/api/stop", { down }))}
+            onReplayTour={() => setTouring(true)}
           />
         );
     }
@@ -335,7 +349,11 @@ export function App() {
         </Window>
       ))}
 
-      <Tabby state={state} busy={game.act} onOpen={open} motion={prefs.motion} />
+      {showTour ? (
+        <Tour motion={prefs.motion} onDone={endTour} />
+      ) : (
+        <Tabby state={state} busy={game.act} onOpen={open} motion={prefs.motion} />
+      )}
 
       <nav className="dock" aria-label="Apps">
         {APPS.map((a) => (
@@ -343,6 +361,7 @@ export function App() {
             type="button"
             key={a.id}
             className="dock-item"
+            data-app={a.id}
             aria-label={a.title}
             aria-pressed={wm.frames[a.id].open}
             onClick={() => wm.toggle(a.id)}

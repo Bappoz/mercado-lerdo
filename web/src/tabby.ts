@@ -4,6 +4,15 @@
 
 import type { GameState } from "./api.ts";
 
+/** Tabby's mood follows the story: worried in an incident, happy once it is solved. */
+export type Mood = "sit" | "worried" | "happy";
+
+export function tabbyMood(s: GameState | null): Mood {
+  if (s?.session?.phase === "incident") return "worried";
+  if (s?.session?.phase === "completed") return "happy";
+  return "sit";
+}
+
 export interface Tip {
   id: string; // changes when the situation changes, so the bubble reopens
   text: string;
@@ -29,7 +38,7 @@ export function tabbyTip(s: GameState | null): Tip {
   if (!s.session) {
     return {
       id: "welcome",
-      text: "Oi! Eu sou a Tabby. Este é o LerdOS, o computador do Mercado Lerdo. Tem um e-mail esperando por você na Caixa de entrada.",
+      text: "O e-mail do RH está na Caixa de entrada: é por ele que o seu primeiro dia começa. Se quiser, o treinamento está em Configurações.",
     };
   }
   if (!s.running) {

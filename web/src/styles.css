@@ -67,6 +67,13 @@ kbd {
   .os[data-motion="on"] .tabby-sprite {
     animation: bob 2.4s steps(2) infinite;
   }
+  .os[data-motion="on"] .tour-spot {
+    transition:
+      left 0.35s ease,
+      top 0.35s ease,
+      width 0.35s ease,
+      height 0.35s ease;
+  }
 }
 .scene {
   position: absolute;
@@ -1029,6 +1036,45 @@ table.grid {
   cursor: pointer;
   background: transparent;
   border: 0;
+}
+/* ---- Tabby's art and the first-day training ---- */
+.tabby-art.flip {
+  transform: scaleX(-1);
+}
+.tabby-walker {
+  position: fixed;
+  z-index: 1302;
+  pointer-events: none;
+}
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+/* Takes every click: the desktop waits while Tabby shows it around. */
+.tour-veil {
+  position: absolute;
+  inset: 0;
+}
+.tour-spot {
+  position: fixed;
+  z-index: 1201;
+  border-radius: 10px;
+  outline: 3px solid var(--accent);
+  box-shadow: 0 0 0 200vmax rgb(12 10 8 / 55%);
+  pointer-events: none;
+}
+.tour-spot.none {
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  outline: none;
+}
+.tour-bubble {
+  position: fixed;
+  z-index: 1303;
+  width: min(360px, calc(100vw - 32px));
 }
 @keyframes bob {
   50% {

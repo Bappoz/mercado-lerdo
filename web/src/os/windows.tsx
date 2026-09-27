@@ -261,7 +261,6 @@ export function Window({
       <div className={reading ? "win-body reading" : "win-body"}>{children}</div>
       {!max &&
         EDGES.map((edge) => (
-          // biome-ignore lint/a11y/noStaticElementInteractions: resizing is a pointer-only convenience; the maximize button covers the keyboard
           <div
             key={edge}
             className={`win-grip win-grip-${edge}`}
