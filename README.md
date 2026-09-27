@@ -1,4 +1,4 @@
-# Software Engineering Simulator (nome provisório)
+# Mercado Lerdo
 
 Jogo para aprender engenharia de software operando um sistema **real**: você recebe uma aplicação rodando, vê ela degradar sob carga, investiga com métricas, logs e terminal, muda o código ou a infraestrutura e prova a correção com um teste objetivo. Várias soluções podem estar certas.
 
@@ -26,6 +26,7 @@ Você é a primeira pessoa de engenharia do **Mercado Lerdo**, o marketplace dos
 | Docs | catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia |
 | Suporte | reclamações dos clientes, tiradas do que eles viveram de fato: erros, lentidão, cobrança sem pedido |
 | Git | o que você mudou (desde o último commit ou desde o início do cenário), histórico da campanha e commit |
+| Perfil | a sua carreira no Mercado Lerdo: nível (Júnior I a Sênior III), experiência, salário, bônus e o extrato do que o salário pagou (dicas extras, experimentos no Lab). No terminal: `sesim profile` |
 | Notas | anotações da investigação |
 | Configurações | escolha entre três temas e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
 

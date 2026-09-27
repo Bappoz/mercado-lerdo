@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/career"
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
 )
@@ -154,6 +155,34 @@ func printDeadline(w io.Writer, d *game.Deadline) {
 	fmt.Fprintf(w, "\n⏱  %s (%s): até %s, faltam %s. `sesim inbox` mostra o pedido.\n", d.Title, d.From, d.Until.Local().Format("15:04"), left)
 }
 
+// runProfile: the player's career: level, experience, balance and statement.
+func runProfile(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	t, code := openGame(ctx, "profile", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	p := t.g.Profile()
+	fmt.Fprintf(stdout, "%s · %d de experiência", p.Level.Title, p.XP)
+	if p.Next != nil {
+		fmt.Fprintf(stdout, " (%s em %d)", p.Next.Title, p.Next.XP)
+	}
+	fmt.Fprintf(stdout, "\nSaldo: %s · salário por missão: %s\n", career.Money(p.Balance), career.Money(p.Level.Salary))
+	fmt.Fprintf(stdout, "Próxima dica: %s · próximo experimento no laboratório: %s\n\nExtrato (mais recente primeiro):\n",
+		priceLabel(t.g.NextHintPrice()), priceLabel(t.g.NextLabPrice()))
+	for _, l := range p.Statement {
+		fmt.Fprintf(stdout, "  %s  %-44s %12s\n", l.At.Local().Format("02/01 15:04"), l.Label, career.Money(l.Amount))
+	}
+	return 0
+}
+
+func priceLabel(price int) string {
+	if price == 0 {
+		return "grátis"
+	}
+	return career.Money(price)
+}
+
 // runInbox: every message of the story so far, and the open deadline.
 func runInbox(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	t, code := openGame(ctx, "inbox", args, stdout, stderr, true)
@@ -227,6 +256,7 @@ func runHint(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return code
 	}
 	defer t.g.Close()
+	price := t.g.NextHintPrice()
 	h, ok, err := t.g.Hint()
 	if err != nil {
 		return t.fail(err)
@@ -236,6 +266,9 @@ func runHint(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stdout, "Dica %d de %d · %s\n\n%s\n", h.Level, len(t.g.Pack().Hints), h.Kind, play.RenderBriefing(h.Text, play.CLIWords))
+	if price > 0 {
+		fmt.Fprintf(stdout, "\nEsta dica custou %s do seu salário (saldo: %s). `sesim profile` mostra o extrato.\n", career.Money(price), career.Money(t.g.Profile().Balance))
+	}
 	t.tellStory(ctx)
 	return 0
 }

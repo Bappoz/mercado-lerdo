@@ -1,4 +1,4 @@
-# sesim — simulador de engenharia de software em sistemas reais (nome provisório)
+# sesim — Mercado Lerdo, simulador de engenharia de software em sistemas reais
 
 ## Stack
 Go 1.27 (plataforma e app demo) · React + Vite + TS em `web/` (Node 22), embutida no binário · Docker (sandbox) · k6 · Prometheus · SQLite (`modernc.org/sqlite`).

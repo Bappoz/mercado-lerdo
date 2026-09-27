@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GameState, LabParams } from "../api.ts";
+import { money } from "../money.ts";
 import { fmtPct, fmtSeconds } from "./Chart.tsx";
 
 const PROFILES: { v: string; label: string }[] = [
@@ -78,7 +79,9 @@ export function Lab({
             Derrubar a instância 1 do app no meio
           </label>
           <button type="submit" className="btn" disabled={disabled}>
-            {job?.running ? "Rodando…" : "Rodar experimento"}
+            {job?.running
+              ? "Rodando…"
+              : `Rodar experimento${state.career && state.career.lab_price > 0 ? ` (${money(state.career.lab_price)})` : ""}`}
           </button>
         </form>
       </section>

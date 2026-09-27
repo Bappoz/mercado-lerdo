@@ -316,6 +316,45 @@ export interface GameState {
   job: Job | null;
   last_test: Report | null;
   deadline: Deadline | null;
+  career: CareerView | null;
+}
+
+/** The career at a glance (ADR-0023); money in whole reais. */
+export interface CareerView {
+  level: string;
+  next?: string;
+  xp: number;
+  level_xp: number;
+  next_xp?: number;
+  balance: number;
+  hint_price: number;
+  lab_price: number;
+}
+
+export interface Line {
+  at: string;
+  kind: "hiring" | "salary" | "bonus" | "purchase";
+  label: string;
+  amount: number;
+}
+
+export interface Payslip {
+  mission: string;
+  title: string;
+  level: string;
+  lines: Line[];
+  total: number;
+  xp: number;
+}
+
+export interface Profile {
+  level: { title: string; xp: number; salary: number };
+  next?: { title: string; xp: number; salary: number };
+  xp: number;
+  balance: number;
+  statement: Line[];
+  payslips: Payslip[];
+  promotions: { at: string; from: string; to: string; salary: number }[];
 }
 
 export interface Series {

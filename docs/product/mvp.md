@@ -162,7 +162,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 7b | **Playtest #1** (C1 só no terminal, 3–5 pessoas), conduzido por você | relatório; go/no-go |
 | 8 | Driver de sandbox programático: spec com hardening, ciclo de vida, registro de runs, GC, testes de limpeza | `just sandbox-check`: create/health/exec/destroy/verify-cleanup, kill no meio + gc |
 | 8b | Jogo (`play`/`test`/`verify`) sobre o driver; aposentar `internal/devstack` e o compose no caminho do jogador | feito: fluxo do jogador e `verify` (20/20) com o compose desligado |
-| 9 | UI web: **NexoraOS**, com desktop simulado, e-mail (briefing, incidente, debrief), Pulse, Terminal, Testes, Notas, Configurações (3 temas + personalização) e Tabby com roteiro fixo; regras do jogo em `internal/game`, compartilhadas com a CLI (ADR-0016) | feito: C1 jogado de ponta a ponta no navegador, de `play` ao PASS e ao debrief |
+| 9 | UI web: **LerdOS**, com desktop simulado, e-mail (briefing, incidente, debrief), Pulse, Terminal, Testes, Notas, Configurações (3 temas + personalização) e Tabby com roteiro fixo; regras do jogo em `internal/game`, compartilhadas com a CLI (ADR-0016) | feito: C1 jogado de ponta a ponta no navegador, de `play` ao PASS e ao debrief |
 | 10a | Topologia (`topology.yaml`, catálogo fechado, custo modelado, deploy por reconciliação, nginx no workspace, PgBouncer); apps Arquitetura, Deploy e Docs (instalar = editar a topologia); C1 com dimensão custo (ADR-0017) | feito: escalar o app e instalar o PgBouncer pela UI; C1 verificado com 6 casos |
 | 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
 | 10c | C3 Single Instance Failure + injetor de falhas (`faults`, crash por `SIGABRT`, `autoRestart`) + clientes que tentam de novo + gateway idempotente + Laboratório de carga (ADR-0019) | feito: C3 jogável e verificado |
@@ -171,7 +171,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 12a | História e marca: **Mercado Lerdo**, LerdOS, elenco, arco de ~18 missões e carreira ([`universe.md`](universe.md)); textos do C1–C3 reescritos | feito: base para as etapas seguintes |
 | 12b | Primeiro dia animado: treinamento de 13 paradas guiado pela Tabby (anda pelo LerdOS, aponta cada app, destaque na tela; pulável e revisível em Configurações); Tabby redesenhada em 24×24 com poses e humor que segue a história | feito |
 | 12c | Eventos do chefe: pedidos, broncas, emergências com prazo, elogios e notícias declarados no cenário (`player/events.yaml`), avaliados na leitura; C1–C3 com história própria (ADR-0022) | feito |
-| 12d | Perfil e carreira: Júnior I → Sênior III, salário em R$, bônus, aumentos, compras pessoais | — |
+| 12d | Perfil e carreira: Júnior I → Sênior III, salário em R$ por missão, bônus pelos resultados (emergências, pedidos, dicas, economia), promoções, dicas e experimentos extras pagos com o salário; app Perfil e `sesim profile` (ADR-0023) | feito |
 
 ## 9. Decisões tomadas (2026-09-24)
 

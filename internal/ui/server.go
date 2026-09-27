@@ -112,6 +112,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/lab", s.startJob("lab"))
 	api.HandleFunc("POST /api/advance", s.startJob("advance"))
 	api.HandleFunc("GET /api/campaign", s.campaign)
+	api.HandleFunc("GET /api/profile", s.profile)
 	api.HandleFunc("GET /api/git/status", s.gitStatus)
 	api.HandleFunc("GET /api/git/diff", s.gitDiff)
 	api.HandleFunc("GET /api/git/log", s.gitLog)
@@ -225,6 +226,19 @@ type stateView struct {
 	Job        *Job              `json:"job"`
 	LastTest   any               `json:"last_test"`
 	Deadline   *game.Deadline    `json:"deadline"` // the most urgent open request of the story
+	Career     *careerView       `json:"career"`   // nil before the first game (ADR-0023)
+}
+
+// careerView is the career at a glance: the top bar, Tabby's hint price.
+type careerView struct {
+	Level     string `json:"level"`
+	Next      string `json:"next,omitempty"`
+	XP        int    `json:"xp"`
+	LevelXP   int    `json:"level_xp"` // where the current level starts
+	NextXP    int    `json:"next_xp,omitempty"`
+	Balance   int    `json:"balance"`
+	HintPrice int    `json:"hint_price"` // the next hint of this mission
+	LabPrice  int    `json:"lab_price"`  // the next lab run of this mission
 }
 
 func (s *Server) state(w http.ResponseWriter, r *http.Request) {
@@ -258,9 +272,17 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 			msgs = append(msgs, Message{ID: m.ID, From: m.From, Subject: m.Title, At: m.At, Kind: m.Kind,
 				Markdown: play.RenderBriefing(m.Text, Words)})
 		}
+		prof := s.g.Profile()
+		msgs = append(msgs, careerMails(sess, prof, s.g.Pack().Manifest.Metadata.ID)...)
 		slices.SortStableFunc(msgs, func(a, b Message) int { return a.At.Compare(b.At) })
 		v.Messages = msgs
 		v.Deadline = story.Deadline
+		cv := &careerView{Level: prof.Level.Title, XP: prof.XP, LevelXP: prof.Level.XP, Balance: prof.Balance,
+			HintPrice: s.g.NextHintPrice(), LabPrice: s.g.NextLabPrice()}
+		if prof.Next != nil {
+			cv.Next, cv.NextXP = prof.Next.Title, prof.Next.XP
+		}
+		v.Career = cv
 		for _, h := range s.g.Hints() {
 			v.Hints = append(v.Hints, HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)})
 		}
@@ -410,6 +432,14 @@ func (s *Server) install(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (s *Server) profile(w http.ResponseWriter, _ *http.Request) {
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.g.Profile())
 }
 
 func (s *Server) campaign(w http.ResponseWriter, _ *http.Request) {
