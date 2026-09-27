@@ -42,7 +42,8 @@ func gitCmd(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	}, args...)
 	cmd := exec.CommandContext(ctx, "git", full...) //nolint:gosec // G204: fixed binary; arguments built here
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
+	// Literal pathspecs: a path is a file name, never ":(glob)…" or ":/" magic.
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0", "GIT_LITERAL_PATHSPECS=1")
 	return cmd
 }
 

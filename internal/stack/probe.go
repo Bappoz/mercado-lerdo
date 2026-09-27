@@ -18,14 +18,20 @@ const probeSQL = `SET max_parallel_workers_per_gather = 0;
 EXPLAIN (ANALYZE, TIMING OFF) SELECT count(*) FROM generate_series(1, 1000000) g WHERE g % 7 = 3;
 `
 
-// probeRounds is how many times the probe runs; the median counts.
-const probeRounds = 3
+// probeRounds is how many times the probe runs. The fastest counts: noise
+// (a checkpoint, the host's other work) only ever adds time.
+const probeRounds = 5
 
 var executionTime = regexp.MustCompile(`Execution Time: ([0-9.]+) ms`)
 
 // DBProbe times probeSQL in the sandbox's Postgres, under the player's
-// database quota (evaluator.Prober).
+// database quota, and returns the fastest round (evaluator.Prober).
 func (s *Stack) DBProbe(ctx context.Context) (time.Duration, error) {
+	// A reset just cloned the database and ran the migrations: flush that
+	// now, or the checkpointer competes with the probe for the same quota.
+	if err := s.psql(ctx, "postgres", "CHECKPOINT"); err != nil {
+		return 0, err
+	}
 	var times []time.Duration
 	for range probeRounds {
 		res, err := s.d.Exec(ctx, s.Run, "postgres", 1,
@@ -42,8 +48,7 @@ func (s *Stack) DBProbe(ctx context.Context) (time.Duration, error) {
 		}
 		times = append(times, d)
 	}
-	slices.Sort(times)
-	return times[len(times)/2], nil
+	return slices.Min(times), nil
 }
 
 func parseExecutionTime(explain string) (time.Duration, error) {

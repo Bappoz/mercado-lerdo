@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -25,6 +26,9 @@ type CatalogEntry struct {
 }
 
 // CatalogFromSeed regenerates the seeded products.
+// maxOracleBody bounds one search response (20 products are a few KiB).
+const maxOracleBody = 1 << 20
+
 func CatalogFromSeed(d scenario.Dataset) Catalog {
 	cfg := seed.Config{Seed: d.Seed, Users: d.Users, Products: d.Products, Orders: d.Orders}
 	cat := make(Catalog, 0, d.Products)
@@ -115,7 +119,8 @@ func probe(ctx context.Context, hc *http.Client, baseURL string, cat Catalog, c 
 		return fmt.Errorf("q=%q: status %s", c.Q, resp.Status)
 	}
 	var got SearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+	// The player's app writes this body: a runaway one must not exhaust the host.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxOracleBody)).Decode(&got); err != nil {
 		return fmt.Errorf("q=%q: decode: %w", c.Q, err)
 	}
 	return CheckSearch(cat, c, got)

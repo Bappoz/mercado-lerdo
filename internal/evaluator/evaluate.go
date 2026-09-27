@@ -84,6 +84,16 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 	if err := env.Prepare(ctx, workspace); err != nil {
 		return rep, err
 	}
+	// The cost of what was deployed, not of what topology.yaml says when the
+	// runs end: the player may edit it in the meantime.
+	var deployed topology.Topology
+	if slices.ContainsFunc(m.Objectives, func(o scenario.Objective) bool { return o.Measure == topology.CostMeasure }) {
+		t, err := topology.Load(workspace)
+		if err != nil {
+			return rep, err
+		}
+		deployed = t
+	}
 	for i := 1; i <= m.Test.Runs; i++ {
 		id := fmt.Sprintf("%s-run%d", rep.Started.Format("20060102T150405"), i)
 		log.Info("production test run", "run", i, "of", m.Test.Runs, "id", id)
@@ -167,11 +177,7 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 			values = []float64{total}
 		case o.Measure == topology.CostMeasure:
 			// Modeled, not measured: the same for every run.
-			t, err := topology.Load(workspace)
-			if err != nil {
-				return rep, err
-			}
-			values = []float64{t.MonthlyCost()}
+			values = []float64{deployed.MonthlyCost()}
 		default:
 			for _, r := range rep.Runs {
 				if v, ok := r.Values[o.Measure]; ok {

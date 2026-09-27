@@ -21,7 +21,8 @@ A H5 (`mvp.md` §6) pede vereditos estáveis em 3 máquinas, e o Playtest #2 rod
 
 1. **Sonda de velocidade dentro da sandbox** (`stack.DBProbe`, `evaluator.Prober`):
    - antes de cada execução do Production Test, com o banco recém-restaurado e sem carga, o evaluator cronometra uma consulta fixa que só usa CPU (`generate_series` de 1 milhão de linhas com filtro, sem paralelismo);
-   - a consulta roda no próprio Postgres da sandbox, sob a cota do jogador: 3 vezes, e vale a mediana;
+   - a consulta roda no próprio Postgres da sandbox, sob a cota do jogador, depois de um `CHECKPOINT` síncrono;
+   - roda 5 vezes, e vale a **mais rápida**: ruído só soma tempo. A primeira versão usava a mediana de 3, sem checkpoint, e no jogo media 600–900 ms numa máquina de ~300 ms. O reset acabou de clonar o banco e rodar as migrações, e o checkpointer disputava a mesma cota. A CPU do banco durante a carga (0,54) mostrava que a máquina estava na velocidade de referência;
    - o tempo é o `Execution Time` do `EXPLAIN ANALYZE`, sem a partida do `psql`;
    - a sonda mede o que decide o veredito (CPU efetiva do banco sob a cota), inclusive a VM do Docker Desktop se um dia houver suporte a ele.
 2. **Piso e fator de lentidão:**
@@ -29,7 +30,7 @@ A H5 (`mvp.md` §6) pede vereditos estáveis em 3 máquinas, e o Playtest #2 rod
    - usa a mediana porque uma sonda isolada lenta é ruído: na calibração, uma execução na tomada mediu 842 ms entre outras de ~300 ms;
    - acima do piso, cada FAIL ou INCONCLUSIVE em medida sensível a velocidade (`*_ms`, `db_cpu_*`, `error_rate`) é julgado de novo, com o limiar multiplicado pelo fator de lentidão *k* = sonda ÷ referência;
    - se ainda reprova com esse desconto, continua **FAIL**, com o motivo "reprova mesmo descontando a máquina": código quebrado (busca a 5000 ms) não vira INCONCLUSIVE em máquina lenta;
-   - se o desconto explica o erro, vira **INCONCLUSIVE**, com a máquina como motivo;
+   - se o desconto explica o erro, vira **INCONCLUSIVE**, com a máquina como motivo (`host.excused`). Só então o aviso de máquina lenta aparece para o jogador: um PASS numa máquina lenta não precisa de aviso;
    - um **PASS continua PASS**, porque máquina mais lenta só piora essas medidas. Corretude, integridade e custo não mudam.
 
    É o mesmo padrão do gerador limitado (`GeneratorLimited`): uma medida em que não dá para confiar não reprova ninguém.
@@ -50,17 +51,20 @@ As três rodaram uma rodada (3 execuções) em cada estado do notebook de refer�
 
 | Estado | Sondas (ms) | Vereditos das três referências |
 |---|---|---|
-| Tomada, perfil `balanced` | 305, 304, 318 · 313, 517, 299 · 842, 296, 314 | todos os esperados; trigram com `db_cpu_p90` 0,50–0,53 e busca p95 18–25 ms |
+| Tomada, perfil `balanced`, sonda antiga | 305, 304, 318 · 313, 517, 299 · 842, 296, 314 | todos os esperados; trigram com `db_cpu_p90` 0,50–0,53 e busca p95 18–25 ms |
+| Tomada, perfil `balanced`, sonda final | 300, 233, 235 · 305, 294, 290 · 267, 243, 290 | todos os esperados; trigram com `db_cpu_p90` 0,54–0,58 |
+| Tomada, perfil `power-saver` | 1599, 1501, 1672 · 1917, 1429, 2177 · 1232, 1923, 1593 | trigram e C2 INCONCLUSIVE em velocidade; nenhum FAIL falso; a integridade do C3 continuou FAIL, como esperado |
 | Bateria, `power-saver` (~0,7–1 GHz) | 1133, 1426, 1287 | trigram INCONCLUSIVE em latência (311–370 ms) e recursos (0,85–0,93) |
 | Transição (carregador ligado no meio) | 1128, 300, 413 · 396, 297, 286 | C2 e C3 como esperado |
 
-- **Referência:** 305 ms, a mediana das sondas na tomada.
-- **Piso:** 400 ms. É **estimado, não medido**:
-  - o trigram passa em recursos se `db_cpu_p90` < 0,72 (0,8 menos a margem de 10 %);
-  - na tomada ele usa 0,52;
-  - se o uso de CPU cresce com a lentidão, ele deixa de passar com *k* ≈ 0,72/0,52 ≈ 1,38, ou seja, sonda ≈ 420 ms.
-
-  Não houve medição entre 413 e 1128 ms. Um ponto intermediário (bateria com perfil `balanced`, por exemplo) confirmaria o piso.
+- **Referência:** 267 ms. É a mediana das sondas das referências na tomada, com a sonda final (checkpoint + mais rápida de 5): 235, 294 e 267 ms, cada uma a mediana de 3 execuções. Com a sonda antiga (mediana de 3, sem checkpoint), a referência era 305 ms.
+- **Piso:** 325 ms, **derivado dos dados** (substitui a estimativa inicial de 400 ms, que supunha que a CPU cresce na proporção da lentidão).
+  - Para cada referência que passa na tomada e cada medida de velocidade, o evaluator calcula a menor lentidão *k* que faria até a pior execução medida errar o limite pela margem: *k* = limite × (1 + margem) ÷ pior valor (`evaluator.SlowdownTolerance`).
+  - O menor *k* do histórico de calibração na tomada é **1,34**: C3 `redundancy-only`, `error_rate` pior em 0,0041 contra 0,005 × 1,1. O segundo é o trigram do C1, com 1,44.
+  - Desconta-se o ruído da própria sonda: as medianas na tomada variaram de 235 a 294 ms, ±10 % em torno de 267, porque o turbo do perfil `balanced` varia a frequência entre 2,0 e 2,6 GHz. 267 × 1,34 ÷ 1,10 ≈ **325 ms**.
+  - O `sesim scenario verify` imprime a tolerância e o piso recomendado a cada calibração, então o piso não fica velho quando um cenário muda.
+  - Continua a suposição de que a medida piora na proporção da lentidão. Ela é mais fraca para `error_rate`, justamente a medida que define o piso.
+- **Ponto intermediário:** o perfil `power-saver` **na tomada** deu sondas de 1500–1670 ms, tão lento quanto na bateria. Não existe um estado de energia intermediário nesta máquina, e nenhuma medição caiu entre 413 e 1128 ms. O piso foi derivado da tolerância das referências, e não de um estado intermediário.
 - Um Postgres isolado com a mesma imagem e cota mediu ~690–870 ms em `power-saver` (média de ~1,1 GHz), e a sandbox mediu 1133–1426 ms (média de ~0,7 GHz). As duas medições não isolam a causa da diferença: frequência ou disputa com o resto da sandbox. Por isso a referência e o piso foram medidos na sandbox, que é onde o veredito acontece.
 
 ## Alternativas descartadas

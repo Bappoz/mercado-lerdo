@@ -181,7 +181,18 @@ func (s *Stack) seedTemplate(ctx context.Context) error {
 	if err := s.runSeed(ctx, filepath.Join(s.opts.Root, "nexora", "migrations"), "nexora_seed"); err != nil {
 		return err
 	}
-	return s.psql(ctx, "postgres", "ALTER DATABASE nexora_seed WITH IS_TEMPLATE true")
+	return s.sealTemplate(ctx)
+}
+
+// sealTemplate makes nexora_seed cloneable and nothing else: the app and the
+// player's shell log in as nexora, and a template they could connect to
+// could be changed, silently, for every Production Test after it. Idempotent,
+// so a template created before the seal gets it on the next reset.
+func (s *Stack) sealTemplate(ctx context.Context) error {
+	return s.psql(ctx, "postgres",
+		"ALTER DATABASE nexora_seed OWNER TO postgres",
+		"REVOKE ALL ON DATABASE nexora_seed FROM PUBLIC",
+		"ALTER DATABASE nexora_seed WITH IS_TEMPLATE true ALLOW_CONNECTIONS false")
 }
 
 func (s *Stack) runSeed(ctx context.Context, migrations, db string) error {
@@ -197,6 +208,9 @@ func (s *Stack) runSeed(ctx context.Context, migrations, db string) error {
 
 // resetData clones the template into nexora and applies the workspace migrations.
 func (s *Stack) resetData(ctx context.Context) error {
+	if err := s.sealTemplate(ctx); err != nil {
+		return err
+	}
 	if err := s.psql(ctx, "postgres",
 		"DROP DATABASE IF EXISTS nexora WITH (FORCE)",
 		"CREATE DATABASE nexora TEMPLATE nexora_seed OWNER nexora",

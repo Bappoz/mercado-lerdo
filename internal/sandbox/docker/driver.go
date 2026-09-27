@@ -365,9 +365,36 @@ func (c *Client) output(ctx context.Context, id, tail string) (stdout, stderr st
 		return "", ""
 	}
 	defer logs.Close()
-	var out, errb bytes.Buffer
+	var out, errb capped
 	_, _ = stdcopy.StdCopy(&out, &errb, logs)
 	return out.String(), errb.String()
+}
+
+// maxOutput bounds what the host keeps of one stream of a container or exec:
+// the player's code writes it (a migration can print in a loop).
+const maxOutput = 16 << 20
+
+// capped keeps the first maxOutput bytes of a stream and discards the rest,
+// without failing the copy.
+type capped struct {
+	b       bytes.Buffer
+	dropped bool
+}
+
+func (c *capped) Write(p []byte) (int, error) {
+	if room := maxOutput - c.b.Len(); room < len(p) {
+		c.dropped = true
+		c.b.Write(p[:max(room, 0)])
+		return len(p), nil
+	}
+	return c.b.Write(p)
+}
+
+func (c *capped) String() string {
+	if c.dropped {
+		return c.b.String() + "\n… (output cut at 16 MiB)\n"
+	}
+	return c.b.String()
 }
 
 // tail returns the last n lines of a container's combined output (best effort).
@@ -412,7 +439,7 @@ func (c *Client) Exec(ctx context.Context, run sandbox.RunID, component string, 
 			_ = att.CloseWrite()
 		}()
 	}
-	var stdout, stderr bytes.Buffer
+	var stdout, stderr capped
 	if _, err := stdcopy.StdCopy(&stdout, &stderr, att.Reader); err != nil {
 		return ExecResult{}, fmt.Errorf("docker: read exec output: %w", err)
 	}

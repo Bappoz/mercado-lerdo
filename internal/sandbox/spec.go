@@ -80,6 +80,9 @@ type Mount struct {
 	Target   string
 	ReadOnly bool
 	Bytes    int64 // tmpfs size (0 = Docker default)
+	// Within, when set, is a directory the bind source must stay inside once
+	// symlinks are followed: the player's workspace (T17b).
+	Within string
 }
 
 // Resources are the hard limits of a container; all are required.
@@ -175,12 +178,32 @@ func validateMount(m Mount, vols map[string]bool) error {
 			return fmt.Errorf("bind mount %s must be read-only", m.Source)
 		}
 		src := filepath.Clean(m.Source)
-		if !filepath.IsAbs(src) || strings.Contains(src, "docker.sock") {
+		if !filepath.IsAbs(src) {
 			return fmt.Errorf("bind mount %s is not allowed", m.Source)
 		}
-		for _, root := range forbiddenBindRoots() {
-			if src == root || (root != "/" && strings.HasPrefix(src, root+"/")) {
-				return fmt.Errorf("bind mount %s is under %s, which is off-limits", m.Source, root)
+		// The daemon runs as root and follows symlinks on the host: judge
+		// where the source leads, not only how it is spelled.
+		resolved := src
+		if r, err := filepath.EvalSymlinks(src); err == nil {
+			resolved = r
+		}
+		for _, p := range []string{src, resolved} {
+			if strings.Contains(p, "docker.sock") {
+				return fmt.Errorf("bind mount %s is not allowed", m.Source)
+			}
+			for _, root := range forbiddenBindRoots() {
+				if p == root || (root != "/" && strings.HasPrefix(p, root+"/")) {
+					return fmt.Errorf("bind mount %s is under %s, which is off-limits", m.Source, root)
+				}
+			}
+		}
+		if m.Within != "" {
+			within := filepath.Clean(m.Within) // a path that does not exist has no link to follow
+			if r, err := filepath.EvalSymlinks(within); err == nil {
+				within = r
+			}
+			if rel, err := filepath.Rel(within, resolved); err != nil || rel == ".." || strings.HasPrefix(rel, "../") {
+				return fmt.Errorf("bind mount %s leads to %s, outside %s", m.Source, resolved, m.Within)
 			}
 		}
 	default:

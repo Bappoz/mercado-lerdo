@@ -136,6 +136,7 @@ export interface Report {
     reference_ms: number;
     slowdown: number;
     slow: boolean;
+    excused: boolean;
   };
 }
 

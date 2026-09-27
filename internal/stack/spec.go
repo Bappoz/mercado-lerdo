@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/sandbox"
@@ -80,6 +81,17 @@ func health(cmd ...string) *sandbox.Health {
 
 func bind(src, target string) sandbox.Mount {
 	return sandbox.Mount{Type: sandbox.BindMount, Source: src, Target: target, ReadOnly: true}
+}
+
+// wsBind is bind for a path the player controls: inside the workspace, it
+// may not lead out of it through a symlink, which the daemon would follow on
+// the host as root (threat model T17b).
+func wsBind(o Options, src, target string) sandbox.Mount {
+	m := bind(src, target)
+	if rel, err := filepath.Rel(o.Workspace, src); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+		m.Within = o.Workspace
+	}
+	return m
 }
 
 func tmpfs(target string) sandbox.Mount {
@@ -215,7 +227,7 @@ func playerComponents(o Options) []sandbox.Container {
 		// deploy recreates the container (an editor that replaces the file
 		// would leave a bind mount on the old inode anyway).
 		Env:       map[string]string{"SESIM_CONF_SHA256": fileHash(conf)},
-		Mounts:    []sandbox.Mount{bind(conf, "/etc/nginx/conf.d/default.conf"), tmpfs("/tmp")},
+		Mounts:    []sandbox.Mount{wsBind(o, conf, "/etc/nginx/conf.d/default.conf"), tmpfs("/tmp")},
 		ReadOnly:  true,
 		Resources: res(tier(topology.KindNginx, c.Nginx.Size), 128),
 		Health:    health("wget", "-qO-", "http://127.0.0.1:8080/nginx-health"),
@@ -259,7 +271,7 @@ func builder(o Options) sandbox.Container {
 			"CGO_ENABLED": "0", "GOFLAGS": "-mod=vendor", "GOCACHE": "/cache", "HOME": "/tmp", "GOTOOLCHAIN": "local",
 		},
 		Mounts: []sandbox.Mount{
-			bind(o.Workspace, "/src"),
+			wsBind(o, o.Workspace, "/src"),
 			{Type: sandbox.VolumeMount, Source: "go-build", Target: "/cache"},
 			{Type: sandbox.VolumeMount, Source: "bin", Target: "/out"},
 			tmpfs("/tmp"),
@@ -281,7 +293,7 @@ func seeder(o Options, migrations, db string) sandbox.Container {
 		Env: map[string]string{
 			"NEXORA_SEED_DATABASE_URL": "postgres://nexora:" + o.Secrets.App + "@postgres:5432/" + db + "?sslmode=disable",
 		},
-		Mounts:    []sandbox.Mount{bind(migrations, "/migrations")},
+		Mounts:    []sandbox.Mount{wsBind(o, migrations, "/migrations")},
 		Resources: sandbox.Resources{CPUs: 1, Memory: 256 * mb, Pids: 64},
 	}
 }

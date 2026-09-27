@@ -68,7 +68,7 @@ type Game struct {
 // SlowHost explains a report judged on a machine slower than the scenarios
 // were calibrated for (ADR-0021); "" when the machine was fast enough.
 func SlowHost(rep evaluator.Report) string {
-	if rep.Host == nil || !rep.Host.Slow {
+	if rep.Host == nil || !rep.Host.Excused {
 		return ""
 	}
 	return fmt.Sprintf("Esta máquina rodou %.1fx mais devagar do que a máquina em que os cenários foram calibrados (teste de velocidade do banco: %.0f ms; limite: %.0f ms). "+
