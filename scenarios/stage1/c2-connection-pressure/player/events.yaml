@@ -1,0 +1,51 @@
+# Story events of C2 (docs/product/universe.md §6, ADR-0022).
+- id: conta-da-nuvem
+  kind: pedido
+  from: otavio
+  title: Por que a conta subiu?
+  text: |
+    Oi! Estou fechando o orçamento e a conta da nuvem subiu desde que o Kleber mexeu.
+    Quando puder, dá uma olhada em {{architecture}}: quero entender o que estamos pagando.
+  at: {phase: calm, after: 45s}
+
+- id: seu-jorge
+  kind: emergencia
+  from: jessica
+  title: O Seu Jorge vai ao Procon
+  text: |
+    O Seu Jorge foi cobrado e o pedido não apareceu. Ele disse que vai ao Procon se acontecer de novo.
+    Preciso de uma resposta em **45 minutos**: com {{test}} passando, eu garanto para ele que acabou.
+  at: {phase: incident, after: 90s}
+  goal: test_pass
+  within: 45m
+  met: Liguei para o Seu Jorge. Ele mandou um queijo. Sério, está na geladeira.
+  missed: |
+    O Seu Jorge abriu a reclamação. Segurei como deu.
+    Resolve o resto, que eu mostro para ele que foi corrigido.
+
+- id: cobranca-e-coisa-seria
+  kind: bronca
+  from: alvaro
+  title: Cobrança é coisa séria
+  text: |
+    O teste reprovou. Pode ser lento, pode ser feio, mas cobrar sem entregar não dá.
+    Olha cada dimensão do resultado: qual delas está vermelha?
+  on: test_failed
+
+- id: nenhum-real-sumido
+  kind: elogio
+  from: alvaro
+  title: Nenhum real sumido
+  text: |
+    O Otávio conferiu o gateway contra os pedidos: nenhum real sumido na Semana do Lerdo.
+    Você virou oficialmente a pessoa favorita do financeiro.
+  on: test_passed
+
+- id: hora-de-economizar
+  kind: noticia
+  from: otavio
+  title: Hora de economizar
+  text: |
+    Com a campanha, a conta da nuvem foi às alturas. No mês que vem vou pedir para enxugar a infraestrutura.
+    Nada pessoal: é planilha.
+  at: {phase: completed, after: 30s}

@@ -75,6 +75,7 @@ Local por padrão (`data-model.md` §3). Exportação só com `sesim telemetry e
 | `scenario_advanced` | from, canonical (ADR-0020) | campanha, H6 |
 | `lab_run` | perfil, taxa, duração, queda, segundos | como a pessoa ensaia |
 | `git_commit` | nº de arquivos | como a pessoa versiona |
+| `story_event` | id, outcome (fired, met, missed) (ADR-0022) | se a história engaja; prazos cumpridos |
 | `scenario_completed` | total_minutes, incident_minutes, tests, checks, hints | H1, H6 |
 | `session_paused` | fase | abandono |
 | `debrief_viewed` | tempo na tela | H3 (proxy fraco; a entrevista é o dado real) |

@@ -148,6 +148,7 @@ func runPlayerTest(ctx context.Context, ef evalFlags, ws string, stdout, stderr 
 		return code
 	}
 	defer t.g.Close()
+	defer t.tellStory(ctx) // after the command's own output
 	res, err := t.g.Test(ctx, ef.runs, t.say)
 	if err != nil {
 		return t.fail(err)

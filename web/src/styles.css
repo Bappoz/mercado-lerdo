@@ -212,6 +212,41 @@ kbd {
 .pill.busy {
   color: var(--warn);
 }
+button.pill {
+  cursor: pointer;
+  font-family: inherit;
+}
+.pill.emergency {
+  background: var(--danger);
+  color: var(--win-bg);
+  border-color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.pill.request {
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+/* The story's message kinds in the inbox list (ADR-0022). */
+.tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: var(--bw) solid currentcolor;
+  border-radius: 4px;
+}
+.tag.emergencia,
+.tag.bronca {
+  color: var(--danger);
+}
+.tag.pedido {
+  color: var(--warn);
+}
+.tag.elogio {
+  color: var(--ok);
+}
 
 /* ---- windows ---- */
 .win {

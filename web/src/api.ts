@@ -102,6 +102,18 @@ export interface Message {
   subject: string;
   at: string;
   markdown: string;
+  /** A story event's kind (ADR-0022); absent for the scenario's own mails. */
+  kind?: "pedido" | "bronca" | "emergencia" | "elogio" | "noticia" | "reply";
+}
+
+/** The most urgent open request of the story. */
+export interface Deadline {
+  id: string;
+  kind: string;
+  title: string;
+  from: string;
+  goal: "test_pass" | "store_up" | "deploy" | "view_pulse" | "view_support";
+  until: string;
 }
 
 export interface Hint {
@@ -303,6 +315,7 @@ export interface GameState {
   hints_total: number;
   job: Job | null;
   last_test: Report | null;
+  deadline: Deadline | null;
 }
 
 export interface Series {

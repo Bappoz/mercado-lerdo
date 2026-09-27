@@ -130,7 +130,7 @@ func (g *Game) Advance(ctx context.Context, canonical bool, say Say) (*scenario.
 		return nil, err
 	}
 	finished := play.Finished{Scenario: s.Scenario, ID: g.Pack().Manifest.Metadata.ID, Title: g.Pack().Manifest.Metadata.Title,
-		StartedAt: s.StartedAt, DoneAt: s.DoneAt, Checks: s.Checks, Tests: s.Tests, Hints: s.HintsShown, Canonical: s.Canonical}
+		StartedAt: s.StartedAt, DoneAt: s.DoneAt, Checks: s.Checks, Tests: s.Tests, Hints: s.HintsShown, Canonical: s.Canonical, Story: s.Story}
 	from := g.Pack().Manifest.Metadata.ID
 	if err := g.update(func(s *play.Session) {
 		*s = play.Session{

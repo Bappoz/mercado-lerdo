@@ -1,0 +1,53 @@
+# Story events of C3 (docs/product/universe.md §6, ADR-0022).
+- id: loja-caiu
+  kind: emergencia
+  from: alvaro
+  title: A loja caiu!
+  text: |
+    A loja caiu, do nada! Coloca de volta no ar em **5 minutos**, por favor. Depois a gente vê o porquê.
+    ({{deploy}} reinicia o app.)
+  on: store_down
+  goal: store_up
+  within: 5m
+  met: Voltou! Ufa. Agora a pergunta que não me deixa dormir... e se cair de novo?
+  missed: |
+    Cinco minutos fora do ar... perdemos vendas. Coloca de volta,
+    e depois garante que isso não se repete.
+
+- id: cobrados-em-dobro
+  kind: pedido
+  from: jessica
+  title: Clientes cobrados em dobro
+  text: |
+    Dois clientes dizem que foram cobrados em dobro da última vez que a loja caiu.
+    Olha {{support}} quando puder, preciso saber se é verdade antes de responder.
+  at: {phase: incident, after: 2m}
+  goal: view_support
+  met: Obrigada! Mandei a lista para o Otávio estornar. Agora é garantir que não aconteça de novo.
+
+- id: queda-custa
+  kind: bronca
+  from: otavio
+  title: Queda custa dinheiro
+  text: |
+    Cada minuto fora é venda perdida, e cada cobrança em dobro é estorno.
+    O teste derruba uma instância de propósito: o que sobra de pé?
+  on: test_failed
+
+- id: nem-piscou
+  kind: elogio
+  from: alvaro
+  title: Nem piscou
+  text: |
+    Derrubaram uma instância no teste e a loja nem piscou. Nenhuma cobrança em dobro.
+    Estou pensando em te dar um aumento. (O Otávio disse "vamos conversar".)
+  on: test_passed
+
+- id: megashop
+  kind: noticia
+  from: alvaro
+  title: A MegaShop no nosso pé
+  text: |
+    A MegaShop anunciou Black Friday com frete grátis. O Mercado Lerdo vai ter que aguentar muito mais gente.
+    Fim da garagem: a próxima fase começa em breve.
+  at: {phase: completed, after: 30s}

@@ -44,6 +44,7 @@ player:
   growth: {profile: crash-day, rate: 40, briefing: player/growth.md, crash: app}
   hints: player/hints.yaml
   debrief: player/debrief.md
+  events: player/events.yaml
 
 objectives:
   - id: search-matches-contract

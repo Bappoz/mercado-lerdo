@@ -26,6 +26,7 @@ player:
   growth: {profile: flash-sale, rate: 40, briefing: player/growth.md}
   hints: player/hints.yaml
   debrief: player/debrief.md
+  events: player/events.yaml
 
 # Properties only. Nothing here knows about indexes, caches or search engines.
 objectives:

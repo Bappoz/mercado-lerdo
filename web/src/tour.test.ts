@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameState } from "./api.ts";
 import { TABBY_FRAMES } from "./os/pixel.tsx";
-import { tabbyMood } from "./tabby.ts";
+import { tabbyMood, tabbyTip } from "./tabby.ts";
 import { placeBubble, placeTabby, TOUR_STEPS, walkMs } from "./tour.ts";
 
 const vp = { w: 1440, h: 900 };
@@ -93,5 +93,30 @@ describe("tabbyMood", () => {
     expect(tabbyMood(phase("calm"))).toBe("sit");
     expect(tabbyMood(phase("incident"))).toBe("worried");
     expect(tabbyMood(phase("completed"))).toBe("happy");
+  });
+});
+
+describe("the story's deadlines", () => {
+  const state = (kind: string, goal: string) =>
+    ({
+      session: { phase: "incident" },
+      running: true,
+      job: null,
+      deadline: {
+        id: "d",
+        kind,
+        title: "A loja caiu",
+        from: "Álvaro (fundador)",
+        goal,
+        until: "2026-09-27T18:05:00Z",
+      },
+    }) as unknown as GameState;
+  it("worry Tabby in an emergency and turn her tip to the request", () => {
+    const s = state("emergencia", "store_up");
+    expect(tabbyMood(s)).toBe("worried");
+    const tip = tabbyTip(s);
+    expect(tip.id).toBe("deadline-d");
+    expect(tip.text).toContain("Álvaro pediu");
+    expect(tip.text).toContain("Deploy");
   });
 });

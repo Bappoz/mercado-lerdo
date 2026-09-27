@@ -23,6 +23,7 @@ func runDeploy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return code
 	}
 	defer t.g.Close()
+	defer t.tellStory(ctx) // after the command's own output
 	changes, err := t.g.Deploy(ctx, t.say)
 	if err != nil {
 		return t.fail(err)
@@ -151,6 +152,10 @@ func runSupport(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return t.fail(err)
 	}
 	t.g.Event("support_viewed", map[string]any{"view": "cli", "tickets": len(tickets)})
+	if err := t.g.MarkViewed("support"); err != nil {
+		return t.fail(err)
+	}
+	defer t.tellStory(ctx)
 	if len(tickets) == 0 {
 		fmt.Fprintln(stdout, "Nenhuma reclamação nos últimos 10 minutos.")
 		return 0

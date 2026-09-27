@@ -8,10 +8,19 @@ import type { GameState } from "./api.ts";
 export type Mood = "sit" | "worried" | "happy";
 
 export function tabbyMood(s: GameState | null): Mood {
-  if (s?.session?.phase === "incident") return "worried";
+  if (s?.deadline?.kind === "emergencia" || s?.session?.phase === "incident") return "worried";
   if (s?.session?.phase === "completed") return "happy";
   return "sit";
 }
+
+// What each kind of request asks, in Tabby's words: where to look, not the answer.
+const GOAL_TIP: Record<NonNullable<GameState["deadline"]>["goal"], string> = {
+  test_pass: "O que conta é o Production Test passar.",
+  store_up: "Primeiro, coloque a loja de volta no ar: o Deploy reinicia o app.",
+  deploy: "Um deploy do que você tem já resolve.",
+  view_pulse: "É só dar uma olhada no Pulse.",
+  view_support: "Dê uma olhada no Suporte.",
+};
 
 export interface Tip {
   id: string; // changes when the situation changes, so the bubble reopens
@@ -45,6 +54,17 @@ export function tabbyTip(s: GameState | null): Tip {
     return {
       id: "down",
       text: "A loja está desligada. Ligue de novo na Caixa de entrada: o seu código continua no workspace.",
+    };
+  }
+  const d = s.deadline;
+  if (d) {
+    const until = new Date(d.until).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return {
+      id: `deadline-${d.id}`,
+      text: `${d.from.split(" ")[0]} pediu: "${d.title}", até ${until}. ${GOAL_TIP[d.goal]}`,
     };
   }
   const last = job && !job.running ? job : null;

@@ -1,0 +1,54 @@
+# Story events of C1 (docs/product/universe.md §6, ADR-0022). Missing a
+# deadline costs a bonus, never the mission.
+- id: primeiro-olhar
+  kind: pedido
+  from: alvaro
+  title: Tá tudo bem aí?
+  text: |
+    Oi! Primeiro dia, né? Quando puder, dá uma olhada em {{status}} e me diz se a loja está saudável.
+    Sem pressa: quero que você conheça o nosso normal.
+  at: {phase: calm, after: 60s}
+  goal: view_pulse
+  met: Valeu! Guarda esses números. Quando der ruim, é com eles que a gente compara.
+
+- id: live-da-lu
+  kind: emergencia
+  from: alvaro
+  title: A Lu vai fazer live hoje à noite
+  text: |
+    A Lu do Crochê vai mostrar a loja numa live hoje à noite. Se a busca estiver lenta assim, a gente vira piada.
+    Consegue resolver em **45 minutos**? O que vale é {{test}} passar.
+  at: {phase: incident, after: 60s}
+  goal: test_pass
+  within: 45m
+  met: SALVOU! A live foi um sucesso. A Lu disse que a busca "voa". Nunca vendemos tanto crochê.
+  missed: |
+    A live começou com a busca ainda lenta... A Lu foi gentil, mas muita gente desistiu.
+    Continua: ainda dá para salvar o resto da semana.
+
+- id: ainda-nao
+  kind: bronca
+  from: alvaro
+  title: Ainda não?
+  text: |
+    Vi o teste reprovar. A Jéssica está segurando o suporte, mas o pessoal está perdendo a paciência.
+    O resultado diz o que falta: começa por ele.
+  on: test_failed
+
+- id: bolo
+  kind: elogio
+  from: jessica
+  title: Bolo da Dona Lurdes
+  text: |
+    A Dona Lurdes mandou um bolo de fubá para o escritório. Disse que as vendas de crochê dobraram hoje.
+    Guardei um pedaço para você.
+  on: test_passed
+
+- id: fechamento
+  kind: noticia
+  from: otavio
+  title: Fechamento do mês
+  text: |
+    Fechei o mês: com a busca rápida, o Mercado Lerdo vendeu mais do que nunca.
+    O Álvaro já fala numa campanha grande no mês que vem. Se preparem.
+  at: {phase: completed, after: 30s}

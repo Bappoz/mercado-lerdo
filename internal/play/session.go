@@ -48,6 +48,20 @@ type Session struct {
 	Canonical bool `json:"canonical,omitempty"`
 	// History is every scenario of the campaign this workspace completed.
 	History []Finished `json:"history,omitempty"`
+	// Story is what happened to each of the scenario's story events (ADR-0022).
+	Story map[string]StoryMark `json:"story,omitempty"`
+	// What the story's triggers and goals are checked against.
+	LastFailAt time.Time            `json:"last_fail_at,omitzero"` // last failed Production Test
+	DeployedAt time.Time            `json:"deployed_at,omitzero"`  // last deploy
+	CrashedAt  time.Time            `json:"crashed_at,omitzero"`   // when the incident took the store down
+	Viewed     map[string]time.Time `json:"viewed,omitempty"`      // last look at "pulse", "support"
+}
+
+// StoryMark is one story event's fate: fired, then met or missed (or neither).
+type StoryMark struct {
+	FiredAt  time.Time `json:"fired_at"`
+	MetAt    time.Time `json:"met_at,omitzero"`
+	MissedAt time.Time `json:"missed_at,omitzero"`
 }
 
 // Finished is one completed scenario of the campaign.
@@ -61,6 +75,9 @@ type Finished struct {
 	Tests     int       `json:"tests"`
 	Hints     int       `json:"hints"`
 	Canonical bool      `json:"canonical,omitempty"`
+	// Story is what happened to the scenario's story events: the bonuses of
+	// the career (docs/product/universe.md §4) come from it.
+	Story map[string]StoryMark `json:"story,omitempty"`
 }
 
 // StateDirName is the directory sesim keeps inside a workspace (git-ignored).

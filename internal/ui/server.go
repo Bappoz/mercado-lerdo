@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -204,6 +205,7 @@ type Message struct {
 	Subject  string    `json:"subject"`
 	At       time.Time `json:"at"`
 	Markdown string    `json:"markdown"`
+	Kind     string    `json:"kind,omitempty"` // a story event's kind (ADR-0022); empty for the scenario's own mails
 }
 
 // HintView is a revealed hint, rendered for the UI.
@@ -222,6 +224,7 @@ type stateView struct {
 	HintsTotal int               `json:"hints_total"`
 	Job        *Job              `json:"job"`
 	LastTest   any               `json:"last_test"`
+	Deadline   *game.Deadline    `json:"deadline"` // the most urgent open request of the story
 }
 
 func (s *Server) state(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +248,19 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
+		// The story's events land in the same inbox, in the order they happened.
+		story, err := s.g.Story(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for _, m := range story.Messages {
+			msgs = append(msgs, Message{ID: m.ID, From: m.From, Subject: m.Title, At: m.At, Kind: m.Kind,
+				Markdown: play.RenderBriefing(m.Text, Words)})
+		}
+		slices.SortStableFunc(msgs, func(a, b Message) int { return a.At.Compare(b.At) })
 		v.Messages = msgs
+		v.Deadline = story.Deadline
 		for _, h := range s.g.Hints() {
 			v.Hints = append(v.Hints, HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)})
 		}
@@ -264,7 +279,7 @@ func (s *Server) messages(ctx context.Context, sess play.Session) ([]Message, er
 	all := []mail{
 		{"calm", "Álvaro (fundador)", "Bem-vinda(o) ao Mercado Lerdo", p.Calm.Briefing, sess.StartedAt, sess.Phase != ""},
 		{"growth", "#geral", "O tráfego subiu", p.Growth.Briefing, sess.IncidentAt, sess.Phase == play.Incident || sess.Phase == play.Completed},
-		{"debrief", "Fundador", "Debrief: o que aconteceu", p.Debrief, sess.DoneAt, sess.Phase == play.Completed},
+		{"debrief", "Álvaro (fundador)", "Debrief: o que aconteceu", p.Debrief, sess.DoneAt, sess.Phase == play.Completed},
 	}
 	var out []Message
 	for _, m := range all {
@@ -493,10 +508,12 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 	switch body.What {
 	case "debrief":
 		s.g.Event("debrief_viewed", props)
-	case "pulse":
-		s.g.Event("status_viewed", props)
-	case "support":
-		s.g.Event("support_viewed", props)
+	case "pulse", "support":
+		s.g.Event(map[string]string{"pulse": "status_viewed", "support": "support_viewed"}[body.What], props)
+		if err := s.g.MarkViewed(body.What); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
 	default:
 		writeError(w, http.StatusBadRequest, fmt.Errorf("unknown view %q", body.What))
 		return

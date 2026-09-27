@@ -116,7 +116,7 @@ Fecha com o Rafa chegando: a partir daqui, algumas missões começam com código
 
 ## 6. Eventos
 
-A implementação é a etapa 3. Os eventos vêm declarados no pacote do cenário, com gatilho por fase ou tempo, e chegam como mensagem no `#geral` ou na Caixa de entrada.
+Implementado na etapa 3 (ADR-0022): cada pacote declara os seus em `player/events.yaml`. O gatilho é um tempo dentro de uma fase ou um resultado do jogador (teste reprovado ou aprovado, loja caída). O objetivo vem de um conjunto fechado: Production Test passando, loja de volta, deploy feito, olhar o Pulse ou o Suporte. As mensagens chegam na Caixa de entrada (e em `sesim inbox`), e o prazo mais urgente aparece em contagem regressiva na barra do topo.
 
 | Tipo | Exemplo | Efeito |
 |---|---|---|
