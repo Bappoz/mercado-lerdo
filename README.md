@@ -1,4 +1,4 @@
-# Software Engineering Simulator (nome provisório)
+# Mercado Lerdo
 
 Jogo para aprender engenharia de software operando um sistema **real**: você recebe uma aplicação rodando, vê ela degradar sob carga, investiga com métricas, logs e terminal, muda o código ou a infraestrutura e prova a correção com um teste objetivo. Várias soluções podem estar certas.
 

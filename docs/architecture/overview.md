@@ -147,7 +147,7 @@ flowchart TB
 | Componente | Responsabilidade | Não faz |
 |---|---|---|
 | `cli` | `sesim doctor`, `play`, `status`, `check`, `test`, `reset`, `shell`, `down`, `gc` | Lógica de negócio |
-| `ui` | NexoraOS: API local com token, terminal por WebSocket, SPA embutida (implementado no Chunk 9; ADR-0016) | Regra de jogo; acesso direto ao Docker |
+| `ui` | LerdOS: API local com token, terminal por WebSocket, SPA embutida (implementado no Chunk 9; ADR-0016) | Regra de jogo; acesso direto ao Docker |
 | `game` | Uma partida: sessão no workspace, sandbox, fases, Quick Check, Production Test, dicas, eventos (Chunk 9) | Apresentar (a CLI e a UI apresentam) |
 | `campaign` | Estado da campanha, tentativas, ledger, adoção de estado canônico | Executar cenário |
 | `scenario` | Carrega e valida pacotes, conduz a máquina de estados e a timeline do cenário | Medir |
@@ -250,7 +250,7 @@ Proposta para o Chunk 2. Os limites espelham o brief §39 (plataforma, SDK de ce
 ├── internal/
 │   ├── cli/
 │   ├── game/                  # regras de uma partida (CLI e UI usam)
-│   ├── ui/                    # NexoraOS: API, WS, SPA de web/dist
+│   ├── ui/                    # LerdOS: API, WS, SPA de web/dist
 │   ├── campaign/
 │   ├── scenario/              # pacote, schema, timeline
 │   ├── topology/              # catálogo, validação, custo, grafo

@@ -14,8 +14,8 @@
 ## Primeira vez
 
 ```bash
-git clone git@github.com:Bappoz/software-engineering-simulator.git
-cd software-engineering-simulator
+git clone git@github.com:Bappoz/mercado-lerdo.git
+cd mercado-lerdo
 just doctor
 just setup
 just check
