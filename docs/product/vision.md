@@ -1,6 +1,6 @@
 # Visão do Produto
 
-> Status: Chunk 0, revisado após decisões de 2026-09-24. Nome provisório: **Software Engineering Simulator**. O nome final deve derivar da empresa fictícia (hoje "Nexora") e será decidido depois.
+> Status: Chunk 0, revisado após decisões de 2026-09-24. Nome provisório: **Software Engineering Simulator**. A empresa fictícia é o **Mercado Lerdo** (decidido em 2026-09-26; universo em [`universe.md`](universe.md)); o nome final do jogo ainda está aberto.
 
 ## 1. Problema
 
@@ -27,7 +27,7 @@ Não encontramos (ver `competitive-landscape.md`) quem combine: **aplicação re
 
 - **Gratuito, código fechado, com opção de doação.** Não há monetização por feature. A doação é um link externo (plataforma a definir) e não adiciona nenhum fluxo de pagamento dentro do produto.
 - **Local-first no MVP:** um binário roda no Docker do próprio jogador (ver ADR-0002).
-- Consequências: comunidade de cenários e marketplace ficam fora do horizonte próximo. O código do app demo (Nexora) é *conteúdo* visível e editável pelo jogador no workspace dele, mas a plataforma não é aberta. A política de licenças de dependências está em ADR-0009.
+- Consequências: comunidade de cenários e marketplace ficam fora do horizonte próximo. O código do app demo (o site do Mercado Lerdo; `nexora` no código) é *conteúdo* visível e editável pelo jogador no workspace dele, mas a plataforma não é aberta. A política de licenças de dependências está em ADR-0009.
 
 ## 4. Persona primária (MVP)
 

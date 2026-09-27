@@ -60,9 +60,9 @@ Usuários do seed: `user00001@nexora.test` … `user05000@nexora.test`, todos co
 
 ```bash
 just images && just build   # imagens locais + bin/sesim
-bin/sesim play              # cria workspace/, sobe a Nexora (sandbox pela Docker API), briefing e tráfego
+bin/sesim play              # cria workspace/, sobe a loja (sandbox pela Docker API), briefing e tráfego
 bin/sesim help              # status, next, check, test, hint, shell, stop
-bin/sesim stop --down       # desliga a Nexora; workspace e progresso ficam
+bin/sesim stop --down       # desliga a loja; workspace e progresso ficam
 ```
 
 O jogo não usa o compose. Os endereços da API e do Prometheus aparecem no briefing: são IPs dos containers, alcançáveis só no Linux (Docker Desktop ainda não suportado).
@@ -97,7 +97,7 @@ just sandbox-check          # aceite: ciclo de vida, isolamento, limpeza, kill n
 | Quero… | Comando |
 |---|---|
 | Rodar a CLI | `go run ./cmd/sesim version` |
-| Jogar no navegador | `just images && just build && bin/sesim ui` (abre o NexoraOS; `--no-open` só imprime o endereço) |
+| Jogar no navegador | `just images && just build && bin/sesim ui` (abre o LerdOS; `--no-open` só imprime o endereço) |
 | UI em modo dev | `bin/sesim ui --addr 127.0.0.1:7777 --no-open` e, em outro terminal, `npm --prefix web run dev` (o vite faz proxy de `/api` e `/ws` para a 7777) |
 | Testes da UI | `npm --prefix web test` (vitest; também roda no `just test`) |
 | Formatar tudo | `just fmt` |

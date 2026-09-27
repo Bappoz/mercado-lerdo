@@ -1,9 +1,10 @@
 # #geral — 14:32
 
-**Fundador:** Um criador de conteúdo falou da Nexora num vídeo.
-O tráfego subiu uns 4× e continua chegando gente.
+**Álvaro:** A Lu do Crochê falou da gente num vídeo!!! O tráfego subiu uns 4× e continua chegando gente.
 
-**Fundador:** Clientes estão reclamando que o site está lento. Alguns desistiram.
+**Jéssica (suporte):** Clientes estão reclamando que o site está lento. Alguns desistiram da compra.
+
+**Álvaro:** Justo hoje. Lerdo no nome, não no site, por favor.
 
 ---
 

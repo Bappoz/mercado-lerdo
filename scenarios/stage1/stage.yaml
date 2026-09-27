@@ -1,10 +1,10 @@
-# Stage 1: the Nexora grows. The scenarios in order, and what each one's story
+# Stage 1: the garage (docs/product/universe.md). The scenarios in order, and what each one's story
 # changes in a workspace that carries the player's own code forward.
 apiVersion: sesim.dev/v0alpha1
 kind: Stage
 metadata:
   id: stage1
-  title: "Stage 1 — A Nexora cresce"
+  title: "Stage 1 — A garagem"
 scenarios:
   - dir: c1-slow-search
   - dir: c2-connection-pressure

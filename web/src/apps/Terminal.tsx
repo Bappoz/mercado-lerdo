@@ -21,13 +21,13 @@ function themeFromCss(el: HTMLElement) {
 }
 
 /**
- * A real shell in the toolbox container, on the Nexora network (psql is
+ * A real shell in the toolbox container, on the store's network (psql is
  * already connected). The server bridges it over a WebSocket (ADR-0008).
  */
 export function Terminal({ running, themeKey }: { running: boolean; themeKey: string }) {
   const [attempt, setAttempt] = useState(0);
   if (!running)
-    return <p className="empty">A Nexora está desligada: não há onde abrir o terminal.</p>;
+    return <p className="empty">A loja está desligada: não há onde abrir o terminal.</p>;
   // A new key is a new session: the old one is torn down, a new shell starts.
   return <Session key={attempt} themeKey={themeKey} onReopen={() => setAttempt((a) => a + 1)} />;
 }

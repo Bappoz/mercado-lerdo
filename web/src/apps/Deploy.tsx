@@ -70,7 +70,7 @@ export function Deploy({
           </>
         )}
         {!state.running && (
-          <p className="muted">A Nexora está desligada. Ligue pela Caixa de entrada.</p>
+          <p className="muted">A loja está desligada. Ligue pela Caixa de entrada.</p>
         )}
       </section>
 

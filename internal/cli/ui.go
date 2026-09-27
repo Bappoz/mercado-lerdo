@@ -16,7 +16,7 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/web"
 )
 
-// runUI: sesim ui — NexoraOS, the game in the browser.
+// runUI: sesim ui — LerdOS, the game in the browser.
 func runUI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -57,7 +57,7 @@ func runUI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	url := fmt.Sprintf("http://%s/#t=%s", ln.Addr(), srv.Token())
-	fmt.Fprintf(stdout, "NexoraOS em %s\n(o endereço tem a chave desta sessão: não compartilhe. Ctrl+C encerra; a Nexora continua rodando.)\n", url)
+	fmt.Fprintf(stdout, "LerdOS em %s\n(o endereço tem a chave desta sessão: não compartilhe. Ctrl+C encerra; a loja continua rodando.)\n", url)
 	if !*noOpen {
 		openBrowser(url)
 	}

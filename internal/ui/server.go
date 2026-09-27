@@ -1,4 +1,4 @@
-// Package ui serves NexoraOS, the game's web UI, on the loopback interface:
+// Package ui serves LerdOS, the game's web UI, on the loopback interface:
 // the embedded SPA, a JSON API over internal/game and a terminal over
 // WebSocket. Security follows docs/security/threat-model.md T1–T5.
 package ui
@@ -29,7 +29,7 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/topology"
 )
 
-// Words name the game's tools in the scenario's texts as NexoraOS shows them
+// Words name the game's tools in the scenario's texts as LerdOS shows them
 // (the terminal's are play.CLIWords).
 var Words = map[string]string{
 	"status":  "o **Pulse**",
@@ -185,7 +185,7 @@ func (s *Server) files(w http.ResponseWriter, r *http.Request) {
 		name = "index.html"
 	}
 	if _, err := fs.Stat(s.static, "index.html"); err != nil {
-		http.Error(w, "NexoraOS was not built into this binary: run `just build`.", http.StatusServiceUnavailable)
+		http.Error(w, "LerdOS was not built into this binary: run `just build`.", http.StatusServiceUnavailable)
 		return
 	}
 	if strings.HasPrefix(name, "assets/") {
@@ -261,7 +261,7 @@ func (s *Server) messages(ctx context.Context, sess play.Session) ([]Message, er
 		show                    bool
 	}
 	all := []mail{
-		{"calm", "Fundador", "Bem-vinda(o) à Nexora", p.Calm.Briefing, sess.StartedAt, sess.Phase != ""},
+		{"calm", "Álvaro (fundador)", "Bem-vinda(o) ao Mercado Lerdo", p.Calm.Briefing, sess.StartedAt, sess.Phase != ""},
 		{"growth", "#geral", "O tráfego subiu", p.Growth.Briefing, sess.IncidentAt, sess.Phase == play.Incident || sess.Phase == play.Completed},
 		{"debrief", "Fundador", "Debrief: o que aconteceu", p.Debrief, sess.DoneAt, sess.Phase == play.Completed},
 	}

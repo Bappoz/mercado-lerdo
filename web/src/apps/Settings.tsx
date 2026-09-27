@@ -203,7 +203,7 @@ export function Settings({
             <dd>
               <code>{state.session?.workspace ?? "ainda não criado"}</code>
             </dd>
-            <dt>Nexora</dt>
+            <dt>Loja</dt>
             <dd>{state.running ? "no ar" : "desligada"}</dd>
           </dl>
           <div className="actions">
@@ -221,7 +221,7 @@ export function Settings({
               disabled={busy || !state.running}
               onClick={() => onStop(true)}
             >
-              Desligar a Nexora
+              Desligar a loja
             </button>
           </div>
           <p className="muted small">

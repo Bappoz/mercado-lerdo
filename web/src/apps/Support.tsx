@@ -39,7 +39,7 @@ export function Support({ running }: { running: boolean }) {
     };
   }, [running]);
 
-  if (!running) return <p className="empty">A Nexora está desligada: ninguém consegue reclamar.</p>;
+  if (!running) return <p className="empty">A loja está desligada: ninguém consegue reclamar.</p>;
   if (!tickets) return <p className="empty">{err ?? "Abrindo a caixa do suporte…"}</p>;
   return (
     <div className="support">

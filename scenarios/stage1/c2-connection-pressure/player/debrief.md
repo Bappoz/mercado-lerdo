@@ -1,4 +1,4 @@
-# Debrief — Connection Pressure
+# Debrief — Pressão de Conexões
 
 ## O que aconteceu
 

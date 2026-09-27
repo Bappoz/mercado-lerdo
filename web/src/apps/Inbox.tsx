@@ -11,13 +11,13 @@ export const messageKey = (m: Message) => `${m.id}@${m.at}`;
 
 const WELCOME: Message = {
   id: "welcome",
-  from: "RH da Nexora",
+  from: "RH do Mercado Lerdo",
   subject: "Seu primeiro dia",
   at: "",
   markdown: [
-    "Oi! Este é o seu computador na **Nexora**, um marketplace pequeno que acabou de contratar a primeira pessoa de engenharia: você.",
+    "Oi! Este é o seu computador no **Mercado Lerdo**, o marketplace dos pequenos vendedores, que acabou de contratar a primeira pessoa de engenharia: você.",
     "",
-    "Ao começar, a gente prepara o seu **workspace** (uma cópia do código da Nexora, que você edita no seu editor) e liga a produção numa sandbox só sua.",
+    "Ao começar, a gente prepara o seu **workspace** (uma cópia do código do site, que você edita no seu editor) e liga a produção numa sandbox só sua.",
     "",
     "A primeira vez leva alguns minutos.",
   ].join("\n"),
@@ -106,11 +106,9 @@ export function Inbox({
             )}
             {state.session && !state.running && current.id === list[0]?.id && (
               <div className="actions">
-                <p className="muted">
-                  A Nexora está desligada. O seu código continua no workspace.
-                </p>
+                <p className="muted">A loja está desligada. O seu código continua no workspace.</p>
                 <button type="button" className="btn" disabled={busy} onClick={onStart}>
-                  {starting ? "Ligando…" : "Ligar a Nexora"}
+                  {starting ? "Ligando…" : "Ligar a loja"}
                 </button>
               </div>
             )}

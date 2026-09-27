@@ -44,7 +44,7 @@ export interface Theme {
 
 const nexora98: Theme = {
   id: "nexora98",
-  name: "Nexora 98",
+  name: "Lerdo 98",
   blurb: "quente, anos 90",
   fonts: {
     chrome: "'Pixelify Sans', 'Courier New', monospace",

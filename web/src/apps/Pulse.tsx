@@ -42,8 +42,7 @@ export function Pulse({ running }: { running: boolean }) {
     };
   }, [running, span]);
 
-  if (!running)
-    return <p className="empty">A Nexora está desligada: não há produção para medir.</p>;
+  if (!running) return <p className="empty">A loja está desligada: não há produção para medir.</p>;
   if (!data) return <p className="empty">{err ?? "Lendo a produção…"}</p>;
 
   const p95 = [...data.p95].sort(byName);
@@ -73,7 +72,7 @@ export function Pulse({ running }: { running: boolean }) {
       {err && <p className="warn-text">Última leitura falhou: {err}</p>}
       {noTraffic && (
         <p className="muted">
-          Ainda sem tráfego: ele começa alguns segundos depois de a Nexora subir.
+          Ainda sem tráfego: ele começa alguns segundos depois de a loja subir.
         </p>
       )}
 

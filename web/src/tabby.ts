@@ -14,7 +14,7 @@ export function tabbyTip(s: GameState | null): Tip {
   const job = s.job;
   if (job?.running) {
     const what = {
-      play: "a Nexora subir",
+      play: "a loja subir",
       check: "o Quick Check",
       test: "o Production Test",
       deploy: "o deploy",
@@ -29,13 +29,13 @@ export function tabbyTip(s: GameState | null): Tip {
   if (!s.session) {
     return {
       id: "welcome",
-      text: "Oi! Eu sou a Tabby. Este é o computador da Nexora. Tem um e-mail esperando por você na Caixa de entrada.",
+      text: "Oi! Eu sou a Tabby. Este é o LerdOS, o computador do Mercado Lerdo. Tem um e-mail esperando por você na Caixa de entrada.",
     };
   }
   if (!s.running) {
     return {
       id: "down",
-      text: "A Nexora está desligada. Ligue de novo na Caixa de entrada: o seu código continua no workspace.",
+      text: "A loja está desligada. Ligue de novo na Caixa de entrada: o seu código continua no workspace.",
     };
   }
   const last = job && !job.running ? job : null;

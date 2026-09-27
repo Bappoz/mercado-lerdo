@@ -1,4 +1,4 @@
--- Nexora initial schema.
+-- Mercado Lerdo initial schema.
 
 CREATE TABLE users (
     id            bigserial PRIMARY KEY,

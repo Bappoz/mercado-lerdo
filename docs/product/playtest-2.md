@@ -1,4 +1,4 @@
-# Playtest #2 — campanha do Stage 1 no NexoraOS
+# Playtest #2 — campanha do Stage 1 no LerdOS
 
 > Protocolo para conduzir as sessões. Hipóteses em [`mvp.md`](mvp.md) §6; metas em §7. O formato segue o [Playtest #1](playtest-1.md): o que mudou está nesta página.
 > O Playtest #1 validava o loop no terminal. Este valida **a campanha inteira (C1 → C2 → C3) no navegador** e traz dados para duas decisões: **Stage 2** e **modo hospedado** (§8).
@@ -14,8 +14,8 @@
 | H4 | O Quick Check continua rápido o bastante? | `quick_check_run.total_ms` |
 | H5 | O veredito se mantém nas máquinas das pessoas? | `production_test_run.db_probe_ms` e `slow_host` (ADR-0021) por participante |
 | H6 | A pessoa segue sozinha para o C2 e o C3? | `scenario_advanced` e `scenario_completed` nos 7 dias depois da sessão |
-| H7 | O setup na máquina da pessoa é aceitável? | cronômetro do clone ao NexoraOS aberto; falhas |
-| U1 | Os apps do NexoraOS são encontráveis? | ordem dos apps abertos (folha de observação) |
+| H7 | O setup na máquina da pessoa é aceitável? | cronômetro do clone ao LerdOS aberto; falhas |
+| U1 | Os apps do LerdOS são encontráveis? | ordem dos apps abertos (folha de observação) |
 | U2 | O código levado de um cenário para o outro ajuda ou confunde? | uso do `--canonical`/"estado canônico"; pergunta 6 |
 
 ## 2. Participantes
@@ -26,7 +26,7 @@ Mesma persona e mesmas exclusões do Playtest #1 (§2), de **5 a 8 pessoas**. Qu
 
 ### Máquina
 
-**Linux** com Docker Engine 29+, pelo menos 8 GB de RAM livres e 4 cores. Docker Desktop (macOS, Windows) ainda não funciona: os endereços da Nexora são IPs dos containers.
+**Linux** com Docker Engine 29+, pelo menos 8 GB de RAM livres e 4 cores. Docker Desktop (macOS, Windows) ainda não funciona: os endereços da loja são IPs dos containers.
 
 - **Na máquina da pessoa**, quando ela tiver Linux: é o que mede H5 e H7 de verdade. Cronometre o setup.
 - **Na máquina do facilitador**, quando não tiver. Anote o motivo (sistema, Docker, memória): é dado para o modo hospedado.
@@ -36,7 +36,7 @@ Mesma persona e mesmas exclusões do Playtest #1 (§2), de **5 a 8 pessoas**. Qu
 ### Antes de cada participante
 
 ```bash
-bin/sesim stop --down            # desliga a Nexora da pessoa anterior
+bin/sesim stop --down            # desliga a loja da pessoa anterior
 rm -rf workspace                 # workspace dela (guarde workspace/.sesim/events.jsonl antes, com consentimento)
 bin/sesim sandbox gc --all       # garante que nenhum sandbox ficou para trás
 just images && just build        # imagens e bin/sesim atualizados
@@ -56,7 +56,7 @@ A campanha não cabe em 90 minutos. Por isso ela é dividida em duas sessões co
 
 | Quando | O quê |
 |---|---|
-| **Sessão A** (≤ 90 min, presencial) | 0–5 min: consentimento (§7) e o texto acima. 5–70 min: C1 no NexoraOS, pensando em voz alta. 70–85 min: entrevista do C1 (§5). 85–90 min: explicar que o C2 e o C3 ficam abertos em casa e combinar a sessão B. |
+| **Sessão A** (≤ 90 min, presencial) | 0–5 min: consentimento (§7) e o texto acima. 5–70 min: C1 no LerdOS, pensando em voz alta. 70–85 min: entrevista do C1 (§5). 85–90 min: explicar que o C2 e o C3 ficam abertos em casa e combinar a sessão B. |
 | **Em casa** (7 dias) | A pessoa segue pelo app Missões se quiser. Não mande lembrete: a vontade de voltar é o que a H6 mede. |
 | **Sessão B** (≤ 30 min) | Entrevista do C2 e do C3 (só dos cenários que ela jogou) e perguntas finais. Recolha o log com consentimento. |
 
@@ -70,7 +70,7 @@ As regras do facilitador são as do Playtest #1 (§4). Três acréscimos:
 
 | Marco | Horário | Nota |
 |---|---|---|
-| NexoraOS aberto (fim do setup) | | tempo desde o clone, se foi na máquina dela |
+| LerdOS aberto (fim do setup) | | tempo desde o clone, se foi na máquina dela |
 | Primeiro app aberto | | qual |
 | Incidente começa | | |
 | Primeiro app aberto depois do incidente | | qual (Pulse? Suporte? Terminal?) |
@@ -83,7 +83,7 @@ As regras do facilitador são as do Playtest #1 (§4). Três acréscimos:
 | Uso do Lab, do Git ou do Deploy | | para quê |
 | PASS | | |
 
-Anote **frases literais** de confusão, principalmente sobre onde fica cada coisa no NexoraOS (U1).
+Anote **frases literais** de confusão, principalmente sobre onde fica cada coisa no LerdOS (U1).
 
 ## 5. Entrevista
 
@@ -135,7 +135,7 @@ As metas são as de [`mvp.md`](mvp.md) §7, avaliadas sobre as sessões. Os limi
 
 ### Stage 2
 
-- **Go:** as metas de C1 e H3 batem, pelo menos metade segue para o C2, e ninguém trava no mesmo ponto do NexoraOS.
+- **Go:** as metas de C1 e H3 batem, pelo menos metade segue para o C2, e ninguém trava no mesmo ponto do LerdOS.
 - **Ajustar antes:** as pessoas travam num mesmo cenário ou app. Primeiro conteúdo e UI, não cenário novo.
 - **Repensar:** o PASS vem com dica 5 e sem explicação (H3), como no critério do Playtest #1.
 

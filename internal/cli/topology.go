@@ -57,7 +57,7 @@ func runTopology(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	fmt.Fprintln(stdout)
 	switch {
 	case v.Deployed == nil:
-		fmt.Fprintln(stdout, "A Nexora não está rodando.")
+		fmt.Fprintln(stdout, "A loja não está rodando.")
 	case len(v.Pending) == 0:
 		fmt.Fprintln(stdout, "Em produção: igual ao workspace.")
 	default:
@@ -247,6 +247,6 @@ func runAdvance(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	if err != nil {
 		return t.fail(err)
 	}
-	fmt.Fprintf(stdout, "Pronto: próximo cenário, %s. `sesim play` sobe a Nexora e mostra o briefing.\n", next.Manifest.Metadata.Title)
+	fmt.Fprintf(stdout, "Pronto: próximo cenário, %s. `sesim play` sobe a loja e mostra o briefing.\n", next.Manifest.Metadata.Title)
 	return 0
 }

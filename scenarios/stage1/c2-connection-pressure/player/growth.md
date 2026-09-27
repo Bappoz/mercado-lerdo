@@ -1,11 +1,12 @@
 # #geral — 18:05
 
-**Fundador:** Campanha de fim de mês no ar. Nunca vendemos tanto.
+**Álvaro:** A Semana do Lerdo está no ar. Nunca vendemos tanto!
 
-**Suporte:** Estão chegando reclamações estranhas. Alguns clientes veem erro no checkout.
-Outros dizem que **foram cobrados e o pedido não aparece**.
+**Jéssica (suporte):** Estão chegando reclamações estranhas. Alguns clientes veem erro no checkout.
+Outros dizem que **foram cobrados e o pedido não aparece**. O Seu Jorge está uma fera.
 
-**Fundador:** Cobrar e não entregar é o pior que pode acontecer com a gente.
+**Álvaro:** Cobrar e não entregar é o pior que pode acontecer com a gente. O vendedor fica sem
+receber e o comprador fica sem o produto.
 
 ---
 
