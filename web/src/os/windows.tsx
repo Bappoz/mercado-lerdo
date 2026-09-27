@@ -30,6 +30,7 @@ const LAYOUT: Record<AppId, { x: number; y: number; w: number; h: number }> = {
   git: { x: 140, y: 64, w: 900, h: 600 },
   docs: { x: 200, y: 80, w: 820, h: 600 },
   notes: { x: 1000, y: 420, w: 380, h: 320 },
+  profile: { x: 820, y: 64, w: 520, h: 600 },
   settings: { x: 240, y: 72, w: 860, h: 640 },
 };
 

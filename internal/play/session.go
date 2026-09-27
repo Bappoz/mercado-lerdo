@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/career"
 	"github.com/Bappoz/software-engineering-simulator/internal/workspace"
 )
 
@@ -55,6 +56,12 @@ type Session struct {
 	DeployedAt time.Time            `json:"deployed_at,omitzero"`  // last deploy
 	CrashedAt  time.Time            `json:"crashed_at,omitzero"`   // when the incident took the store down
 	Viewed     map[string]time.Time `json:"viewed,omitempty"`      // last look at "pulse", "support"
+	// The career (ADR-0023): what the player bought during this scenario,
+	// how many lab runs it had, and the modeled cost against the budget at the PASS.
+	Purchases []career.Purchase `json:"purchases,omitempty"`
+	LabRuns   int               `json:"lab_runs,omitempty"`
+	PassCost  float64           `json:"pass_cost,omitempty"`
+	Budget    float64           `json:"budget,omitempty"`
 }
 
 // StoryMark is one story event's fate: fired, then met or missed (or neither).
@@ -77,7 +84,10 @@ type Finished struct {
 	Canonical bool      `json:"canonical,omitempty"`
 	// Story is what happened to the scenario's story events: the bonuses of
 	// the career (docs/product/universe.md §4) come from it.
-	Story map[string]StoryMark `json:"story,omitempty"`
+	Story     map[string]StoryMark `json:"story,omitempty"`
+	Purchases []career.Purchase    `json:"purchases,omitempty"`
+	Cost      float64              `json:"cost,omitempty"`   // modeled monthly cost at the PASS
+	Budget    float64              `json:"budget,omitempty"` // its limit
 }
 
 // StateDirName is the directory sesim keeps inside a workspace (git-ignored).

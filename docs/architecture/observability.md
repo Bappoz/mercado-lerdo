@@ -69,7 +69,7 @@ Local por padrão (`data-model.md` §3). Exportação só com `sesim telemetry e
 | `quick_check_failed` | stage (build/migrate/restart) | fricção |
 | `production_test_run` | duração, vereditos por dimensão, `db_probe_ms` e `slow_host` (velocidade da máquina, ADR-0021) | H5 entre máquinas |
 | `test_passed` / `test_failed` / `test_inconclusive` | dimensões | H1, H5 |
-| `hint_requested` | nível | H1 |
+| `hint_requested` | nível, preço pago com o salário (ADR-0023) | H1; se o preço inibiu dicas |
 | `hypothesis_recorded` | nº de evidências | `time_to_first_hypothesis` |
 | `scenario_reset` | nível (dados/completo/hard) | fricção |
 | `scenario_advanced` | from, canonical (ADR-0020) | campanha, H6 |

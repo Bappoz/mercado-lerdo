@@ -64,12 +64,13 @@ Nove níveis, **Júnior I–III, Pleno I–III, Sênior I–III**, e **Staff** c
 | 3 — **Escala e confiança** | Sênior I → Sênior III | referência técnica | conselho com metas de disponibilidade; segurança; custo |
 | *4 — horizonte* | Staff | arquiteta(o) | decisões de longo prazo, mentoria; fora do escopo por enquanto |
 
-**Salário, bônus e aumentos** (valores de jogo, a calibrar no Playtest; a implementação é a etapa 4):
+**Salário, bônus e aumentos** (valores de jogo, a calibrar no Playtest; implementados na etapa 4, com os números em ADR-0023 e `internal/career`):
 
 - salário mensal por nível, pago a cada missão concluída;
 - **bônus** por resultado da missão: nenhum pedido perdido, custo abaixo do orçamento, poucas dicas, prazo de emergência cumprido;
 - **aumento** a cada promoção; o Otávio anuncia por e-mail;
-- **compras pessoais:** dica da Tabby (a primeira de cada missão é grátis), curso (desbloqueia uma página avançada no Docs), horas extras de laboratório, visões de observabilidade (log de consultas lentas, rastreamento). É gastar consciente: informação em troca de dinheiro.
+- **compras pessoais:** dica da Tabby (a primeira de cada missão é grátis) e experimentos extras no Laboratório (3 por missão são por conta da casa). Chegam depois: curso (desbloqueia uma página avançada no Docs) e visões de observabilidade (log de consultas lentas, rastreamento). É gastar consciente: informação em troca de dinheiro;
+- sem saldo, o Otávio adianta o salário: o dinheiro nunca impede uma dica.
 
 ## 5. Arco de missões
 

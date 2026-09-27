@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/career"
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
 	"github.com/Bappoz/software-engineering-simulator/internal/events"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
@@ -487,10 +488,15 @@ func (g *Game) Hint() (scenario.Hint, bool, error) {
 	if !ok {
 		return h, false, nil
 	}
-	if err := g.update(func(s *play.Session) { s.HintsShown++ }); err != nil {
+	price := career.HintPrice(s.HintsShown + 1)
+	item := fmt.Sprintf("Dica %d · %s", h.Level, g.Pack().Manifest.Metadata.Title) // outside update: it holds g.mu
+	if err := g.update(func(s *play.Session) {
+		s.HintsShown++
+		buy(s, item, price)
+	}); err != nil {
 		return h, true, err
 	}
-	props := map[string]any{"level": h.Level}
+	props := map[string]any{"level": h.Level, "price": price}
 	if !s.IncidentAt.IsZero() {
 		props["incident_minutes"] = int(time.Since(s.IncidentAt).Minutes())
 	}
@@ -641,7 +647,8 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 		return res, nil
 	}
 	done := time.Now().UTC()
-	if err := g.update(func(s *play.Session) { s.Phase, s.DoneAt = play.Completed, done }); err != nil {
+	cost, budget := costAtPass(g.Pack(), rep)
+	if err := g.update(func(s *play.Session) { s.Phase, s.DoneAt, s.PassCost, s.Budget = play.Completed, done, cost, budget }); err != nil {
 		return res, err
 	}
 	s = g.Session()

@@ -68,6 +68,11 @@ export const TOUR_STEPS: TourStep[] = [
     text: "O **Git** mostra o que você mudou e guarda o histórico da sua jornada. Commit é ponto de volta.",
   },
   {
+    id: "profile",
+    target: { app: "profile" },
+    text: "Em **Perfil** fica a sua carreira: de Júnior I a Sênior III, o salário que cai a cada missão (com bônus quando dá certo) e o extrato. O salário é seu: paga dicas extras e horas a mais no Lab.",
+  },
+  {
     id: "notes",
     target: { app: "notes" },
     text: "**Notas** é o seu caderno de investigação. E em **Config.** você muda o tema, as cores e até a minha pelagem.",

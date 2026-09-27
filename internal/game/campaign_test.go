@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/career"
+
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 	"github.com/Bappoz/software-engineering-simulator/internal/topology"
@@ -21,7 +23,8 @@ const root = "../.."
 
 // newTestGame is a game without a sandbox: enough for the campaign and git,
 // which never touch Docker unless a sandbox is running.
-func newTestGame(t *testing.T, scenarioDir string) *Game {
+func newTestGame(t *testing.T) *Game {
+	const scenarioDir = "scenarios/stage1/c1-slow-search"
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
@@ -41,7 +44,7 @@ func newTestGame(t *testing.T, scenarioDir string) *Game {
 }
 
 func TestCampaignCarriesTheWorkspaceForward(t *testing.T) {
-	g := newTestGame(t, "scenarios/stage1/c1-slow-search")
+	g := newTestGame(t)
 	ctx := context.Background()
 	ws := g.Session().Workspace
 	say := func(string) {}
@@ -123,7 +126,7 @@ func TestCampaignCarriesTheWorkspaceForward(t *testing.T) {
 }
 
 func TestGit(t *testing.T) {
-	g := newTestGame(t, "scenarios/stage1/c1-slow-search")
+	g := newTestGame(t)
 	ctx := context.Background()
 	ws := g.Session().Workspace
 	if c, err := g.GitStatus(ctx); err != nil || len(c) != 0 {
@@ -181,7 +184,7 @@ func TestGit(t *testing.T) {
 // The UI and a CLI command can hold the same workspace at once: neither may
 // save over what the other saved.
 func TestSessionFollowsOtherProcesses(t *testing.T) {
-	ui := newTestGame(t, "scenarios/stage1/c1-slow-search")
+	ui := newTestGame(t)
 	cli := &Game{Root: root, pack: ui.Pack(), log: ui.log, session: new(ui.Session())}
 	ctx := context.Background()
 
@@ -202,5 +205,50 @@ func TestSessionFollowsOtherProcesses(t *testing.T) {
 	}
 	if h := ui.Session().History; len(h) != 1 || h[0].Tests != 1 {
 		t.Errorf("history = %+v", h)
+	}
+}
+
+// The career follows the campaign: what one mission earned and bought is
+// still there after moving to the next (ADR-0023).
+func TestProfileFollowsTheCampaign(t *testing.T) {
+	g := newTestGame(t)
+	ctx := context.Background()
+	if p := g.Profile(); p.Balance != career.SigningBonus || p.Level.Title != "Júnior I" || len(p.Payslips) != 0 {
+		t.Fatalf("first day: %+v", p)
+	}
+	// Two hints: the first is free, the second costs.
+	for range 2 {
+		if _, ok, err := g.Hint(); !ok || err != nil {
+			t.Fatalf("hint: %v %v", ok, err)
+		}
+	}
+	if p := g.Profile(); p.Balance != career.SigningBonus-career.HintPrice(2) {
+		t.Errorf("after two hints: balance %d", p.Balance)
+	}
+	// The emergency of C1 met, then the PASS.
+	now := time.Now().UTC()
+	if err := g.update(func(s *play.Session) {
+		s.Story = map[string]play.StoryMark{"live-da-lu": {FiredAt: now.Add(-time.Hour), MetAt: now}}
+		s.Phase, s.DoneAt, s.PassCost, s.Budget = play.Completed, now, 70, 100
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p := g.Profile()
+	if len(p.Payslips) != 1 {
+		t.Fatalf("payslips %+v", p.Payslips)
+	}
+	// Júnior I, 4000: +20 % emergency, +5 % few hints, +10 % savings.
+	if got := p.Payslips[0].Total; got != 4000+800+200+400 {
+		t.Errorf("C1 paid %d", got)
+	}
+	if _, err := g.Advance(ctx, false, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	after := g.Profile()
+	if after.Balance != p.Balance || after.XP != p.XP || len(after.Payslips) != 1 {
+		t.Errorf("the career changed on advancing: before %+v, after %+v", p, after)
+	}
+	if g.NextHintPrice() != 0 {
+		t.Error("the first hint of the next mission is free again")
 	}
 }

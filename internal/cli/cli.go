@@ -28,6 +28,7 @@ Playing (output in PT-BR):
   topology       the workspace's topology, its modeled cost and pending changes
   support        customer complaints of the last 10 minutes
   inbox          messages from the team (requests, scoldings, emergencies) and the open deadline
+  profile        your career: level, experience, salary balance and statement
   lab            load experiment against production, ungraded (--profile --rate --duration --crash)
   campaign       the stage's missions and what you completed
   advance        after a PASS, move to the next scenario (--canonical: start from its canonical state)
@@ -85,6 +86,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runDeploy(ctx, args[1:], stdout, stderr)
 	case "topology":
 		return runTopology(ctx, args[1:], stdout, stderr)
+	case "profile":
+		return runProfile(ctx, args[1:], stdout, stderr)
 	case "inbox":
 		return runInbox(ctx, args[1:], stdout, stderr)
 	case "support":

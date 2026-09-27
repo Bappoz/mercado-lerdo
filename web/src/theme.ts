@@ -18,6 +18,7 @@ export type AppId =
   | "support"
   | "docs"
   | "notes"
+  | "profile"
   | "settings";
 
 export interface Accent {
@@ -191,6 +192,7 @@ const pastelBars: Record<AppId, string> = {
   git: "#d7c7f0",
   docs: "#cfe6f0",
   notes: "#f5e19a",
+  profile: "#f6c6a8",
   settings: "#cfe6f0",
 };
 

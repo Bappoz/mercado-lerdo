@@ -16,10 +16,12 @@ import { Inbox, messageKey } from "./apps/Inbox.tsx";
 import { Lab } from "./apps/Lab.tsx";
 import { Missions } from "./apps/Missions.tsx";
 import { Notes } from "./apps/Notes.tsx";
+import { Profile } from "./apps/Profile.tsx";
 import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
 import { Support } from "./apps/Support.tsx";
 import { Tests } from "./apps/Tests.tsx";
+import { money } from "./money.ts";
 import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
 import { Tabby } from "./os/Tabby.tsx";
@@ -49,6 +51,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "lab", title: "Laboratório de carga", label: "Lab", reading: true },
   { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
   { id: "notes", title: "Notas", label: "Notas", reading: true },
+  { id: "profile", title: "Perfil · carreira", label: "Perfil", reading: true },
   { id: "settings", title: "Configurações", label: "Config.", reading: true },
 ];
 
@@ -303,6 +306,8 @@ export function App() {
         return <Support running={state.running} />;
       case "notes":
         return <Notes hasSession={state.session !== null} />;
+      case "profile":
+        return <Profile career={state.career} />;
       case "settings":
         return (
           <Settings
@@ -353,6 +358,16 @@ export function App() {
             </span>
           )}
           {state?.deadline && <Countdown deadline={state.deadline} onOpen={() => open("inbox")} />}
+          {state?.career && (
+            <button
+              type="button"
+              className="pill career"
+              onClick={() => open("profile")}
+              title="Perfil e carreira"
+            >
+              {state.career.level} · {money(state.career.balance)}
+            </button>
+          )}
           {busy && <span className="pill busy">trabalhando…</span>}
         </span>
         <Clock />

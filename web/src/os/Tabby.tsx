@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type GameState, type Hint } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
+import { money } from "../money.ts";
 import { tabbyMood, tabbyTip } from "../tabby.ts";
 import type { AppId } from "../theme.ts";
 import { TabbySprite } from "./pixel.tsx";
@@ -91,6 +92,8 @@ export function Tabby({
             {canHint && (
               <button type="button" className="btn small" onClick={() => void askHint()}>
                 {hints.length === 0 ? "Pedir uma dica" : "Próxima dica"}
+                {state?.career &&
+                  ` (${state.career.hint_price === 0 ? "grátis" : money(state.career.hint_price)})`}
               </button>
             )}
             {hints.length > 0 && view.kind !== "history" && (
@@ -117,7 +120,8 @@ export function Tabby({
           </div>
           {canHint && hints.length === 0 && (
             <p className="muted small">
-              Dicas contam no debrief, mas não tiram pontos. Use quando travar.
+              A primeira dica de cada missão é grátis; as seguintes saem do seu salário. Sem saldo,
+              o Otávio adianta.
             </p>
           )}
         </div>

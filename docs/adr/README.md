@@ -26,3 +26,4 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0020](0020-campanha-workspace-continuo-e-app-git.md) | Campanha: workspace contínuo entre cenários, história por topologia, estado canônico opcional, app Git com comandos fixos | Proposto |
 | [0021](0021-velocidade-da-maquina-no-veredito.md) | Velocidade da máquina no veredito: sonda no Postgres da sandbox, piso calibrado, FAIL de velocidade vira INCONCLUSIVE abaixo dele | Proposto |
 | [0022](0022-eventos-da-historia.md) | Eventos da história declarados no cenário (gatilhos e objetivos de um conjunto fechado), avaliados na leitura; prazo perdido custa bônus, nunca a missão | Proposto |
+| [0023](0023-carreira-e-salario.md) | Carreira e salário derivados da campanha (núcleo puro `internal/career`); o salário paga dicas e experimentos extras; o dinheiro nunca bloqueia | Proposto |

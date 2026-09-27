@@ -7,7 +7,9 @@ import (
 	"slices"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/career"
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
+	"github.com/Bappoz/software-engineering-simulator/internal/play"
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 	"github.com/Bappoz/software-engineering-simulator/internal/workload"
 )
@@ -71,6 +73,17 @@ func (g *Game) Lab(ctx context.Context, p LabParams, say Say) (LabResult, error)
 	}
 	say(fmt.Sprintf("Laboratório: %s até %d req/s por %d s%s. O tráfego do dia pausa.", p.Profile, p.Rate, p.Duration,
 		map[bool]string{true: ", derrubando a instância 1 no meio", false: ""}[p.Crash]))
+	// The first runs of each mission are free; the next ones come out of the salary (ADR-0023).
+	price := career.LabPrice(g.Session().LabRuns + 1)
+	if err := g.update(func(s *play.Session) {
+		s.LabRuns++
+		buy(s, fmt.Sprintf("Laboratório: %s a %d req/s", p.Profile, p.Rate), price)
+	}); err != nil {
+		return LabResult{}, err
+	}
+	if price > 0 {
+		say(fmt.Sprintf("Execução extra no laboratório: %s do seu salário.", career.Money(price)))
+	}
 	if err := st.StopBackground(ctx); err != nil {
 		return LabResult{}, err
 	}
