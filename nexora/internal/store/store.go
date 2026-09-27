@@ -1,4 +1,4 @@
-// Package store holds every SQL statement the Nexora API runs.
+// Package store holds every SQL statement the Mercado Lerdo API runs.
 package store
 
 import (

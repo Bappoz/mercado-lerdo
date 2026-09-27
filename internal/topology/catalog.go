@@ -62,7 +62,7 @@ var Catalog = map[Kind]Entry{
 		},
 	},
 	KindApp: {
-		Kind: KindApp, Name: "App Nexora",
+		Kind: KindApp, Name: "App da loja",
 		Summary:   "O serviço Go do seu workspace. Cada réplica é uma instância igual, atrás do Nginx.",
 		WhenToUse: "Mais réplicas dividem o trabalho do app e sobrevivem à perda de uma instância. Não ajudam se o gargalo está no banco.",
 		Tradeoffs: "Cada réplica custa o preço do tamanho e abre o próprio pool de conexões com o banco: réplicas × `dbMaxConns` conexões no total.",

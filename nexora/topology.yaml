@@ -1,4 +1,4 @@
-# Topologia da Nexora: o que roda em produção, quantas instâncias e de que
+# Topologia do Mercado Lerdo: o que roda em produção, quantas instâncias e de que
 # tamanho. Mude aqui e faça um deploy (app Deploy ou `sesim deploy`).
 # Componentes, tamanhos e preços: app Docs.
 apiVersion: sesim.dev/v0alpha1

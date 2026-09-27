@@ -30,7 +30,7 @@ import (
 // Errors a view turns into player-facing text.
 var (
 	ErrNoSession  = play.ErrNoSession
-	ErrNotRunning = errors.New("a Nexora desta partida não está rodando")
+	ErrNotRunning = errors.New("a loja desta partida não está rodando")
 )
 
 // Options locate a game.
@@ -346,7 +346,7 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 	}
 	if g.running() == nil {
 		if !fresh && s.Sandbox != "" {
-			say("A Nexora desta partida não está mais rodando; subindo de novo (os dados voltam ao início do cenário, o seu código continua).")
+			say("A loja desta partida não está mais rodando; subindo de novo (os dados voltam ao início do cenário, o seu código continua).")
 		}
 		if gone, err := stack.GC(ctx, g.d, g.reg, false); err == nil && len(gone) > 0 {
 			g.log.Info("collected orphaned sandboxes", "runs", gone)
@@ -354,7 +354,7 @@ func (g *Game) Start(ctx context.Context, say Say) (fresh bool, err error) {
 		if old := sandbox.RunID(s.Sandbox); old != "" {
 			_ = stack.Down(ctx, g.d, g.reg, old) // a stopped sandbox of this game; start clean
 		}
-		say("Subindo a Nexora (a primeira vez leva alguns minutos)…")
+		say("Subindo o Mercado Lerdo (a primeira vez leva alguns minutos)…")
 		st, err := stack.Up(ctx, g.d, g.reg, stack.Options{Root: g.Root, Workspace: s.Workspace, PaymentLatency: g.Pack().Manifest.World.PaymentLatency}, g.log)
 		if err != nil {
 			return fresh, err
@@ -578,7 +578,7 @@ func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) 
 	say(fmt.Sprintf("Production Test: %d execuções de %s até %d req/s, cada uma a partir do banco original + as suas migrações.", m.Runs, m.Profile, m.Rate))
 	say("O tráfego do dia fica pausado enquanto isso. Leva alguns minutos.")
 	if why := power.Saving(); why != "" {
-		say("Atenção: " + why + ". A Nexora roda mais devagar assim, e o que depende de velocidade pode ficar inconclusivo. " +
+		say("Atenção: " + why + ". A loja roda mais devagar assim, e o que depende de velocidade pode ficar inconclusivo. " +
 			"Para um resultado que vale, ligue o carregador ou use um perfil de energia equilibrado.")
 	}
 	if err := st.StopBackground(ctx); err != nil {

@@ -167,7 +167,11 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 10b | C2 Connection Pressure (integridade por conciliação gateway × banco, `start`/`world` no cenário, commit sem fsync na sandbox) + app Suporte (reclamações vindas dos sinais reais) (ADR-0018) | feito: C2 jogável; C2 e C1 verificados |
 | 10c | C3 Single Instance Failure + injetor de falhas (`faults`, crash por `SIGABRT`, `autoRestart`) + clientes que tentam de novo + gateway idempotente + Laboratório de carga (ADR-0019) | feito: C3 jogável e verificado |
 | 10d | App Git + campanha do Stage 1 (C1 → C2 → C3 com o workspace da pessoa, história por topologia, estado canônico opcional, histórico de missões; ADR-0020) | feito: Stage 1 completo |
-| 11 | **Playtest #2**: campanha do Stage 1 no NexoraOS ([`playtest-2.md`](playtest-2.md)); antes, a velocidade da máquina entra no veredito (ADR-0021) | decisão sobre Stage 2 e modo hospedado |
+| 11 | **Playtest #2**: campanha do Stage 1 no LerdOS ([`playtest-2.md`](playtest-2.md)); antes, a velocidade da máquina entra no veredito (ADR-0021) | decisão sobre Stage 2 e modo hospedado |
+| 12a | História e marca: **Mercado Lerdo**, LerdOS, elenco, arco de ~18 missões e carreira ([`universe.md`](universe.md)); textos do C1–C3 reescritos | feito: base para as etapas seguintes |
+| 12b | Primeiro dia animado: treinamento guiado pela Tabby, Tabby redesenhada | — |
+| 12c | Eventos do chefe: pedidos, broncas, emergências com prazo (declarados no cenário) | — |
+| 12d | Perfil e carreira: Júnior I → Sênior III, salário em R$, bônus, aumentos, compras pessoais | — |
 
 ## 9. Decisões tomadas (2026-09-24)
 

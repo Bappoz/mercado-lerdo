@@ -39,7 +39,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "missions", title: "Missões · Stage 1", label: "Missões", reading: true },
   { id: "inbox", title: "Caixa de entrada", label: "E-mail", reading: true },
   { id: "pulse", title: "Pulse · produção agora", label: "Pulse" },
-  { id: "terminal", title: "Terminal · rede da Nexora", label: "Terminal" },
+  { id: "terminal", title: "Terminal · rede da loja", label: "Terminal" },
   { id: "tests", title: "Testes", label: "Testes", reading: true },
   { id: "support", title: "Suporte · reclamações", label: "Suporte", reading: true },
   { id: "architecture", title: "Arquitetura · topology.yaml", label: "Arquitetura", reading: true },
@@ -126,13 +126,13 @@ export function App() {
     watching.current = null;
     if (job.error) setToast("Não deu certo: veja os detalhes no app Testes.");
     else if (job.kind === "play") {
-      setToast("A Nexora está no ar.");
+      setToast("A loja está no ar.");
       open("pulse");
     } else if (job.kind === "check") setToast("Quick Check pronto.");
     else if (job.kind === "deploy") setToast("Deploy feito.");
     else if (job.kind === "lab") setToast("Experimento terminado.");
     else if (job.kind === "advance") {
-      setToast("Próximo cenário pronto. Ligue a Nexora pela Caixa de entrada.");
+      setToast("Próximo cenário pronto. Ligue a loja pela Caixa de entrada.");
       open("inbox");
     } else setToast(job.test?.passed ? "Production Test: PASS!" : "Production Test terminou.");
     if (job.kind === "check" || job.kind === "test") open("tests");
@@ -171,7 +171,7 @@ export function App() {
     return (
       <div className="os locked" style={style}>
         <div className="lock">
-          <h1>NexoraOS</h1>
+          <h1>LerdOS</h1>
           <p>
             Este endereço não tem a chave da sessão. Abra o link que o <code>sesim ui</code> mostrou
             no terminal.
@@ -304,7 +304,7 @@ export function App() {
       )}
 
       <header className="topbar">
-        <span className="logo">NexoraOS</span>
+        <span className="logo">LerdOS</span>
         <span className="topbar-title">{state?.scenario.title ?? ""}</span>
         <span className="topbar-status">
           {state?.session && (
@@ -312,7 +312,7 @@ export function App() {
           )}
           {state && (
             <span className={state.running ? "pill live" : "pill"}>
-              {state.running ? "Nexora no ar" : "Nexora desligada"}
+              {state.running ? "Loja no ar" : "Loja desligada"}
             </span>
           )}
           {busy && <span className="pill busy">trabalhando…</span>}

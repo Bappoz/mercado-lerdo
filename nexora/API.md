@@ -1,4 +1,4 @@
-# Nexora API — contract v1
+# Mercado Lerdo API — contract v1
 
 This contract is what traffic generators, correctness checks and future
 scenarios rely on. You may change anything behind it (queries, schema,
@@ -90,7 +90,7 @@ The caller's 50 most recent orders.
 
 ## Payment gateway (external)
 
-Nexora calls it; it is not part of Nexora's API. Base URL: `NEXORA_PAYMENT_URL`.
+The store's app calls it; it is not part of the Mercado Lerdo API. Base URL: `NEXORA_PAYMENT_URL`.
 
 ### `POST /charge`
 

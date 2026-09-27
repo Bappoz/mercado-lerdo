@@ -78,7 +78,7 @@ func TestInstallKeepsCommentsAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# Topologia da Nexora", "pgbouncer:", "poolMode: transaction", "instalado pelo app Docs"} {
+	for _, want := range []string{"# Topologia do Mercado Lerdo", "pgbouncer:", "poolMode: transaction", "instalado pelo app Docs"} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("installed file lacks %q:\n%s", want, out)
 		}

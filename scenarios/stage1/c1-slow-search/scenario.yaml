@@ -4,7 +4,7 @@ kind: Scenario
 metadata:
   id: stage1/c1-slow-search
   version: 0.2.0
-  title: Slow Search
+  title: Busca Lenta
 
 # Must match what the seed tool loaded; the oracle regenerates it to know the truth.
 dataset: {seed: 4242, users: 5000, products: 100000, orders: 20000}
