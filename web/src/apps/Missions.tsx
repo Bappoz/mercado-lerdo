@@ -67,7 +67,7 @@ export function Missions({
             O seu código segue com você: o próximo cenário só aplica a mudança da história (por
             exemplo, "subimos instâncias") ao seu <code>topology.yaml</code>. Se preferir, comece do
             estado canônico: o workspace vira a solução de referência, e o seu código fica no
-            histórico do Git. A Nexora atual é desligada.
+            histórico do Git. A loja atual é desligada.
           </p>
           <div className="actions">
             <button type="button" className="btn" disabled={busy} onClick={() => onAdvance(false)}>
@@ -87,7 +87,10 @@ export function Missions({
       {!view.can_advance && view.missions.every((m) => m.state === "done") && (
         <section className="panel">
           <h3>Stage concluído</h3>
-          <p>Os três incidentes da Nexora estão resolvidos. Obrigado por jogar esta versão.</p>
+          <p>
+            Fim da garagem: os três incidentes do Mercado Lerdo estão resolvidos. Obrigado por jogar
+            esta versão.
+          </p>
         </section>
       )}
     </div>

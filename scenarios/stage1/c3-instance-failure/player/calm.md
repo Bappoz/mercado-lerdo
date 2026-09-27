@@ -1,7 +1,7 @@
 # Um mês depois
 
 O checkout ficou rápido e ninguém mais foi cobrado sem pedido. Para fechar o mês no azul, o
-fundador pediu para cortar custos, e a Nexora voltou para **uma instância** do app.
+Otávio, do financeiro, pediu para cortar custos, e o Mercado Lerdo voltou para **uma instância** do app.
 
 O código continua sendo o do seu workspace:
 
@@ -16,7 +16,7 @@ Ele tem a sua correção do C2 (duas transações curtas, pools que cabem) e a t
 | {{status}} | sinais de produção agora: tráfego, erros, latência, CPU |
 | {{support}} | o que os clientes estão reclamando |
 | {{lab}} | experimentos de carga contra a produção, sem nota (dá para derrubar uma instância no meio) |
-| {{shell}} | terminal dentro da rede da Nexora (`psql`, `curl`, `top`…) |
+| {{shell}} | terminal dentro da rede do Mercado Lerdo (`psql`, `curl`, `top`…) |
 | {{deploy}} | coloca o workspace em produção: código, migrações, topologia e `nginx/default.conf` |
 | {{check}} | aplica o seu código e mede por ~45 s (rápido, indicativo) |
 | {{test}} | o teste de produção que vale (≈ 5 min) |
@@ -29,7 +29,7 @@ custa; {{docs}} explica cada componente.
 navegador reenvia o mesmo pedido, com a mesma `Idempotency-Key`. O gateway de pagamento respeita
 essa chave; o seu app, você vai descobrir.
 
-## Três pedidos do fundador (para você conhecer a casa)
+## Três pedidos do Álvaro (para você conhecer a casa)
 
 1. Quantas instâncias do app atendem a loja agora, e o que acontece se uma cair?
 2. O que o gateway de pagamento faz com duas cobranças com a mesma `Idempotency-Key`?

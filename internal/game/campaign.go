@@ -102,7 +102,7 @@ func (g *Game) Advance(ctx context.Context, canonical bool, say Say) (*scenario.
 		return nil, err
 	}
 	if st := g.running(); st != nil {
-		say("Desligando a Nexora deste cenário…")
+		say("Desligando a loja deste cenário…")
 		if err := g.Stop(ctx, true); err != nil {
 			return nil, err
 		}

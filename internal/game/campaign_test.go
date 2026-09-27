@@ -109,7 +109,7 @@ func TestCampaignCarriesTheWorkspaceForward(t *testing.T) {
 	if top, _ := topology.Load(ws); top.Components.App.Replicas != 1 {
 		t.Errorf("C3 starts on one instance, got %d", top.Components.App.Replicas)
 	}
-	if out, err := gitOutput(ctx, ws, "log", "--all", "--format=%s"); err != nil || !strings.Contains(out, "Fim do cenário Connection Pressure") {
+	if out, err := gitOutput(ctx, ws, "log", "--all", "--format=%s"); err != nil || !strings.Contains(out, "Fim do cenário Pressão de Conexões") {
 		t.Errorf("the player's C2 code must stay in history: %q, %v", out, err)
 	}
 	if !g.Session().Canonical || len(g.Session().History) != 2 {

@@ -221,7 +221,7 @@ export function Tests({
         )}
       </section>
       {!state.running && state.session && (
-        <p className="muted">A Nexora está desligada. Ligue de novo pela Caixa de entrada.</p>
+        <p className="muted">A loja está desligada. Ligue de novo pela Caixa de entrada.</p>
       )}
     </div>
   );

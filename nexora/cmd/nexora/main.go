@@ -1,4 +1,4 @@
-// Command nexora serves the Nexora marketplace API.
+// Command nexora serves the Mercado Lerdo marketplace API.
 package main
 
 import (

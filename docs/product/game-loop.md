@@ -28,8 +28,8 @@ flowchart LR
 
 O "Production is degraded. Investigate. Nada mais." do brief tem o *tom* certo. Mas, para uma estudante do fim do curso, "nada mais" tende a virar paralisia e abandono.
 
-1. **Fase calma (≤5 min, pulável).** "Bem-vinda à Nexora. Você é a primeira engenheira. 127 usuários. Tudo funciona." É um tour disfarçado de tarefas do CEO: "quantos pedidos tivemos hoje?" (leva ao psql), "qual nosso p95?" (leva ao dashboard), "onde fica o código da busca?" (leva ao workspace). Ela aprende as ferramentas *antes* do estresse.
-2. **Evento de crescimento.** Chega uma mensagem do fundador: um criador de conteúdo citou a Nexora e o tráfego subiu 40×. O dashboard degrada em tempo real, com carga real e não animação.
+1. **Fase calma (≤5 min, pulável).** "Bem-vinda ao Mercado Lerdo. Você é a primeira engenheira. 127 usuários. Tudo funciona." É um tour disfarçado de tarefas do CEO: "quantos pedidos tivemos hoje?" (leva ao psql), "qual nosso p95?" (leva ao dashboard), "onde fica o código da busca?" (leva ao workspace). Ela aprende as ferramentas *antes* do estresse.
+2. **Evento de crescimento.** Chega uma mensagem do fundador: um criador de conteúdo citou o Mercado Lerdo e o tráfego subiu 40×. O dashboard degrada em tempo real, com carga real e não animação.
 3. **O pedido.** "Produção degradada. Investigue." Nada além disso no canal principal.
 4. **Rede de segurança.** Um botão discreto e permanente "Perguntar ao sênior" abre a escada de dicas (`mvp.md` §4). No MVP, usá-lo nunca é punido, apenas medido.
 

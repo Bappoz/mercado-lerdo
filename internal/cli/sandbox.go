@@ -15,7 +15,7 @@ import (
 
 const sandboxUsage = `Usage: sesim sandbox <command> [flags]
 
-Manage Nexora sandboxes created through the Docker Engine API (no compose).
+Manage the game's sandboxes created through the Docker Engine API (no compose).
 
 Commands:
   up     create a sandbox for a workspace and print how to reach it

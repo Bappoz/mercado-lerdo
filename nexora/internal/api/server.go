@@ -1,4 +1,4 @@
-// Package api implements the Nexora HTTP API (contract: API.md).
+// Package api implements the Mercado Lerdo HTTP API (contract: API.md).
 package api
 
 import (

@@ -23,7 +23,7 @@ Playing (output in PT-BR):
   check          Quick Check: apply your workspace and measure ~45 s (indicative)
   test           Production Test (graded); in a game, shows the debrief on PASS
   hint           the next hint (5 levels)
-  shell          terminal inside the Nexora network
+  shell          terminal inside the store's network
   deploy         ship the workspace (code, migrations, topology.yaml, nginx config)
   topology       the workspace's topology, its modeled cost and pending changes
   support        customer complaints of the last 10 minutes
@@ -33,7 +33,7 @@ Playing (output in PT-BR):
   docs [c]       the component catalog, or one component's page
   install <c>    add an optional component to topology.yaml (deploy applies it)
   stop           stop the background traffic (--down: also destroy the sandbox)
-  ui             NexoraOS: the same game in the browser (127.0.0.1 only)
+  ui             LerdOS: the same game in the browser (127.0.0.1 only)
 
 Tools:
   sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes via the Docker API

@@ -38,7 +38,7 @@ export const ACTION: Record<"create" | "recreate" | "remove", string> = {
 
 export const COMPONENT_NAME: Record<string, string> = {
   nginx: "Nginx",
-  app: "App Nexora",
+  app: "App da loja",
   pgbouncer: "PgBouncer",
   postgres: "PostgreSQL",
 };

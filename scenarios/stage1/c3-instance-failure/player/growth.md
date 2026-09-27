@@ -1,8 +1,8 @@
 # #geral — 18:40
 
-**Fundador:** A loja caiu. Do nada. Está todo mundo vendo erro.
+**Álvaro:** A loja caiu. Do nada. Está todo mundo vendo erro. Foi o corte de custos?
 
-**Suporte:** Chegando reclamação de todo lado. E dois clientes dizem que foram cobrados em dobro
+**Jéssica (suporte):** Chegando reclamação de todo lado. E dois clientes dizem que foram cobrados em dobro
 da última vez que isso aconteceu.
 
 ---

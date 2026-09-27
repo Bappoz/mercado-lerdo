@@ -194,7 +194,7 @@ func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return t.fail(game.ErrNotRunning)
 	}
 	t.g.Event("shell_opened", nil)
-	fmt.Fprintln(stdout, "Terminal na rede da Nexora (psql já conectado ao banco). `exit` para sair.")
+	fmt.Fprintln(stdout, "Terminal na rede da loja (psql já conectado ao banco). `exit` para sair.")
 	if err := t.g.Shell(ctx, os.Stdin, stdout, stderr); err != nil {
 		return t.fail(err)
 	}
@@ -215,9 +215,9 @@ func runStop(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return t.fail(err)
 	}
 	if !down {
-		fmt.Fprintln(stdout, "Tráfego parado; a Nexora continua de pé. `sesim play` retoma; `sesim stop --down` desliga tudo.")
+		fmt.Fprintln(stdout, "Tráfego parado; a loja continua de pé. `sesim play` retoma; `sesim stop --down` desliga tudo.")
 		return 0
 	}
-	fmt.Fprintln(stdout, "Nexora desligada (nada ficou para trás). Seu workspace e o progresso continuam; `sesim play` sobe de novo.")
+	fmt.Fprintln(stdout, "Loja desligada (nada ficou para trás). Seu workspace e o progresso continuam; `sesim play` sobe de novo.")
 	return 0
 }
