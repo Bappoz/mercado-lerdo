@@ -27,6 +27,8 @@ type Pack struct {
 	Oracle   []OracleCase
 	Hints    []Hint       // empty when the pack has no player section
 	Events   []StoryEvent // player.events; none when the pack has no story events
+	// Tutorial is player.tutorial: the guided mode (ADR-0024); empty for the others.
+	Tutorial []TutorialStep
 }
 
 // Manifest is scenario.yaml.
@@ -129,6 +131,8 @@ type Player struct {
 	Hints         string `yaml:"hints"`
 	Debrief       string `yaml:"debrief"`
 	Events        string `yaml:"events"` // optional: the story's events (ADR-0022)
+	// Tutorial is optional: Tabby guides the whole mission, and hints are free (ADR-0024).
+	Tutorial string `yaml:"tutorial"`
 }
 
 // Phase is one step of the story: a briefing and the background traffic.
@@ -213,6 +217,17 @@ func Load(dir string) (*Pack, error) {
 			}
 			if err := ValidateStory(p.Events); err != nil {
 				return nil, fmt.Errorf("scenario %s: %s: %w", dir, pl.Events, err)
+			}
+		}
+		if pl.Tutorial != "" {
+			if err := readYAML(filepath.Join(dir, pl.Tutorial), &p.Tutorial); err != nil {
+				return nil, err
+			}
+			if len(p.Tutorial) == 0 {
+				return nil, fmt.Errorf("scenario %s: %s has no steps", dir, pl.Tutorial)
+			}
+			if err := ValidateTutorial(p.Tutorial); err != nil {
+				return nil, fmt.Errorf("scenario %s: %s: %w", dir, pl.Tutorial, err)
 			}
 		}
 	}

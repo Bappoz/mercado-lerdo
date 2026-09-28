@@ -3,8 +3,9 @@
 
 cat <<'EOF'
 Terminal na rede da loja do Mercado Lerdo.
-  psql                  abre o banco, já autenticado (dentro dele: \q sai, \? ajuda)
-  psql -c "SELECT 1"    roda uma consulta sem entrar no banco
+  psql                abre o banco (já autenticado)
+  psql -c "SELECT 1"  roda uma consulta sem entrar no banco
+  dentro do psql:     \q sai, \? ajuda
 EOF
 
 # SQL typed at the bash prompt is the most common first mistake: answer with

@@ -27,6 +27,7 @@ player:
   hints: player/hints.yaml
   debrief: player/debrief.md
   events: player/events.yaml
+  tutorial: player/tutorial.yaml
 
 # Properties only. Nothing here knows about indexes, caches or search engines.
 objectives:

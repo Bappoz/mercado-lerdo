@@ -2,7 +2,7 @@
 // solution. What the scenario wants to reveal lives in its hint ladder, which
 // Tabby hands out only when asked.
 
-import type { GameState } from "./api.ts";
+import type { GameState, TutorialView } from "./api.ts";
 
 /** Tabby's mood follows the story: worried in an incident, happy once it is solved. */
 export type Mood = "sit" | "worried" | "happy";
@@ -25,6 +25,7 @@ const GOAL_TIP: Record<NonNullable<GameState["deadline"]>["goal"], string> = {
 export interface Tip {
   id: string; // changes when the situation changes, so the bubble reopens
   text: string;
+  tutorial?: TutorialView; // the guided mode's step (ADR-0024): the bubble shows it instead of text
 }
 
 export function tabbyTip(s: GameState | null): Tip {
@@ -56,6 +57,24 @@ export function tabbyTip(s: GameState | null): Tip {
       text: "A loja está desligada. Ligue de novo na Caixa de entrada: o seu código continua no workspace.",
     };
   }
+  const last = job && !job.running ? job : null;
+  const failed: Tip | null = last?.error
+    ? {
+        id: `err-${last.id}`,
+        text: "Isso não deu certo. A mensagem de erro está no app Testes; ela costuma dizer onde olhar.",
+      }
+    : null;
+  // In the guided mode Tabby leads: her step comes before the story's requests.
+  const t = s.tutorial;
+  if (t?.step) {
+    return (
+      failed ?? {
+        id: `tut-${t.step}${t.wrong ? "-wrong" : ""}${t.help ? "-help" : ""}`,
+        text: t.text,
+        tutorial: t,
+      }
+    );
+  }
   const d = s.deadline;
   if (d) {
     const until = new Date(d.until).toLocaleTimeString("pt-BR", {
@@ -67,18 +86,12 @@ export function tabbyTip(s: GameState | null): Tip {
       text: `${d.from.split(" ")[0]} pediu: "${d.title}", até ${until}. ${GOAL_TIP[d.goal]}`,
     };
   }
-  const last = job && !job.running ? job : null;
-  if (last?.error) {
-    return {
-      id: `err-${last.id}`,
-      text: "Isso não deu certo. A mensagem de erro está no app Testes; ela costuma dizer onde olhar.",
-    };
-  }
+  if (failed) return failed;
   switch (s.session.phase) {
     case "calm":
       return {
         id: "calm",
-        text: "Dia tranquilo. Dê uma volta: o Pulse mostra a produção e o Terminal já tem o psql conectado. Anote o que parecer normal: vai servir de comparação.",
+        text: "Dia tranquilo. Dê uma volta: o Pulse mostra a produção, e no Terminal o `psql` abre o banco. Anote o que parecer normal: vai servir de comparação.",
       };
     case "completed":
       return {

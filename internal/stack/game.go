@@ -368,3 +368,28 @@ func (s *Stack) Crash(ctx context.Context, component string, replica int) error 
 	}
 	return nil
 }
+
+// playerRole is the database role of the toolbox's psql (and of the app,
+// which never queries pg_stat_statements nor runs EXPLAIN).
+const playerRole = "nexora"
+
+// PlayerQueries counts, from pg_stat_statements, what the player ran in psql:
+// queries on pg_stat_statements itself and EXPLAINs. The tutorial takes them
+// as proof that the player looked (ADR-0024). The exporter and the platform
+// query as roles of their own, so they never count.
+func (s *Stack) PlayerQueries(ctx context.Context) (stats, explains int64, err error) {
+	q := `SELECT coalesce(sum(calls) FILTER (WHERE query ILIKE '%pg_stat_statements%' AND query NOT ILIKE '%pg_stat_statements_reset%'), 0),
+       coalesce(sum(calls) FILTER (WHERE query ~* '^\s*explain\M'), 0)
+FROM pg_stat_statements s JOIN pg_roles r ON r.oid = s.userid WHERE r.rolname = '` + playerRole + `'`
+	res, err := s.d.Exec(ctx, s.Run, "postgres", 1, []string{"psql", "-U", "postgres", "-d", "nexora", "-At", "-F", " ", "-c", q}, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	if res.ExitCode != 0 {
+		return 0, 0, fmt.Errorf("stack: player queries: psql exit %d: %s", res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	if _, err := fmt.Sscan(res.Stdout, &stats, &explains); err != nil {
+		return 0, 0, fmt.Errorf("stack: player queries: %q: %w", res.Stdout, err)
+	}
+	return stats, explains, nil
+}

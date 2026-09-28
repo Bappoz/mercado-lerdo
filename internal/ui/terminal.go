@@ -38,6 +38,9 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.g.Event("shell_opened", map[string]any{"view": "web"})
+	if err := s.g.MarkViewed("shell"); err != nil {
+		s.log.Warn("shell view not recorded", "err", err)
+	}
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
