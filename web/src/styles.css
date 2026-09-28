@@ -1615,3 +1615,500 @@ pre.diff {
   border-radius: var(--radius-sm);
   margin-top: 8px;
 }
+
+/* ---- the logo in LerdOS's top bar: a way back to the menu ---- */
+button.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: 1.2;
+}
+.logo img {
+  width: 18px;
+  height: 18px;
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: var(--on-accent);
+}
+
+/* ---- the title screen (ADR-0025) ---- */
+.menu {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 36px 16px 24px;
+  background: radial-gradient(circle at 50% 22%, #fff7c8 0%, #f5cf2b 38%, #e3b41f 100%);
+  color: #2f2a6b;
+}
+.menu-leaves {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.menu-leaves span {
+  position: absolute;
+  top: -20px;
+  width: 14px;
+  height: 8px;
+  background: #46a758;
+  border: 2px solid #2f2a6b;
+  border-radius: 0 8px 0 8px;
+  opacity: 0.7;
+}
+.menu-leaves span:nth-child(1) {
+  left: 8%;
+}
+.menu-leaves span:nth-child(2) {
+  left: 27%;
+}
+.menu-leaves span:nth-child(3) {
+  left: 55%;
+}
+.menu-leaves span:nth-child(4) {
+  left: 74%;
+}
+.menu-leaves span:nth-child(5) {
+  left: 91%;
+}
+.menu-title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.menu-logo {
+  background: #fbf7ef;
+  border: 4px solid #2f2a6b;
+  border-radius: 20px;
+  padding: 10px 18px;
+  box-shadow: 0 8px 0 #2f2a6b;
+  cursor: pointer;
+}
+.menu-logo img {
+  display: block;
+  width: min(520px, 82vw);
+  height: auto;
+}
+.menu-poke {
+  position: absolute;
+  top: -6px;
+  left: 6%;
+  padding: 4px 10px;
+  background: #fbf7ef;
+  border: 3px solid #2f2a6b;
+  border-radius: 12px;
+  font-family: var(--font-chrome);
+  font-size: 14px;
+}
+.menu-tagline {
+  margin: 10px 0 0;
+  font-family: var(--font-chrome);
+  font-size: 18px;
+  text-align: center;
+}
+.menu-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, 100%);
+}
+.menu-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 16px;
+  font-family: var(--font-chrome);
+  font-size: 20px;
+  cursor: pointer;
+  color: #2f2a6b;
+  background: #fbf7ef;
+  border: 3px solid #2f2a6b;
+  border-radius: 12px;
+  box-shadow: 0 5px 0 #2f2a6b;
+}
+.menu-btn small {
+  font-family: var(--font-body);
+  font-size: 13px;
+  opacity: 0.8;
+}
+.menu-btn.primary {
+  background: #2f2a6b;
+  color: #fbf7ef;
+  box-shadow: 0 5px 0 #17143a;
+}
+.menu-btn.ghost {
+  font-size: 16px;
+  background: transparent;
+  box-shadow: none;
+}
+.menu-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.menu-btn:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #2f2a6b;
+}
+.menu-saves {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  width: min(760px, 100%);
+}
+.save {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: #fbf7ef;
+  color: #2f2a6b;
+  border: 3px solid #2f2a6b;
+  border-radius: 12px;
+}
+.save.empty {
+  background: rgba(251, 247, 239, 0.55);
+  border-style: dashed;
+}
+.save header {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-chrome);
+}
+.save p {
+  margin: 0;
+}
+.save .muted {
+  color: #5b5794;
+}
+.save-scenario {
+  font-weight: 700;
+}
+.save-tag {
+  font-size: 12px;
+  padding: 0 6px;
+  background: #f5cf2b;
+  border: 2px solid #2f2a6b;
+  border-radius: 6px;
+}
+.save footer {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.menu-warn {
+  margin: 0;
+  font-size: 14px;
+  text-align: center;
+}
+.menu-foot {
+  margin-top: auto;
+  font-size: 13px;
+  opacity: 0.8;
+  text-align: center;
+}
+
+/* ---- the intro cutscene ---- */
+.intro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #17143a;
+  color: #fbf7ef;
+}
+.intro-bar {
+  flex: 0 0 auto;
+  background: #000;
+}
+.intro-bar.top {
+  height: 7vh;
+}
+.intro-bar.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  min-height: 9vh;
+  padding: 8px 16px;
+}
+.intro-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.intro-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.intro-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+  text-align: center;
+}
+.intro-place {
+  font-family: var(--font-chrome);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f5cf2b;
+}
+.intro-text {
+  font-size: clamp(17px, 2.4vw, 24px);
+  line-height: 1.5;
+  min-height: 3em;
+}
+.intro-mark {
+  width: 200px;
+  height: 200px;
+}
+.intro-logo {
+  width: min(560px, 86vw);
+  height: auto;
+  background: #fbf7ef;
+  border-radius: 16px;
+  padding: 10px 16px;
+}
+.intro-fees {
+  position: relative;
+  display: inline-block;
+}
+.coin {
+  position: absolute;
+  left: -80px;
+  top: 90px;
+  width: 20px;
+  height: 20px;
+  background: #f5cf2b;
+  border: 3px solid #2f2a6b;
+  border-radius: 50%;
+  opacity: 0;
+}
+.intro-rain {
+  position: relative;
+  display: inline-block;
+  padding: 20px 60px 0;
+  background: repeating-linear-gradient(
+    105deg,
+    transparent 0 14px,
+    rgba(160, 190, 255, 0.35) 14px 16px
+  );
+}
+.intro-you {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.intro-you-word {
+  font-family: var(--font-chrome);
+  font-size: clamp(40px, 8vw, 80px);
+  color: #f5cf2b;
+}
+.intro-dots {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.intro-dots li {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fbf7ef;
+  border-radius: 2px;
+}
+.intro-dots li.seen {
+  background: #5b5794;
+}
+.intro-dots li.on {
+  background: #f5cf2b;
+}
+.intro-hint {
+  font-size: 13px;
+  opacity: 0.7;
+}
+.intro-skip {
+  margin-left: auto;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: #fbf7ef;
+  background: transparent;
+  border: 2px solid #fbf7ef;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .os[data-motion="on"] .menu-leaves span {
+    animation: leaf-fall 9s linear infinite;
+  }
+  .os[data-motion="on"] .menu-leaves span:nth-child(2) {
+    animation-delay: 2s;
+    animation-duration: 11s;
+  }
+  .os[data-motion="on"] .menu-leaves span:nth-child(3) {
+    animation-delay: 5s;
+  }
+  .os[data-motion="on"] .menu-leaves span:nth-child(4) {
+    animation-delay: 1s;
+    animation-duration: 13s;
+  }
+  .os[data-motion="on"] .menu-leaves span:nth-child(5) {
+    animation-delay: 7s;
+  }
+  .os[data-motion="on"] .menu-logo {
+    animation: float 5s ease-in-out infinite;
+  }
+  .os[data-motion="on"] .menu-logo.poked {
+    animation: wiggle 0.5s ease-in-out;
+  }
+  .os[data-motion="on"] .menu-tagline {
+    animation: fade-in 0.8s ease-out;
+  }
+  .os[data-motion="on"] .intro-stage {
+    animation: fade-in 0.9s ease-out;
+  }
+  .os[data-motion="on"] .intro-art.bob,
+  .os[data-motion="on"] .intro-mark.bob {
+    animation: float 3.5s ease-in-out infinite;
+  }
+  .os[data-motion="on"] .intro-art.beat {
+    animation: beat 1.4s ease-in-out infinite;
+  }
+  .os[data-motion="on"] .intro-art.glitch {
+    animation: glitch 2.2s steps(1) infinite;
+  }
+  .os[data-motion="on"] .coin {
+    animation: coin-fly 2.4s ease-in infinite;
+  }
+  .os[data-motion="on"] .coin.c2 {
+    animation-delay: 0.8s;
+  }
+  .os[data-motion="on"] .coin.c3 {
+    animation-delay: 1.6s;
+  }
+  .os[data-motion="on"] .intro-rain {
+    animation: rain 0.6s linear infinite;
+  }
+  .os[data-motion="on"] .intro-cursor {
+    animation: blink-cursor 0.8s steps(1) infinite;
+  }
+}
+@keyframes leaf-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(40px, 50vh) rotate(180deg);
+  }
+  100% {
+    transform: translate(-20px, 105vh) rotate(360deg);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-3deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes glitch {
+  0%,
+  88%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  90% {
+    transform: translateX(-4px);
+    filter: hue-rotate(90deg);
+  }
+  94% {
+    transform: translateX(3px);
+  }
+}
+@keyframes coin-fly {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(170px, -40px) scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes rain {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -8px 32px;
+  }
+}
+@keyframes blink-cursor {
+  50% {
+    opacity: 0;
+  }
+}

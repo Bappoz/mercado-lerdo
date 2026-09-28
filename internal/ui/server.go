@@ -58,7 +58,13 @@ const (
 
 // Server is the UI of one game. It runs one long operation at a time.
 type Server struct {
-	g      *game.Game
+	gmu sync.RWMutex
+	cur *game.Game // the save being played; switched by the save menu (ADR-0025)
+	// saves are the workspaces of the save slots (absolute), root the
+	// repository, open opens a slot's game; nil saves: one workspace only.
+	saves  []string
+	root   string
+	open   Opener
 	static fs.FS
 	token  string
 	prefs  string // path of the UI preferences file
@@ -81,7 +87,23 @@ func New(ctx context.Context, g *game.Game, static fs.FS, prefsPath string, log 
 	if _, err := rand.Read(b); err != nil {
 		return nil, fmt.Errorf("ui: token: %w", err)
 	}
-	return &Server{g: g, static: static, token: hex.EncodeToString(b), prefs: prefsPath, log: log, ctx: ctx}, nil
+	return &Server{cur: g, static: static, token: hex.EncodeToString(b), prefs: prefsPath, log: log, ctx: ctx}, nil
+}
+
+// Opener opens the game of a workspace (with the logger the job log needs).
+type Opener func(ctx context.Context, workspace string) (*game.Game, error)
+
+// WithSaves turns on the save menu: saves are the slots' workspaces, the
+// first of them the one New's game plays.
+func (s *Server) WithSaves(root string, saves []string, open Opener) {
+	s.root, s.saves, s.open = root, saves, open
+}
+
+// gm is the game of the current save.
+func (s *Server) gm() *game.Game {
+	s.gmu.RLock()
+	defer s.gmu.RUnlock()
+	return s.cur
 }
 
 // Token authenticates the browser; it goes in the URL fragment only.
@@ -134,6 +156,10 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/viewed", s.viewed)
 	api.HandleFunc("GET /api/notes", s.getNotes)
 	api.HandleFunc("PUT /api/notes", s.putNotes)
+	api.HandleFunc("GET /api/saves", s.listSaves)
+	api.HandleFunc("POST /api/saves/select", s.selectSave)
+	api.HandleFunc("POST /api/saves/new", s.newSave)
+	api.HandleFunc("POST /api/saves/delete", s.deleteSave)
 	api.HandleFunc("GET /api/prefs", s.getPrefs)
 	api.HandleFunc("PUT /api/prefs", s.putPrefs)
 
@@ -249,20 +275,20 @@ type careerView struct {
 }
 
 func (s *Server) state(w http.ResponseWriter, r *http.Request) {
-	md := s.g.Pack().Manifest
+	md := s.gm().Pack().Manifest
 	v := stateView{
 		Scenario:   map[string]string{"id": md.Metadata.ID, "title": md.Metadata.Title, "version": md.Metadata.Version},
-		Running:    s.g.Running(),
+		Running:    s.gm().Running(),
 		Messages:   []Message{},
 		Hints:      []HintView{},
-		HintsTotal: len(s.g.Pack().Hints),
+		HintsTotal: len(s.gm().Pack().Hints),
 		Job:        s.currentJob(),
 	}
-	if rep := s.g.LastTest(); rep != nil {
+	if rep := s.gm().LastTest(); rep != nil {
 		v.LastTest = rep
 	}
-	if s.g.HasSession() {
-		sess := s.g.Session()
+	if s.gm().HasSession() {
+		sess := s.gm().Session()
 		v.Session = &sess
 		msgs, err := s.messages(r.Context(), sess)
 		if err != nil {
@@ -270,7 +296,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// The story's events land in the same inbox, in the order they happened.
-		story, err := s.g.Story(r.Context())
+		story, err := s.gm().Story(r.Context())
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -279,22 +305,22 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 			msgs = append(msgs, Message{ID: m.ID, From: m.From, Subject: m.Title, At: m.At, Kind: m.Kind,
 				Markdown: play.RenderBriefing(m.Text, Words)})
 		}
-		prof := s.g.Profile()
-		msgs = append(msgs, careerMails(sess, prof, s.g.Pack().Manifest.Metadata.ID)...)
+		prof := s.gm().Profile()
+		msgs = append(msgs, careerMails(sess, prof, s.gm().Pack().Manifest.Metadata.ID)...)
 		slices.SortStableFunc(msgs, func(a, b Message) int { return a.At.Compare(b.At) })
 		v.Messages = msgs
 		v.Deadline = story.Deadline
 		cv := &careerView{Level: prof.Level.Title, XP: prof.XP, LevelXP: prof.Level.XP, Balance: prof.Balance,
-			HintPrice: s.g.NextHintPrice(), LabPrice: s.g.NextLabPrice()}
+			HintPrice: s.gm().NextHintPrice(), LabPrice: s.gm().NextLabPrice()}
 		if prof.Next != nil {
 			cv.Next, cv.NextXP = prof.Next.Title, prof.Next.XP
 		}
 		v.Career = cv
-		if v.Tutorial, err = s.g.Tutorial(r.Context(), Words, !s.busy()); err != nil {
+		if v.Tutorial, err = s.gm().Tutorial(r.Context(), Words, !s.busy()); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
-		for _, h := range s.g.Hints() {
+		for _, h := range s.gm().Hints() {
 			v.Hints = append(v.Hints, HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)})
 		}
 	}
@@ -303,7 +329,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 
 // messages is the inbox: the story so far.
 func (s *Server) messages(ctx context.Context, sess play.Session) ([]Message, error) {
-	p := s.g.Pack().Manifest.Player
+	p := s.gm().Pack().Manifest.Player
 	type mail struct {
 		id, from, subject, file string
 		at                      time.Time
@@ -319,7 +345,7 @@ func (s *Server) messages(ctx context.Context, sess play.Session) ([]Message, er
 		if !m.show {
 			continue
 		}
-		body, err := s.g.Document(ctx, m.file, Words)
+		body, err := s.gm().Document(ctx, m.file, Words)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +361,7 @@ func (s *Server) next(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errBusy)
 		return
 	}
-	started, err := s.g.Next(r.Context())
+	started, err := s.gm().Next(r.Context())
 	if err != nil {
 		writeError(w, statusOf(err), err)
 		return
@@ -344,11 +370,11 @@ func (s *Server) next(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) hint(w http.ResponseWriter, _ *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	h, ok, err := s.g.Hint()
+	h, ok, err := s.gm().Hint()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -371,7 +397,7 @@ func (s *Server) tutorial(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
@@ -379,11 +405,11 @@ func (s *Server) tutorial(w http.ResponseWriter, r *http.Request) {
 	right := false
 	switch body.Action {
 	case "ok":
-		err = s.g.TutorialOK(r.Context())
+		err = s.gm().TutorialOK(r.Context())
 	case "help":
-		err = s.g.TutorialHelp(r.Context())
+		err = s.gm().TutorialHelp(r.Context())
 	case "answer":
-		right, err = s.g.TutorialAnswer(r.Context(), body.Choice)
+		right, err = s.gm().TutorialAnswer(r.Context(), body.Choice)
 	default:
 		err = fmt.Errorf("ação desconhecida %q", body.Action)
 	}
@@ -406,7 +432,7 @@ func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errBusy)
 		return
 	}
-	if err := s.g.Stop(r.Context(), body.Down); err != nil {
+	if err := s.gm().Stop(r.Context(), body.Down); err != nil {
 		writeError(w, statusOf(err), err)
 		return
 	}
@@ -419,7 +445,7 @@ func (s *Server) pulse(w http.ResponseWriter, r *http.Request) {
 		span = time.Duration(v) * time.Second
 	}
 	step := max(5*time.Second, span/120)
-	p, err := s.g.Pulse(r.Context(), span, step)
+	p, err := s.gm().Pulse(r.Context(), span, step)
 	if err != nil {
 		writeError(w, statusOf(err), err)
 		return
@@ -428,11 +454,11 @@ func (s *Server) pulse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) topology(w http.ResponseWriter, _ *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.g.Topology())
+	writeJSON(w, http.StatusOK, s.gm().Topology())
 }
 
 // catalogEntry is a catalog page plus whether the workspace has it.
@@ -443,8 +469,8 @@ type catalogEntry struct {
 
 func (s *Server) catalog(w http.ResponseWriter, _ *http.Request) {
 	var ws *topology.Topology
-	if s.g.HasSession() {
-		ws = s.g.Topology().Workspace
+	if s.gm().HasSession() {
+		ws = s.gm().Topology().Workspace
 	}
 	out := make([]catalogEntry, 0, len(topology.Catalog))
 	for _, k := range []topology.Kind{topology.KindNginx, topology.KindApp, topology.KindPgBouncer, topology.KindPostgres} {
@@ -469,7 +495,7 @@ func (s *Server) install(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errBusy)
 		return
 	}
-	switch err := s.g.Install(body.Kind); {
+	switch err := s.gm().Install(body.Kind); {
 	case errors.Is(err, topology.ErrInstalled), errors.Is(err, game.ErrNoSession):
 		writeError(w, http.StatusConflict, err)
 	case err != nil:
@@ -480,15 +506,15 @@ func (s *Server) install(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) profile(w http.ResponseWriter, _ *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.g.Profile())
+	writeJSON(w, http.StatusOK, s.gm().Profile())
 }
 
 func (s *Server) campaign(w http.ResponseWriter, _ *http.Request) {
-	v, err := s.g.Campaign()
+	v, err := s.gm().Campaign()
 	if errors.Is(err, game.ErrNotInCampaign) {
 		writeJSON(w, http.StatusOK, map[string]any{"missions": []any{}})
 		return
@@ -501,11 +527,11 @@ func (s *Server) campaign(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) gitStatus(w http.ResponseWriter, r *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	c, err := s.g.GitStatus(r.Context())
+	c, err := s.gm().GitStatus(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -517,11 +543,11 @@ func (s *Server) gitStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) gitDiff(w http.ResponseWriter, r *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	d, err := s.g.GitDiff(r.Context(), r.URL.Query().Get("path"), r.URL.Query().Get("since") == "start")
+	d, err := s.gm().GitDiff(r.Context(), r.URL.Query().Get("path"), r.URL.Query().Get("since") == "start")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -530,11 +556,11 @@ func (s *Server) gitDiff(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) gitLog(w http.ResponseWriter, r *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}
-	l, err := s.g.GitLog(r.Context(), 40)
+	l, err := s.gm().GitLog(r.Context(), 40)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -554,7 +580,7 @@ func (s *Server) gitCommit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errBusy)
 		return
 	}
-	c, err := s.g.GitCommit(r.Context(), body.Message)
+	c, err := s.gm().GitCommit(r.Context(), body.Message)
 	switch {
 	case errors.Is(err, game.ErrNothingToCommit):
 		writeError(w, http.StatusConflict, err)
@@ -575,17 +601,17 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	props := map[string]any{"view": "web", "phase": string(s.g.Session().Phase)}
+	props := map[string]any{"view": "web", "phase": string(s.gm().Session().Phase)}
 	switch body.What {
 	case "debrief":
-		s.g.Event("debrief_viewed", props)
+		s.gm().Event("debrief_viewed", props)
 	case "pulse", "support":
-		s.g.Event(map[string]string{"pulse": "status_viewed", "support": "support_viewed"}[body.What], props)
-		if err := s.g.MarkViewed(body.What); err != nil {
+		s.gm().Event(map[string]string{"pulse": "status_viewed", "support": "support_viewed"}[body.What], props)
+		if err := s.gm().MarkViewed(body.What); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
@@ -594,7 +620,7 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 		if body.What == "pulse" && s.measuring.CompareAndSwap(false, true) {
 			go func() {
 				defer s.measuring.Store(false)
-				if err := s.g.RecordBaseline(s.ctx, nil); err != nil {
+				if err := s.gm().RecordBaseline(s.ctx, nil); err != nil {
 					s.log.Warn("baseline not recorded", "err", err)
 				}
 			}()
@@ -620,7 +646,7 @@ func (s *Server) tickets(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"tickets": t})
 		return
 	}
-	t, err := s.g.Tickets(r.Context())
+	t, err := s.gm().Tickets(r.Context())
 	if err != nil {
 		writeError(w, statusOf(err), err)
 		return
@@ -637,11 +663,11 @@ func (s *Server) tickets(w http.ResponseWriter, r *http.Request) {
 // ---- notes and preferences ----
 
 func (s *Server) notesPath() string {
-	return filepath.Join(play.StateDir(s.g.Session().Workspace), "notes.md")
+	return filepath.Join(play.StateDir(s.gm().Session().Workspace), "notes.md")
 }
 
 func (s *Server) getNotes(w http.ResponseWriter, _ *http.Request) {
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeJSON(w, http.StatusOK, map[string]string{"text": ""})
 		return
 	}
@@ -655,7 +681,7 @@ func (s *Server) getNotes(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) putNotes(w http.ResponseWriter, r *http.Request) {
 	// The notes live in the workspace, which exists only once the game started.
-	if !s.g.HasSession() {
+	if !s.gm().HasSession() {
 		writeError(w, http.StatusConflict, game.ErrNoSession)
 		return
 	}

@@ -21,6 +21,8 @@ import { Pulse } from "./apps/Pulse.tsx";
 import { Settings } from "./apps/Settings.tsx";
 import { Support } from "./apps/Support.tsx";
 import { Tests } from "./apps/Tests.tsx";
+import { Intro } from "./menu/Intro.tsx";
+import { Menu } from "./menu/Menu.tsx";
 import { money } from "./money.ts";
 import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
@@ -123,8 +125,12 @@ function Clock() {
   return <time>{now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</time>;
 }
 
+/** Where the player is: the title screen, the intro cutscene, or LerdOS itself. */
+type Screen = { at: "menu" } | { at: "intro"; next: "menu" | "desktop" } | { at: "desktop" };
+
 export function App() {
   const game = useGame();
+  const [screen, setScreen] = useState<Screen>({ at: "menu" });
   const [notice, setToast] = useState<string | null>(null);
   const [prefs, setPrefs, prefsLoaded] = usePrefs(setToast);
   const wm = useWindows();
@@ -216,6 +222,33 @@ export function App() {
             no terminal.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (screen.at !== "desktop") {
+    return (
+      <div
+        className="os"
+        style={style}
+        data-theme={theme.id}
+        data-motion={prefs.motion ? "on" : "off"}
+      >
+        {screen.at === "menu" ? (
+          <Menu
+            onPlay={(fresh) => {
+              void game.refresh();
+              setScreen(fresh ? { at: "intro", next: "desktop" } : { at: "desktop" });
+            }}
+            onIntro={() => setScreen({ at: "intro", next: "menu" })}
+          />
+        ) : (
+          <Intro
+            motion={prefs.motion}
+            finalLabel={screen.next === "desktop" ? "Começar o primeiro dia" : "Voltar ao menu"}
+            onDone={() => setScreen({ at: screen.next })}
+          />
+        )}
       </div>
     );
   }
@@ -346,7 +379,15 @@ export function App() {
       )}
 
       <header className="topbar">
-        <span className="logo">LerdOS</span>
+        <button
+          type="button"
+          className="logo"
+          onClick={() => setScreen({ at: "menu" })}
+          title="Menu principal: saves e abertura"
+        >
+          <img src="/logo-mark.png" alt="" />
+          LerdOS
+        </button>
         <span className="topbar-title">{state?.scenario.title ?? ""}</span>
         <span className="topbar-status">
           {state?.session && (

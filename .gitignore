@@ -11,8 +11,10 @@ web/dist/*
 # Load test outputs
 /.runs/
 
-# The player's workspace created by `sesim play`
+# The player's workspaces (the three saves of the menu, ADR-0025)
 /workspace/
+/workspace-2/
+/workspace-3/
 
 # Dependencies
 node_modules/

@@ -28,3 +28,4 @@ Formato e regras: [ADR-0001](0001-registrar-decisoes-com-adrs.md).
 | [0022](0022-eventos-da-historia.md) | Eventos da história declarados no cenário (gatilhos e objetivos de um conjunto fechado), avaliados na leitura; prazo perdido custa bônus, nunca a missão | Proposto |
 | [0023](0023-carreira-e-salario.md) | Carreira e salário derivados da campanha (núcleo puro `internal/career`); o salário paga dicas e experimentos extras; o dinheiro nunca bloqueia | Proposto |
 | [0024](0024-c1-como-treinamento-guiado.md) | O C1 é um treinamento guiado pela Tabby (passos declarados no cenário, avaliados na leitura, duas perguntas para pensar); a ajuda do treinamento é de graça | Proposto |
+| [0025](0025-menu-saves-e-abertura.md) | Menu de título com até três saves (workspaces lado a lado, um jogo por vez no servidor) e abertura com a história da empresa; a logo no favicon, no topo e no README | Proposto |
