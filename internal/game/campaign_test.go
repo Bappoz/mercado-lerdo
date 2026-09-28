@@ -100,7 +100,7 @@ func TestCampaignCarriesTheWorkspaceForward(t *testing.T) {
 		t.Fatal(err)
 	}
 	orders, err := os.ReadFile(filepath.Join(ws, "internal", "store", "orders.go"))
-	if err != nil || !strings.Contains(string(orders), "reserve takes the stock") {
+	if err != nil || !strings.Contains(string(orders), "reserve tira o estoque") {
 		t.Error("the canonical C3 start has C2's reference fix")
 	}
 	if _, err := os.Stat(filepath.Join(ws, "migrations", "0002_mine.sql")); !os.IsNotExist(err) {

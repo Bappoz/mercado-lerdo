@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Product is a catalog item.
+// Product é um item do catálogo.
 type Product struct {
 	ID          int64     `json:"id"`
 	SKU         string    `json:"sku"`
@@ -22,7 +22,7 @@ type Product struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// ListProducts returns one page of the catalog, newest first by id.
+// ListProducts devolve uma página do catálogo, mais novos primeiro (por id).
 func (s *Store) ListProducts(ctx context.Context, limit, offset int) ([]Product, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, sku, name, category, price_cents, stock, created_at
@@ -30,12 +30,12 @@ func (s *Store) ListProducts(ctx context.Context, limit, offset int) ([]Product,
 		ORDER BY id DESC
 		LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("list products: %w", err)
+		return nil, fmt.Errorf("listar produtos: %w", err)
 	}
 	return collectProducts(rows)
 }
 
-// GetProduct returns a single product with its description.
+// GetProduct devolve um produto, com a descrição.
 func (s *Store) GetProduct(ctx context.Context, id int64) (Product, error) {
 	var p Product
 	err := s.pool.QueryRow(ctx, `
@@ -47,13 +47,13 @@ func (s *Store) GetProduct(ctx context.Context, id int64) (Product, error) {
 		return Product{}, ErrNotFound
 	}
 	if err != nil {
-		return Product{}, fmt.Errorf("get product %d: %w", id, err)
+		return Product{}, fmt.Errorf("buscar o produto %d: %w", id, err)
 	}
 	return p, nil
 }
 
-// SearchProducts returns products whose name contains term (case-insensitive),
-// most recently added first.
+// SearchProducts devolve os produtos cujo nome contém term (sem diferenciar
+// maiúsculas), os mais recentes primeiro.
 func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]Product, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, sku, name, category, price_cents, stock, created_at
@@ -62,12 +62,12 @@ func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]P
 		ORDER BY created_at DESC
 		LIMIT $2`, escapeLike(term), limit)
 	if err != nil {
-		return nil, fmt.Errorf("search products: %w", err)
+		return nil, fmt.Errorf("buscar produtos: %w", err)
 	}
 	return collectProducts(rows)
 }
 
-// escapeLike makes LIKE wildcards in user input match literally.
+// escapeLike faz os curingas do LIKE no texto do usuário valerem literalmente.
 func escapeLike(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
@@ -79,7 +79,7 @@ func collectProducts(rows pgx.Rows) ([]Product, error) {
 		return p, err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("scan products: %w", err)
+		return nil, fmt.Errorf("ler produtos: %w", err)
 	}
 	return products, nil
 }

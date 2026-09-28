@@ -10,7 +10,7 @@ func TestHistogramIsCumulative(t *testing.T) {
 	m := New(nil)
 	m.Observe("GET /search", 200, 3*time.Millisecond)   // bucket .005
 	m.Observe("GET /search", 200, 300*time.Millisecond) // bucket .5
-	m.Observe("GET /search", 500, 20*time.Second)       // only +Inf
+	m.Observe("GET /search", 500, 20*time.Second)       // só +Inf
 
 	var b strings.Builder
 	m.Render(&b)
@@ -27,7 +27,7 @@ func TestHistogramIsCumulative(t *testing.T) {
 		`nexora_http_request_duration_seconds_count{route="GET /search"} 3`,
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("missing line %q\n--- output ---\n%s", want, out)
+			t.Errorf("linha ausente %q\n--- saída ---\n%s", want, out)
 		}
 	}
 }
@@ -44,6 +44,6 @@ func TestLabelWithQuoteIsEscapedOnce(t *testing.T) {
 	var b strings.Builder
 	m.Render(&b)
 	if want := `route="GET /a\"b",code="200"} 1`; !strings.Contains(b.String(), want) {
-		t.Errorf("want %q in output:\n%s", want, b.String())
+		t.Errorf("esperado %q na saída:\n%s", want, b.String())
 	}
 }

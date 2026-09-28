@@ -1,4 +1,4 @@
-// Command nexora serves the Mercado Lerdo marketplace API.
+// Command nexora serve a API do marketplace Mercado Lerdo.
 package main
 
 import (
@@ -37,11 +37,11 @@ func loadConfig() (config, error) {
 		paymentURL:  getenv("NEXORA_PAYMENT_URL", "http://payments:8090"),
 	}
 	if c.databaseURL == "" {
-		return c, errors.New("NEXORA_DATABASE_URL is required")
+		return c, errors.New("NEXORA_DATABASE_URL é obrigatória")
 	}
 	maxConns, err := strconv.ParseInt(getenv("NEXORA_DB_MAX_CONNS", "10"), 10, 32)
 	if err != nil || maxConns < 1 {
-		return c, fmt.Errorf("NEXORA_DB_MAX_CONNS must be a positive integer")
+		return c, fmt.Errorf("NEXORA_DB_MAX_CONNS precisa ser um inteiro positivo")
 	}
 	c.dbMaxConns = int32(maxConns)
 	return c, nil
@@ -57,7 +57,7 @@ func getenv(key, def string) string {
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(log); err != nil {
-		log.Error("nexora stopped", "err", err)
+		log.Error("nexora parou", "err", err)
 		os.Exit(1)
 	}
 }
@@ -72,12 +72,12 @@ func run(log *slog.Logger) error {
 
 	poolCfg, err := pgxpool.ParseConfig(cfg.databaseURL)
 	if err != nil {
-		return fmt.Errorf("parse database url: %w", err)
+		return fmt.Errorf("ler a URL do banco: %w", err)
 	}
 	poolCfg.MaxConns = cfg.dbMaxConns
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
-		return fmt.Errorf("connect database: %w", err)
+		return fmt.Errorf("conectar ao banco: %w", err)
 	}
 	defer pool.Close()
 
@@ -90,11 +90,11 @@ func run(log *slog.Logger) error {
 	errc := make(chan error, 2)
 	go func() { errc <- apiServer.ListenAndServe() }()
 	go func() { errc <- metricsServer.ListenAndServe() }()
-	log.Info("nexora listening", "addr", cfg.addr, "metrics_addr", cfg.metricsAddr, "db_max_conns", cfg.dbMaxConns)
+	log.Info("nexora no ar", "addr", cfg.addr, "metrics_addr", cfg.metricsAddr, "db_max_conns", cfg.dbMaxConns)
 
 	select {
 	case err := <-errc:
-		return fmt.Errorf("server: %w", err)
+		return fmt.Errorf("servidor: %w", err)
 	case <-ctx.Done():
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

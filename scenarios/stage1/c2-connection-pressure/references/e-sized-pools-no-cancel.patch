@@ -1,20 +1,22 @@
-diff --git a/internal/store/orders.go b/internal/store/orders.go
---- a/internal/store/orders.go
-+++ b/internal/store/orders.go
-@@ -33,6 +33,9 @@
+diff --git c/internal/store/orders.go i/internal/store/orders.go
+index f34e6fa..8de04c7 100644
+--- c/internal/store/orders.go
++++ i/internal/store/orders.go
+@@ -33,6 +33,9 @@ type ChargeFunc func(ctx context.Context, orderRef string, amountCents int) erro
  
- // PlaceOrder reserves stock, charges the customer and records the order.
+ // PlaceOrder reserva o estoque, cobra o cliente e grava o pedido.
  func (s *Store) PlaceOrder(ctx context.Context, userID int64, orderRef string, items []Item, charge ChargeFunc) (Order, error) {
-+	// A checkout that reached the gateway must finish even if the client
-+	// stops waiting: cancelling it after the charge would lose the order.
++	// Um checkout que chegou ao gateway precisa terminar mesmo que o cliente
++	// desista de esperar: cancelar depois da cobrança perderia o pedido.
 +	ctx = context.WithoutCancel(ctx)
  	tx, err := s.pool.Begin(ctx)
  	if err != nil {
- 		return Order{}, fmt.Errorf("begin checkout: %w", err)
-diff --git a/topology.yaml b/topology.yaml
---- a/topology.yaml
-+++ b/topology.yaml
-@@ -10,7 +10,7 @@
+ 		return Order{}, fmt.Errorf("iniciar o checkout: %w", err)
+diff --git c/topology.yaml i/topology.yaml
+index 332ae13..915c243 100644
+--- c/topology.yaml
++++ i/topology.yaml
+@@ -10,7 +10,7 @@ components:
      size: S
      replicas: 3
      database: postgres

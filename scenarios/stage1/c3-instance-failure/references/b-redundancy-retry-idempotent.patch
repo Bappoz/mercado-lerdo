@@ -1,21 +1,21 @@
-diff --git a/internal/payment/client.go b/internal/payment/client.go
-index b26ed32..37735fd 100644
---- a/internal/payment/client.go
-+++ b/internal/payment/client.go
+diff --git c/internal/payment/client.go i/internal/payment/client.go
+index f976fe5..bd635bf 100644
+--- c/internal/payment/client.go
++++ i/internal/payment/client.go
 @@ -38,6 +38,9 @@ func (c *Client) Charge(ctx context.Context, orderRef string, amountCents int) e
- 		return fmt.Errorf("payment: request: %w", err)
+ 		return fmt.Errorf("payment: requisição: %w", err)
  	}
  	req.Header.Set("Content-Type", "application/json")
-+	// The gateway charges an Idempotency-Key once: a retried checkout
-+	// cannot charge the same order twice.
++	// O gateway cobra cada Idempotency-Key uma vez só: um checkout repetido
++	// não consegue cobrar o mesmo pedido duas vezes.
 +	req.Header.Set("Idempotency-Key", orderRef)
  	resp, err := c.http.Do(req)
  	if err != nil {
  		return fmt.Errorf("payment: %w", err)
-diff --git a/internal/store/orders.go b/internal/store/orders.go
-index 49b21c4..2c9e93b 100644
---- a/internal/store/orders.go
-+++ b/internal/store/orders.go
+diff --git c/internal/store/orders.go i/internal/store/orders.go
+index ffa45a0..66100b9 100644
+--- c/internal/store/orders.go
++++ i/internal/store/orders.go
 @@ -7,6 +7,7 @@ import (
  	"time"
  
@@ -23,16 +23,16 @@ index 49b21c4..2c9e93b 100644
 +	"github.com/jackc/pgx/v5/pgconn"
  )
  
- // ErrOutOfStock is returned when an item cannot be fulfilled.
+ // ErrOutOfStock é devolvido quando falta estoque para um item.
 @@ -34,18 +35,35 @@ type ChargeFunc func(ctx context.Context, orderRef string, amountCents int) erro
- // PlaceOrder reserves stock, records the order as pending, charges the
- // customer and marks the order paid. No database connection is held while
- // the gateway answers: the charge happens between two short transactions.
+ // PlaceOrder reserva o estoque, grava o pedido como pendente, cobra o cliente
+ // e marca o pedido como pago. Nenhuma conexão com o banco fica presa enquanto
+ // o gateway responde: a cobrança acontece entre duas transações curtas.
 +//
-+// An order_ref is one order. A retried checkout (the customer pressed the
-+// button again, or a proxy retried on another instance) continues the order
-+// it names instead of placing a second one, and the charge carries the
-+// order_ref as the gateway's Idempotency-Key, so it happens once.
++// Um order_ref é um pedido. Um checkout repetido (o cliente apertou o botão de
++// novo, ou um proxy tentou de novo em outra instância) continua o pedido que ele
++// nomeia em vez de fazer um segundo, e a cobrança leva o order_ref como
++// Idempotency-Key do gateway, então acontece uma vez só.
  func (s *Store) PlaceOrder(ctx context.Context, userID int64, orderRef string, items []Item, charge ChargeFunc) (Order, error) {
 -	o, err := s.reserve(ctx, userID, orderRef, items)
 -	if err != nil {
@@ -41,11 +41,11 @@ index 49b21c4..2c9e93b 100644
 +	case err == nil && o.Status == "paid":
 +		return o, nil
 +	case err == nil && o.Status == "failed":
-+		return Order{}, fmt.Errorf("order %s: %w", orderRef, ErrOrderFailed)
++		return Order{}, fmt.Errorf("pedido %s: %w", orderRef, ErrOrderFailed)
 +	case errors.Is(err, ErrNotFound):
 +		o, err = s.reserve(ctx, userID, orderRef, items)
 +		if isUniqueViolation(err) {
-+			// A concurrent retry reserved it first: continue that order.
++			// Uma tentativa concorrente reservou primeiro: continue aquele pedido.
 +			o, err = s.orderByRef(ctx, orderRef)
 +		}
 +		if err != nil {
@@ -54,23 +54,23 @@ index 49b21c4..2c9e93b 100644
 +	case err != nil:
  		return Order{}, err
  	}
- 	// Once the gateway is asked, the outcome must be recorded even if the
- 	// client stops waiting: otherwise the customer pays for nothing.
+ 	// Depois de chamar o gateway, o resultado precisa ser gravado mesmo que o
+ 	// cliente desista de esperar: senão o cliente paga por nada.
  	ctx = context.WithoutCancel(ctx)
  	if err := charge(ctx, orderRef, o.TotalCents); err != nil {
 -		if rerr := s.release(ctx, o.ID, items); rerr != nil {
--			return Order{}, fmt.Errorf("charge: %w (and releasing the order failed: %v)", err, rerr)
+-			return Order{}, fmt.Errorf("cobrança: %w (e liberar o pedido também falhou: %v)", err, rerr)
 -		}
-+		// The order stays pending: a retry charges it (idempotently) again.
- 		return Order{}, fmt.Errorf("charge: %w", err)
++		// O pedido continua pendente: uma nova tentativa cobra de novo (de forma idempotente).
+ 		return Order{}, fmt.Errorf("cobrança: %w", err)
  	}
  	if _, err := s.pool.Exec(ctx, `UPDATE orders SET status = 'paid' WHERE id = $1`, o.ID); err != nil {
 @@ -55,6 +73,28 @@ func (s *Store) PlaceOrder(ctx context.Context, userID int64, orderRef string, i
  	return o, nil
  }
  
-+// ErrOrderFailed is returned for an order_ref whose order already failed.
-+var ErrOrderFailed = errors.New("store: order failed")
++// ErrOrderFailed é devolvido para um order_ref cujo pedido já falhou.
++var ErrOrderFailed = errors.New("store: pedido falhou")
 +
 +func (s *Store) orderByRef(ctx context.Context, orderRef string) (Order, error) {
 +	var o Order
@@ -81,7 +81,7 @@ index 49b21c4..2c9e93b 100644
 +		return Order{}, ErrNotFound
 +	}
 +	if err != nil {
-+		return Order{}, fmt.Errorf("order by ref: %w", err)
++		return Order{}, fmt.Errorf("pedido pelo order_ref: %w", err)
 +	}
 +	return o, nil
 +}
@@ -91,20 +91,20 @@ index 49b21c4..2c9e93b 100644
 +	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 +}
 +
- // reserve takes the stock and stores the order as pending, in one short transaction.
+ // reserve tira o estoque e grava o pedido como pendente, numa transação curta.
  func (s *Store) reserve(ctx context.Context, userID int64, orderRef string, items []Item) (Order, error) {
  	tx, err := s.pool.Begin(ctx)
 @@ -108,23 +148,6 @@ func (s *Store) reserve(ctx context.Context, userID int64, orderRef string, item
  	return o, nil
  }
  
--// release gives the stock of an unpaid order back and marks it failed.
+-// release devolve o estoque de um pedido não pago e o marca como falho.
 -func (s *Store) release(ctx context.Context, orderID int64, items []Item) error {
 -	tx, err := s.pool.Begin(ctx)
 -	if err != nil {
 -		return err
 -	}
--	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+-	defer tx.Rollback(ctx) //nolint:errcheck // não faz nada depois do commit
 -	for _, it := range items {
 -		if _, err := tx.Exec(ctx, `UPDATE products SET stock = stock + $1 WHERE id = $2`, it.Quantity, it.ProductID); err != nil {
 -			return err
@@ -116,34 +116,34 @@ index 49b21c4..2c9e93b 100644
 -	return tx.Commit(ctx)
 -}
  
- // OrdersByUser lists a user's orders, newest first.
+ // OrdersByUser lista os pedidos de um usuário, mais novos primeiro.
  func (s *Store) OrdersByUser(ctx context.Context, userID int64, limit int) ([]Order, error) {
-diff --git a/migrations/0003_orders_ref_unique.sql b/migrations/0003_orders_ref_unique.sql
+diff --git c/migrations/0003_orders_ref_unique.sql i/migrations/0003_orders_ref_unique.sql
 new file mode 100644
-index 0000000..4c25b27
+index 0000000..368aab5
 --- /dev/null
-+++ b/migrations/0003_orders_ref_unique.sql
++++ i/migrations/0003_orders_ref_unique.sql
 @@ -0,0 +1,2 @@
-+-- One order per order_ref: a retried checkout finds the order it started.
++-- Um pedido por order_ref: um checkout repetido encontra o pedido que começou.
 +CREATE UNIQUE INDEX orders_order_ref_key ON orders (order_ref);
-diff --git a/nginx/default.conf b/nginx/default.conf
-index ee91f3f..05b0728 100644
---- a/nginx/default.conf
-+++ b/nginx/default.conf
+diff --git c/nginx/default.conf i/nginx/default.conf
+index dc7d507..a160e65 100644
+--- c/nginx/default.conf
++++ i/nginx/default.conf
 @@ -22,6 +22,9 @@ server {
          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
          proxy_connect_timeout 2s;
          proxy_read_timeout 30s;
-+        # A dead instance: try the next one, also for POST (the checkout is idempotent).
++        # Instância morta: tente a próxima, também para POST (o checkout é idempotente).
 +        proxy_next_upstream error timeout http_502 http_503 non_idempotent;
 +        proxy_next_upstream_tries 2;
      }
  }
  
-diff --git a/topology.yaml b/topology.yaml
-index aee0114..274fc0d 100644
---- a/topology.yaml
-+++ b/topology.yaml
+diff --git c/topology.yaml i/topology.yaml
+index 143e956..71eceef 100644
+--- c/topology.yaml
++++ i/topology.yaml
 @@ -8,7 +8,7 @@ components:
      size: S
    app:

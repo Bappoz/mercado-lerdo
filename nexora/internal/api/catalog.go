@@ -37,12 +37,12 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getProduct(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid product id")
+		writeError(w, http.StatusBadRequest, "id de produto inválido")
 		return
 	}
 	p, err := s.store.GetProduct(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "product not found")
+		writeError(w, http.StatusNotFound, "produto não encontrado")
 		return
 	}
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *Server) getProduct(w http.ResponseWriter, r *http.Request) {
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if n := utf8.RuneCountInString(q); n < minSearchLen || n > maxSearchLen {
-		writeError(w, http.StatusBadRequest, "q must have between 2 and 64 characters")
+		writeError(w, http.StatusBadRequest, "q precisa ter de 2 a 64 caracteres")
 		return
 	}
 	limit, ok := intParam(w, r, "limit", defaultPageSize, 1, maxPageSize)
@@ -70,8 +70,8 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"query": q, "products": products})
 }
 
-// intParam reads an optional integer query parameter within [lo, hi].
-// It writes a 400 and returns false when the value is invalid.
+// intParam lê um parâmetro inteiro opcional da query, dentro de [lo, hi].
+// Com valor inválido, responde 400 e devolve false.
 func intParam(w http.ResponseWriter, r *http.Request, name string, def, lo, hi int) (int, bool) {
 	raw := r.URL.Query().Get(name)
 	if raw == "" {
@@ -79,13 +79,13 @@ func intParam(w http.ResponseWriter, r *http.Request, name string, def, lo, hi i
 	}
 	v, err := strconv.Atoi(raw)
 	if err != nil || v < lo || v > hi {
-		writeError(w, http.StatusBadRequest, "invalid "+name)
+		writeError(w, http.StatusBadRequest, "parâmetro inválido: "+name)
 		return 0, false
 	}
 	return v, true
 }
 
 func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error) {
-	s.log.Error("request failed", "path", r.URL.Path, "err", err)
-	writeError(w, http.StatusInternalServerError, "internal error")
+	s.log.Error("requisição falhou", "path", r.URL.Path, "err", err)
+	writeError(w, http.StatusInternalServerError, "erro interno")
 }

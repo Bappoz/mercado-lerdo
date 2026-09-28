@@ -1,7 +1,8 @@
-diff --color -ruN a/cmd/nexora/main.go b/cmd/nexora/main.go
---- a/cmd/nexora/main.go	2026-09-25 00:21:59.000000000 -0300
-+++ b/cmd/nexora/main.go	2026-09-25 01:14:37.066755545 -0300
-@@ -81,8 +81,12 @@
+diff --git c/cmd/nexora/main.go i/cmd/nexora/main.go
+index e204a29..e77c3b3 100644
+--- c/cmd/nexora/main.go
++++ i/cmd/nexora/main.go
+@@ -81,8 +81,12 @@ func run(log *slog.Logger) error {
  	}
  	defer pool.Close()
  
@@ -15,10 +16,11 @@ diff --color -ruN a/cmd/nexora/main.go b/cmd/nexora/main.go
  
  	apiServer := &http.Server{Addr: cfg.addr, Handler: srv.Handler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second}
  	metricsServer := &http.Server{Addr: cfg.metricsAddr, Handler: m.Handler(), ReadHeaderTimeout: 5 * time.Second}
-diff --color -ruN a/internal/store/products.go b/internal/store/products.go
---- a/internal/store/products.go	2026-09-25 00:21:59.000000000 -0300
-+++ b/internal/store/products.go	2026-09-25 01:14:57.456568813 -0300
-@@ -4,7 +4,6 @@
+diff --git c/internal/store/products.go i/internal/store/products.go
+index 0e4d4b2..d89a9cd 100644
+--- c/internal/store/products.go
++++ i/internal/store/products.go
+@@ -4,7 +4,6 @@ import (
  	"context"
  	"errors"
  	"fmt"
@@ -26,11 +28,11 @@ diff --color -ruN a/internal/store/products.go b/internal/store/products.go
  	"time"
  
  	"github.com/jackc/pgx/v5"
-@@ -53,24 +52,11 @@
+@@ -53,24 +52,11 @@ func (s *Store) GetProduct(ctx context.Context, id int64) (Product, error) {
  }
  
- // SearchProducts returns products whose name contains term (case-insensitive),
--// most recently added first.
+ // SearchProducts devolve os produtos cujo nome contém term (sem diferenciar
+-// maiúsculas), os mais recentes primeiro.
 -func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]Product, error) {
 -	rows, err := s.pool.Query(ctx, `
 -		SELECT id, sku, name, category, price_cents, stock, created_at
@@ -39,24 +41,26 @@ diff --color -ruN a/internal/store/products.go b/internal/store/products.go
 -		ORDER BY created_at DESC
 -		LIMIT $2`, escapeLike(term), limit)
 -	if err != nil {
--		return nil, fmt.Errorf("search products: %w", err)
+-		return nil, fmt.Errorf("buscar produtos: %w", err)
 -	}
 -	return collectProducts(rows)
-+// most recently added first. Served from the in-memory index (searchindex.go).
++// maiúsculas), os mais recentes primeiro. Atendida pelo índice em memória (searchindex.go).
 +func (s *Store) SearchProducts(_ context.Context, term string, limit int) ([]Product, error) {
 +	return searchInMemory(term, limit), nil
  }
  
--// escapeLike makes LIKE wildcards in user input match literally.
+-// escapeLike faz os curingas do LIKE no texto do usuário valerem literalmente.
 -func escapeLike(s string) string {
 -	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 -}
  
  func collectProducts(rows pgx.Rows) ([]Product, error) {
  	products, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Product, error) {
-diff --color -ruN a/internal/store/products_test.go b/internal/store/products_test.go
---- a/internal/store/products_test.go	2026-09-25 00:21:59.000000000 -0300
-+++ b/internal/store/products_test.go	1969-12-31 21:00:00.000000000 -0300
+diff --git c/internal/store/products_test.go i/internal/store/products_test.go
+deleted file mode 100644
+index f7bc4fb..0000000
+--- c/internal/store/products_test.go
++++ /dev/null
 @@ -1,17 +0,0 @@
 -package store
 -
@@ -71,13 +75,15 @@ diff --color -ruN a/internal/store/products_test.go b/internal/store/products_te
 -	}
 -	for _, tt := range tests {
 -		if got := escapeLike(tt.in); got != tt.want {
--			t.Errorf("escapeLike(%q) = %q, want %q", tt.in, got, tt.want)
+-			t.Errorf("escapeLike(%q) = %q, esperado %q", tt.in, got, tt.want)
 -		}
 -	}
 -}
-diff --color -ruN a/internal/store/searchindex.go b/internal/store/searchindex.go
---- a/internal/store/searchindex.go	1969-12-31 21:00:00.000000000 -0300
-+++ b/internal/store/searchindex.go	2026-09-25 01:14:37.038008949 -0300
+diff --git c/internal/store/searchindex.go i/internal/store/searchindex.go
+new file mode 100644
+index 0000000..6378a63
+--- /dev/null
++++ i/internal/store/searchindex.go
 @@ -0,0 +1,77 @@
 +package store
 +
@@ -90,17 +96,17 @@ diff --color -ruN a/internal/store/searchindex.go b/internal/store/searchindex.g
 +	"time"
 +)
 +
-+// searchIndex is an in-memory copy of the catalog, newest first, so search
-+// never touches the database. Trade-off: results may be up to one refresh
-+// interval stale (new products, stock), and every instance holds a copy.
++// searchIndex é uma cópia do catálogo em memória, mais novos primeiro, para a
++// busca nunca ir ao banco. Custo: os resultados podem estar até um intervalo de
++// atualização atrasados (produtos novos, estoque), e cada instância guarda uma cópia.
 +type searchIndex struct {
-+	products []Product // sorted by created_at DESC
-+	lower    []string  // lower-cased names, same order
++	products []Product // ordenados por created_at DESC
++	lower    []string  // nomes em minúsculas, na mesma ordem
 +}
 +
 +var index atomic.Pointer[searchIndex]
 +
-+// StartSearchIndex loads the catalog and refreshes it every interval until ctx ends.
++// StartSearchIndex carrega o catálogo e o atualiza a cada interval até ctx acabar.
 +func (s *Store) StartSearchIndex(ctx context.Context, interval time.Duration, log *slog.Logger) error {
 +	if err := s.loadSearchIndex(ctx); err != nil {
 +		return err
@@ -114,7 +120,7 @@ diff --color -ruN a/internal/store/searchindex.go b/internal/store/searchindex.g
 +				return
 +			case <-t.C:
 +				if err := s.loadSearchIndex(ctx); err != nil && ctx.Err() == nil {
-+					log.Warn("search index refresh failed; serving the previous copy", "err", err)
++					log.Warn("falha ao atualizar o índice de busca; servindo a cópia anterior", "err", err)
 +				}
 +			}
 +		}
@@ -128,7 +134,7 @@ diff --color -ruN a/internal/store/searchindex.go b/internal/store/searchindex.g
 +		FROM products
 +		ORDER BY created_at DESC`)
 +	if err != nil {
-+		return fmt.Errorf("load search index: %w", err)
++		return fmt.Errorf("carregar o índice de busca: %w", err)
 +	}
 +	products, err := collectProducts(rows)
 +	if err != nil {

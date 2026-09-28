@@ -11,7 +11,7 @@ func TestEscapeLike(t *testing.T) {
 	}
 	for _, tt := range tests {
 		if got := escapeLike(tt.in); got != tt.want {
-			t.Errorf("escapeLike(%q) = %q, want %q", tt.in, got, tt.want)
+			t.Errorf("escapeLike(%q) = %q, esperado %q", tt.in, got, tt.want)
 		}
 	}
 }

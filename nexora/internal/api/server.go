@@ -1,4 +1,4 @@
-// Package api implements the Mercado Lerdo HTTP API (contract: API.md).
+// Package api implementa a API HTTP do Mercado Lerdo (contrato: API.md).
 package api
 
 import (
@@ -12,17 +12,17 @@ import (
 	"nexora/internal/store"
 )
 
-// Charger charges a customer through the payment gateway.
+// Charger cobra um cliente pelo gateway de pagamento.
 type Charger interface {
 	Charge(ctx context.Context, orderRef string, amountCents int) error
 }
 
-// Pinger checks that the database is reachable.
+// Pinger verifica se o banco está acessível.
 type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
-// Server wires handlers to their dependencies.
+// Server liga os handlers às suas dependências.
 type Server struct {
 	store   *store.Store
 	db      Pinger
@@ -31,12 +31,12 @@ type Server struct {
 	log     *slog.Logger
 }
 
-// NewServer returns the API server.
+// NewServer devolve o servidor da API.
 func NewServer(st *store.Store, db Pinger, payment Charger, m *metrics.Metrics, log *slog.Logger) *Server {
 	return &Server{store: st, db: db, payment: payment, metrics: m, log: log}
 }
 
-// Handler returns the routed and instrumented HTTP handler.
+// Handler devolve o handler HTTP com as rotas e a instrumentação.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
@@ -53,13 +53,13 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
 	if err := s.db.Ping(ctx); err != nil {
-		writeError(w, http.StatusServiceUnavailable, "database unavailable")
+		writeError(w, http.StatusServiceUnavailable, "banco indisponível")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// statusRecorder captures the status code written by a handler.
+// statusRecorder guarda o status escrito por um handler.
 type statusRecorder struct {
 	http.ResponseWriter
 	code int
@@ -76,12 +76,12 @@ func (s *Server) instrument(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, code: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		elapsed := time.Since(start)
-		route := r.Pattern // set by ServeMux after routing; empty when nothing matched
+		route := r.Pattern // preenchido pelo ServeMux depois do roteamento; vazio quando nenhuma rota casou
 		if route == "" {
 			route = "unmatched"
 		}
 		s.metrics.Observe(route, rec.code, elapsed)
-		s.log.Info("request",
+		s.log.Info("requisição",
 			"method", r.Method, "route", route, "path", r.URL.Path,
 			"status", rec.code, "duration_ms", float64(elapsed.Microseconds())/1000)
 	})

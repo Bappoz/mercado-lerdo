@@ -26,12 +26,12 @@ type loginRequest struct {
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		writeError(w, http.StatusBadRequest, "corpo JSON inválido")
 		return
 	}
 	creds, err := s.store.CredentialsByEmail(r.Context(), strings.ToLower(strings.TrimSpace(req.Email)))
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		writeError(w, http.StatusUnauthorized, "e-mail ou senha inválidos")
 		return
 	}
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		writeError(w, http.StatusUnauthorized, "e-mail ou senha inválidos")
 		return
 	}
 	token, err := auth.NewToken()
@@ -63,12 +63,12 @@ func (s *Server) requireUser(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, found := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !found || token == "" {
-			writeError(w, http.StatusUnauthorized, "missing bearer token")
+			writeError(w, http.StatusUnauthorized, "token Bearer ausente")
 			return
 		}
 		userID, err := s.store.UserBySession(r.Context(), token)
 		if errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusUnauthorized, "invalid or expired session")
+			writeError(w, http.StatusUnauthorized, "sessão inválida ou expirada")
 			return
 		}
 		if err != nil {
@@ -86,12 +86,12 @@ type checkoutRequest struct {
 
 func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Idempotency-Key") == "" {
-		writeError(w, http.StatusBadRequest, "missing Idempotency-Key header")
+		writeError(w, http.StatusBadRequest, "cabeçalho Idempotency-Key ausente")
 		return
 	}
 	var req checkoutRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		writeError(w, http.StatusBadRequest, "corpo JSON inválido")
 		return
 	}
 	if msg := validateCheckout(req); msg != "" {
@@ -102,9 +102,9 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	order, err := s.store.PlaceOrder(r.Context(), userID, req.OrderRef, req.Items, s.payment.Charge)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		writeError(w, http.StatusUnprocessableEntity, "unknown product")
+		writeError(w, http.StatusUnprocessableEntity, "produto desconhecido")
 	case errors.Is(err, store.ErrOutOfStock):
-		writeError(w, http.StatusConflict, "out of stock")
+		writeError(w, http.StatusConflict, "estoque insuficiente")
 	case err != nil:
 		s.internalError(w, r, err)
 	default:
@@ -114,18 +114,18 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 
 func validateCheckout(req checkoutRequest) string {
 	if l := len(req.OrderRef); l < 8 || l > 64 {
-		return "order_ref must have between 8 and 64 characters"
+		return "order_ref precisa ter de 8 a 64 caracteres"
 	}
 	if len(req.Items) == 0 || len(req.Items) > 20 {
-		return "items must have between 1 and 20 entries"
+		return "items precisa ter de 1 a 20 itens"
 	}
 	seen := make(map[int64]bool, len(req.Items))
 	for _, it := range req.Items {
 		if it.ProductID <= 0 || it.Quantity <= 0 || it.Quantity > 10 {
-			return "each item needs a valid product_id and a quantity between 1 and 10"
+			return "cada item precisa de um product_id válido e de quantity entre 1 e 10"
 		}
 		if seen[it.ProductID] {
-			return "duplicate product_id in items"
+			return "product_id repetido em items"
 		}
 		seen[it.ProductID] = true
 	}

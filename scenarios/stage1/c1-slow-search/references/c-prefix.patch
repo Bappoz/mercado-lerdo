@@ -1,7 +1,8 @@
-diff --color -ruN a/internal/store/products.go b/internal/store/products.go
---- a/internal/store/products.go	2026-09-25 00:21:59.000000000 -0300
-+++ b/internal/store/products.go	2026-09-25 01:14:17.707542632 -0300
-@@ -58,7 +58,7 @@
+diff --git c/internal/store/products.go i/internal/store/products.go
+index 0e4d4b2..3f93f2d 100644
+--- c/internal/store/products.go
++++ i/internal/store/products.go
+@@ -58,7 +58,7 @@ func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]P
  	rows, err := s.pool.Query(ctx, `
  		SELECT id, sku, name, category, price_cents, stock, created_at
  		FROM products
@@ -10,8 +11,10 @@ diff --color -ruN a/internal/store/products.go b/internal/store/products.go
  		ORDER BY created_at DESC
  		LIMIT $2`, escapeLike(term), limit)
  	if err != nil {
-diff --color -ruN a/migrations/0002_search_prefix.sql b/migrations/0002_search_prefix.sql
---- a/migrations/0002_search_prefix.sql	1969-12-31 21:00:00.000000000 -0300
-+++ b/migrations/0002_search_prefix.sql	2026-09-25 01:14:17.676983255 -0300
+diff --git c/migrations/0002_search_prefix.sql i/migrations/0002_search_prefix.sql
+new file mode 100644
+index 0000000..b1b13e8
+--- /dev/null
++++ i/migrations/0002_search_prefix.sql
 @@ -0,0 +1 @@
 +CREATE INDEX products_name_prefix_idx ON products (lower(name) text_pattern_ops);

@@ -1,7 +1,8 @@
-diff --color -ruN a/internal/store/products.go b/internal/store/products.go
---- a/internal/store/products.go	2026-09-25 00:21:59.000000000 -0300
-+++ b/internal/store/products.go	2026-09-25 01:14:17.754884331 -0300
-@@ -58,9 +58,9 @@
+diff --git c/internal/store/products.go i/internal/store/products.go
+index 0e4d4b2..fecc494 100644
+--- c/internal/store/products.go
++++ i/internal/store/products.go
+@@ -58,9 +58,9 @@ func (s *Store) SearchProducts(ctx context.Context, term string, limit int) ([]P
  	rows, err := s.pool.Query(ctx, `
  		SELECT id, sku, name, category, price_cents, stock, created_at
  		FROM products
@@ -11,10 +12,12 @@ diff --color -ruN a/internal/store/products.go b/internal/store/products.go
 -		LIMIT $2`, escapeLike(term), limit)
 +		LIMIT $2`, term, limit)
  	if err != nil {
- 		return nil, fmt.Errorf("search products: %w", err)
+ 		return nil, fmt.Errorf("buscar produtos: %w", err)
  	}
-diff --color -ruN a/migrations/0002_search_fulltext.sql b/migrations/0002_search_fulltext.sql
---- a/migrations/0002_search_fulltext.sql	1969-12-31 21:00:00.000000000 -0300
-+++ b/migrations/0002_search_fulltext.sql	2026-09-25 01:14:17.722983315 -0300
+diff --git c/migrations/0002_search_fulltext.sql i/migrations/0002_search_fulltext.sql
+new file mode 100644
+index 0000000..709e76f
+--- /dev/null
++++ i/migrations/0002_search_fulltext.sql
 @@ -0,0 +1 @@
 +CREATE INDEX products_name_fts_idx ON products USING gin (to_tsvector('simple', name));
