@@ -481,6 +481,34 @@ func (g *Game) MarkViewed(what string) error {
 	})
 }
 
+// RecordBaseline keeps the first look at production in the calm phase that
+// had traffic in it: the "normal" the story's replies can quote. sig is what
+// the player saw; nil measures it now.
+func (g *Game) RecordBaseline(ctx context.Context, sig *play.Signals) error {
+	if !g.HasSession() {
+		return nil
+	}
+	if s := g.Session(); s.Phase != play.Calm || s.Baseline != nil {
+		return nil
+	}
+	if sig == nil {
+		got, err := g.Signals(ctx, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		sig = &got
+	}
+	if len(sig.Endpoints) == 0 {
+		return nil
+	}
+	b := &play.Baseline{At: time.Now().UTC(), Signals: *sig}
+	return g.update(func(s *play.Session) {
+		if s.Phase == play.Calm && s.Baseline == nil {
+			s.Baseline = b
+		}
+	})
+}
+
 // Hint reveals the next rung of the hint ladder; false when none is left.
 func (g *Game) Hint() (scenario.Hint, bool, error) {
 	s := g.Session()

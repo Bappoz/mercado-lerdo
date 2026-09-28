@@ -16,7 +16,8 @@ func TestPlayerTextsRenderInBothViews(t *testing.T) {
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no player files: %v", err)
 	}
-	live := map[string]string{"workspace": "/w", "app_url": "http://a", "prometheus_url": "http://p"}
+	// Filled by the game at runtime; {{baseline}} by the story (game.withBaseline).
+	live := map[string]string{"workspace": "/w", "app_url": "http://a", "prometheus_url": "http://p", "baseline": "-"}
 	for _, f := range files {
 		b, err := os.ReadFile(f) //nolint:gosec // G304: repository fixture
 		if err != nil {

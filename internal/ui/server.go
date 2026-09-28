@@ -540,6 +540,12 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 		s.g.Event("debrief_viewed", props)
 	case "pulse", "support":
 		s.g.Event(map[string]string{"pulse": "status_viewed", "support": "support_viewed"}[body.What], props)
+		if body.What == "pulse" {
+			// The numbers are a nicety of the story; a store without data yet must not fail the view.
+			if err := s.g.RecordBaseline(r.Context(), nil); err != nil {
+				s.log.Warn("baseline not recorded", "err", err)
+			}
+		}
 		if err := s.g.MarkViewed(body.What); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return

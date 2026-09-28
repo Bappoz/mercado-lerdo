@@ -3,6 +3,7 @@ package play
 import (
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -105,6 +106,25 @@ func (s Signals) Write(w io.Writer, prev *Signals) {
 	for _, n := range names {
 		fmt.Fprintf(w, "  %-18s %4.0f%%  %s\n", n, s.CPU[n]*100, bar(s.CPU[n]))
 	}
+}
+
+// Markdown lists the snapshot in the units of `sesim status` and the Pulse,
+// so the player can compare it with what they see later.
+func (b Baseline) Markdown() string {
+	var sb strings.Builder
+	sb.WriteString("O nosso normal, do jeito que você viu:\n\n")
+	for _, e := range b.Endpoints {
+		fmt.Fprintf(&sb, "- **%s**: p95 %s · %.1f req/s · %.1f%% de erros\n", e.Name, fmtSeconds(e.P95s), e.RPS, e.ErrorRate*100)
+	}
+	names := slices.Sorted(maps.Keys(b.CPU))
+	cpu := make([]string, 0, len(names))
+	for _, n := range names {
+		cpu = append(cpu, fmt.Sprintf("%s %.0f%%", n, b.CPU[n]*100))
+	}
+	if len(cpu) > 0 {
+		fmt.Fprintf(&sb, "- **CPU** (em relação ao limite de cada container): %s\n", strings.Join(cpu, " · "))
+	}
+	return strings.TrimSpace(sb.String())
 }
 
 func fmtSeconds(s float64) string {

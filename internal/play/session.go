@@ -56,6 +56,9 @@ type Session struct {
 	DeployedAt time.Time            `json:"deployed_at,omitzero"`  // last deploy
 	CrashedAt  time.Time            `json:"crashed_at,omitzero"`   // when the incident took the store down
 	Viewed     map[string]time.Time `json:"viewed,omitempty"`      // last look at "pulse", "support"
+	// Baseline is production as the player first saw it in the calm phase:
+	// the "normal" the story asks them to keep for later.
+	Baseline *Baseline `json:"baseline,omitempty"`
 	// The career (ADR-0023): what the player bought during this scenario,
 	// how many lab runs it had, and the modeled cost against the budget at the PASS.
 	Purchases []career.Purchase `json:"purchases,omitempty"`
@@ -69,6 +72,12 @@ type StoryMark struct {
 	FiredAt  time.Time `json:"fired_at"`
 	MetAt    time.Time `json:"met_at,omitzero"`
 	MissedAt time.Time `json:"missed_at,omitzero"`
+}
+
+// Baseline is a snapshot of production and when it was taken.
+type Baseline struct {
+	At time.Time `json:"at"`
+	Signals
 }
 
 // Finished is one completed scenario of the campaign.

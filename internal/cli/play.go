@@ -224,6 +224,9 @@ func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 	sig.Write(stdout, nil)
 	t.g.Event("status_viewed", map[string]any{"phase": string(t.g.Session().Phase)})
+	if err := t.g.RecordBaseline(ctx, &sig); err != nil {
+		return t.fail(err)
+	}
 	if err := t.g.MarkViewed("pulse"); err != nil {
 		return t.fail(err)
 	}
