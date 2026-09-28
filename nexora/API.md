@@ -1,16 +1,16 @@
-# Mercado Lerdo API — contract v1
+# API do Mercado Lerdo — contrato v1
 
-This contract is what traffic generators, correctness checks and future
-scenarios rely on. You may change anything behind it (queries, schema,
-infrastructure), but breaking it fails correctness checks.
+Este contrato é o que os geradores de tráfego, as verificações de corretude e os
+próximos cenários usam. Você pode mudar tudo o que está por trás dele (consultas,
+schema, infraestrutura), mas quebrá-lo reprova as verificações de corretude.
 
-All bodies are JSON. Errors look like `{"error": "<message>"}`.
+Todos os corpos são JSON. Erros têm a forma `{"error": "<mensagem>"}`.
 
-## Catalog
+## Catálogo
 
 ### `GET /products?page=<n>&limit=<n>`
 
-Newest products first. `page` ≥ 1 (default 1), `limit` 1–100 (default 20).
+Produtos mais novos primeiro. `page` ≥ 1 (padrão 1), `limit` de 1 a 100 (padrão 20).
 
 ```json
 {"page": 1, "products": [{"id": 1, "sku": "NX-000001", "name": "…", "category": "…", "price_cents": 1999, "stock": 12, "created_at": "…"}]}
@@ -18,20 +18,20 @@ Newest products first. `page` ≥ 1 (default 1), `limit` 1–100 (default 20).
 
 ### `GET /products/{id}`
 
-One product, including `description`. `404` when it does not exist.
+Um produto, incluindo `description`. `404` quando ele não existe.
 
-### `GET /search?q=<term>&limit=<n>`
+### `GET /search?q=<termo>&limit=<n>`
 
-- Returns products whose **name contains `q` anywhere**, case-insensitive.
-  `q` is matched literally (`%` and `_` are not wildcards).
-- Results are ordered by `created_at`, newest first, then truncated to `limit` (1–100, default 20).
-- `q` must have 2–64 characters after trimming spaces, otherwise `400`.
+- Devolve os produtos cujo **nome contém `q` em qualquer posição**, sem diferenciar maiúsculas e minúsculas.
+  `q` é comparado literalmente (`%` e `_` não são curingas).
+- Os resultados são ordenados por `created_at`, mais novos primeiro, e depois cortados em `limit` (1 a 100, padrão 20).
+- `q` precisa ter de 2 a 64 caracteres depois de tirar os espaços das pontas; senão, `400`.
 
 ```json
 {"query": "lamp", "products": [ … ]}
 ```
 
-## Accounts
+## Contas
 
 ### `POST /auth/login`
 
@@ -39,58 +39,58 @@ One product, including `description`. `404` when it does not exist.
 {"email": "user00042@nexora.test", "password": "…"}
 ```
 
-`200` → `{"token": "<opaque>", "expires_in": 86400}`. Wrong email or password → `401`.
-Send the token as `Authorization: Bearer <token>` on authenticated routes.
+`200` → `{"token": "<opaco>", "expires_in": 86400}`. E-mail ou senha errados → `401`.
+Envie o token como `Authorization: Bearer <token>` nas rotas autenticadas.
 
-## Orders (authenticated)
+## Pedidos (autenticado)
 
 ### `POST /checkout`
 
-Headers: `Authorization: Bearer <token>`, `Idempotency-Key: <string>` (required).
+Cabeçalhos: `Authorization: Bearer <token>`, `Idempotency-Key: <texto>` (obrigatório).
 
 ```json
 {"order_ref": "c0ffee-000123", "items": [{"product_id": 42, "quantity": 2}]}
 ```
 
-- `order_ref`: 8–64 characters, chosen by the client. It identifies the purchase
-  end to end and is sent to the payment gateway.
-- `items`: 1–20 distinct products, quantity 1–10 each.
+- `order_ref`: de 8 a 64 caracteres, escolhido pelo cliente. Identifica a compra
+  de ponta a ponta e é enviado ao gateway de pagamento.
+- `items`: de 1 a 20 produtos diferentes, quantidade de 1 a 10 cada.
 
-| Status | Meaning |
+| Status | Significado |
 |---|---|
-| `201` | Order placed and paid. Body: `{"id", "order_ref", "status", "total_cents", "created_at"}` |
-| `400` | Invalid request or missing `Idempotency-Key` |
-| `401` | Missing or invalid session |
-| `409` | Not enough stock |
-| `422` | Unknown product |
-| `5xx` | Order not placed |
+| `201` | Pedido feito e pago. Corpo: `{"id", "order_ref", "status", "total_cents", "created_at"}` |
+| `400` | Requisição inválida ou sem `Idempotency-Key` |
+| `401` | Sessão ausente ou inválida |
+| `409` | Estoque insuficiente |
+| `422` | Produto desconhecido |
+| `5xx` | Pedido não foi feito |
 
-A `201` means the order is stored **and** the customer was charged exactly once for `order_ref`.
+Um `201` significa que o pedido está gravado **e** que o cliente foi cobrado exatamente uma vez pelo `order_ref`.
 
 ### `GET /orders`
 
-The caller's 50 most recent orders.
+Os 50 pedidos mais recentes de quem chama.
 
-## Operations
+## Operação
 
-| Endpoint | Port | Purpose |
+| Endpoint | Porta | Para quê |
 |---|---|---|
-| `GET /healthz` | 8080 | `200` when the database answers within 1 s |
-| `GET /metrics` | 9091 | Prometheus text format: request counts and latency by route, DB pool stats |
+| `GET /healthz` | 8080 | `200` quando o banco responde em até 1 s |
+| `GET /metrics` | 9091 | Formato de texto do Prometheus: contagem e latência de requisições por rota, estatísticas do pool do banco |
 
-## Configuration
+## Configuração
 
-| Variable | Default | Meaning |
+| Variável | Padrão | Significado |
 |---|---|---|
-| `NEXORA_DATABASE_URL` | — (required) | PostgreSQL connection string |
-| `NEXORA_PAYMENT_URL` | `http://payments:8090` | Payment gateway base URL |
-| `NEXORA_DB_MAX_CONNS` | `10` | Connection pool size per instance |
-| `NEXORA_ADDR` | `:8080` | API listen address |
-| `NEXORA_METRICS_ADDR` | `:9091` | Metrics listen address |
+| `NEXORA_DATABASE_URL` | — (obrigatória) | String de conexão do PostgreSQL |
+| `NEXORA_PAYMENT_URL` | `http://payments:8090` | URL base do gateway de pagamento |
+| `NEXORA_DB_MAX_CONNS` | `10` | Tamanho do pool de conexões por instância |
+| `NEXORA_ADDR` | `:8080` | Endereço em que a API escuta |
+| `NEXORA_METRICS_ADDR` | `:9091` | Endereço em que as métricas escutam |
 
-## Payment gateway (external)
+## Gateway de pagamento (externo)
 
-The store's app calls it; it is not part of the Mercado Lerdo API. Base URL: `NEXORA_PAYMENT_URL`.
+O app da loja chama o gateway; ele não faz parte da API do Mercado Lerdo. URL base: `NEXORA_PAYMENT_URL`.
 
 ### `POST /charge`
 
@@ -98,8 +98,9 @@ The store's app calls it; it is not part of the Mercado Lerdo API. Base URL: `NE
 {"order_ref": "c0ffee-000123", "amount_cents": 4990}
 ```
 
-- Charges the customer and answers `201` with the charge. It can take seconds.
-- Honors an optional `Idempotency-Key` header: the first request with a key is
-  charged; any later request with the same key (even one sent while the first is
-  still in flight) gets the original charge back with `200` and is not charged again.
-- Without the header, every request is a new charge.
+- Cobra o cliente e responde `201` com a cobrança. Pode levar segundos.
+- Respeita um cabeçalho opcional `Idempotency-Key`: a primeira requisição com uma chave
+  é cobrada; qualquer requisição seguinte com a mesma chave (mesmo uma enviada enquanto a
+  primeira ainda está em andamento) recebe de volta a cobrança original com `200` e não é
+  cobrada de novo.
+- Sem o cabeçalho, cada requisição é uma cobrança nova.

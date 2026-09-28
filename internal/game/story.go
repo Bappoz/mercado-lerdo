@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
@@ -138,9 +139,24 @@ func evalStory(events []scenario.StoryEvent, s play.Session, now time.Time, stor
 	return changed
 }
 
+// baselinePlaceholder in a story text becomes the production numbers the
+// player saw in the calm phase, or goes away when there are none.
+const baselinePlaceholder = "{{baseline}}"
+
+func withBaseline(text string, b *play.Baseline) string {
+	if !strings.Contains(text, baselinePlaceholder) {
+		return text
+	}
+	numbers := ""
+	if b != nil {
+		numbers = b.Markdown()
+	}
+	return strings.TrimSpace(strings.ReplaceAll(text, baselinePlaceholder, numbers))
+}
+
 // storyView renders the marks as messages, oldest first, and the most urgent
-// open deadline.
-func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark) StoryView {
+// open deadline. baseline fills the texts' {{baseline}}.
+func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark, baseline *play.Baseline) StoryView {
 	v := StoryView{Messages: []StoryMessage{}}
 	for _, e := range events {
 		m, ok := marks[e.ID]
@@ -148,12 +164,12 @@ func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark) St
 			continue
 		}
 		from := scenario.Cast[e.From]
-		v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID, Kind: e.Kind, From: from, Title: e.Title, Text: e.Text, At: m.FiredAt})
+		v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID, Kind: e.Kind, From: from, Title: e.Title, Text: withBaseline(e.Text, baseline), At: m.FiredAt})
 		switch {
 		case !m.MetAt.IsZero():
-			v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID + "-met", Kind: "reply", From: from, Title: "Re: " + e.Title, Text: e.Met, At: m.MetAt})
+			v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID + "-met", Kind: "reply", From: from, Title: "Re: " + e.Title, Text: withBaseline(e.Met, baseline), At: m.MetAt})
 		case !m.MissedAt.IsZero():
-			v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID + "-missed", Kind: "reply", From: from, Title: "Re: " + e.Title, Text: e.Missed, At: m.MissedAt})
+			v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID + "-missed", Kind: "reply", From: from, Title: "Re: " + e.Title, Text: withBaseline(e.Missed, baseline), At: m.MissedAt})
 		case e.Within > 0:
 			d := &Deadline{ID: e.ID, Kind: e.Kind, Title: e.Title, From: from, Goal: e.Goal, Until: m.FiredAt.Add(e.Within)}
 			if v.Deadline == nil || d.Until.Before(v.Deadline.Until) {
@@ -209,7 +225,7 @@ func (g *Game) Story(ctx context.Context) (StoryView, error) {
 			g.Event("story_event", map[string]any{"id": id, "outcome": outcome})
 		}
 	}
-	v := storyView(events, marks)
+	v := storyView(events, marks, s.Baseline)
 	for i := range v.Messages {
 		v.Messages[i].New = fresh[v.Messages[i].ID]
 	}

@@ -29,7 +29,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 	typ, b, err := c.Read(actx)
 	cancel()
 	if err != nil || typ != websocket.MessageText || !s.validToken(string(b)) {
-		_ = c.Close(websocket.StatusPolicyViolation, "unauthorized")
+		_ = c.Close(websocket.StatusPolicyViolation, "não autorizado")
 		return
 	}
 	tty, err := s.g.Terminal(ctx, 80, 24)
@@ -53,7 +53,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if err != nil {
-				_ = c.Close(websocket.StatusNormalClosure, "shell exited")
+				_ = c.Close(websocket.StatusNormalClosure, "o shell terminou")
 				return
 			}
 		}

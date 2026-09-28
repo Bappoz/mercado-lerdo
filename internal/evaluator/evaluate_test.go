@@ -186,7 +186,7 @@ func TestSlowHostCannotFailOnSpeed(t *testing.T) {
 				t.Errorf("host = %+v, want excused %v", rep.Host, excused)
 			}
 			for _, o := range rep.Objectives {
-				if o.Verdict == Inconclusive && !strings.Contains(o.Reason, "slower") {
+				if o.Verdict == Inconclusive && !strings.Contains(o.Reason, "mais devagar") {
 					t.Errorf("%s: reason %q does not blame the machine", o.ID, o.Reason)
 				}
 			}

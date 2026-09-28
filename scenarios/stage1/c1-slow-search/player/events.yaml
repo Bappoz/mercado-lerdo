@@ -9,7 +9,10 @@
     Sem pressa: quero que você conheça o nosso normal.
   at: {phase: calm, after: 60s}
   goal: view_pulse
-  met: Valeu! Guarda esses números. Quando der ruim, é com eles que a gente compara.
+  met: |
+    Valeu! Guarda esses números. Quando der ruim, é com eles que a gente compara.
+
+    {{baseline}}
 
 - id: live-da-lu
   kind: emergencia

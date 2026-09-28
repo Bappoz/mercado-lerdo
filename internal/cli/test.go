@@ -29,9 +29,9 @@ type evalFlags struct {
 }
 
 func (f *evalFlags) register(fs *flag.FlagSet) {
-	fs.StringVar(&f.root, "root", ".", "repository root (holds deploy/dev/compose.yml)")
-	fs.StringVar(&f.scenario, "scenario", defaultScenario, "scenario pack directory")
-	fs.IntVar(&f.runs, "runs", 0, "override the scenario's number of runs (0 = use the scenario's)")
+	fs.StringVar(&f.root, "root", ".", "raiz do repositório do jogo")
+	fs.StringVar(&f.scenario, "scenario", defaultScenario, "diretório do pacote do cenário")
+	fs.IntVar(&f.runs, "runs", 0, "número de execuções (0 = o do cenário)")
 }
 
 func (f *evalFlags) load(stderr io.Writer) (*scenario.Pack, *slog.Logger, bool) {
@@ -82,10 +82,10 @@ func withSandbox(ctx context.Context, root, workspace string, pack *scenario.Pac
 // story's traffic, records events and shows the debrief on PASS.
 func runTest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	ptFlags(fs, stderr)
 	var ef evalFlags
 	ef.register(fs)
-	ws := fs.String("workspace", "nexora", "the app to evaluate")
+	ws := fs.String("workspace", "nexora", "o app a avaliar")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -130,7 +130,7 @@ func reportTest(rep evaluator.Report, root string, stdout io.Writer) int {
 		fmt.Fprintln(stdout, "\n"+msg)
 	}
 	if path, err := game.SaveReport(root, "eval", rep); err == nil {
-		fmt.Fprintln(stdout, "report:", path)
+		fmt.Fprintln(stdout, "relatório:", path)
 	}
 	if !game.AllPass(rep) {
 		return 3
@@ -158,7 +158,7 @@ func runPlayerTest(ctx context.Context, ef evalFlags, ws string, stdout, stderr 
 		fmt.Fprintln(stdout, "\n"+msg)
 	}
 	if res.Path != "" {
-		fmt.Fprintln(stdout, "report:", res.Path)
+		fmt.Fprintln(stdout, "relatório:", res.Path)
 	}
 	if !res.Passed {
 		fmt.Fprintln(stdout, "\nAinda não. As dimensões acima dizem o que falta. `sesim hint` se precisar.")
@@ -184,12 +184,12 @@ type verifyCase struct {
 // (simulation-engine.md §8): the broken start and every reference, K rounds.
 func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("scenario verify", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	ptFlags(fs, stderr)
 	var ef evalFlags
 	ef.register(fs)
-	rounds := fs.Int("rounds", 1, "how many times to evaluate each case (flip rate needs >= 2)")
-	only := fs.String("only", "", "comma-separated case names to run (broken, or reference names)")
-	base := fs.String("base", "nexora", "scenario start the reference patches apply to")
+	rounds := fs.Int("rounds", 1, "quantas vezes avaliar cada caso (a taxa de oscilação precisa de 2 ou mais)")
+	only := fs.String("only", "", "casos a rodar, separados por vírgula (broken ou nomes de referências)")
+	base := fs.String("base", "nexora", "início do cenário sobre o qual as referências são aplicadas")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -211,7 +211,7 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 	}
 
 	if why := power.Saving(); why != "" {
-		fmt.Fprintf(stderr, "sesim: warning: %s; speed verdicts will not match the calibration (ADR-0021)\n", why)
+		fmt.Fprintf(stderr, "sesim: atenção: %s; os vereditos de velocidade não vão bater com a calibração (ADR-0021)\n", why)
 	}
 	cases := make([]*verifyCase, len(inputs))
 	for i, in := range inputs {
@@ -259,17 +259,17 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 
 	mismatches, flips, cells := writeMatrix(stdout, cases)
 	if path, err := game.SaveReport(ef.root, "verify", cases); err == nil {
-		fmt.Fprintln(stdout, "report:", path)
+		fmt.Fprintln(stdout, "relatório:", path)
 	}
-	fmt.Fprintf(stdout, "\nunexpected verdicts: %d · unstable cells (verdict changed between rounds): %d of %d", mismatches, flips, cells)
+	fmt.Fprintf(stdout, "\nvereditos inesperados: %d · células instáveis (o veredito mudou entre rodadas): %d de %d", mismatches, flips, cells)
 	if *rounds >= 2 && cells > 0 {
-		fmt.Fprintf(stdout, " (flip rate %.1f%%)", 100*float64(flips)/float64(cells))
+		fmt.Fprintf(stdout, " (taxa de oscilação %.1f%%)", 100*float64(flips)/float64(cells))
 	}
 	fmt.Fprintln(stdout)
 	if tolOK && len(probes) > 0 {
 		slices.Sort(probes)
 		ref := probes[len(probes)/2]
-		fmt.Fprintf(stdout, "slowdown tolerance: %.2fx (%s, %s) · median probe %.0f ms → floor %.0f ms (evaluator.DefaultProbeLimit: %v, ADR-0021)\n",
+		fmt.Fprintf(stdout, "tolerância a lentidão: %.2fx (%s, %s) · teste do banco mediano %.0f ms → piso %.0f ms (evaluator.DefaultProbeLimit: %v, ADR-0021)\n",
 			tol.Slowdown, tolCase, tol.Objective, ref, evaluator.FloorFor(tol, ref), evaluator.DefaultProbeLimit)
 	}
 	if mismatches > 0 || flips > 0 {
@@ -281,7 +281,7 @@ func runScenarioVerify(ctx context.Context, args []string, stdout, stderr io.Wri
 // writeMatrix prints one line per case and dimension and counts
 // unexpected verdicts and cells whose verdict changed across rounds.
 func writeMatrix(w io.Writer, cases []*verifyCase) (mismatches, flips, cells int) {
-	fmt.Fprintf(w, "\n%-18s %-13s %-9s %s\n", "case", "dimension", "expected", "verdicts by round")
+	fmt.Fprintf(w, "\n%-18s %-13s %-9s %s\n", "caso", "dimensão", "esperado", "vereditos por rodada")
 	for _, c := range cases {
 		dims := make([]string, 0, len(c.Expect))
 		for d := range c.Expect {
@@ -295,7 +295,7 @@ func writeMatrix(w io.Writer, cases []*verifyCase) (mismatches, flips, cells int
 			}
 			mark := "ok"
 			if slices.ContainsFunc(got, func(v string) bool { return v != c.Expect[d] }) {
-				mark = "UNEXPECTED"
+				mark = "INESPERADO"
 				mismatches++
 			}
 			if len(slices.Compact(slices.Sorted(slices.Values(got)))) > 1 {

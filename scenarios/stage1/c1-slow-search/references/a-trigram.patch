@@ -1,7 +1,9 @@
-diff --color -ruN a/migrations/0002_search_trigram.sql b/migrations/0002_search_trigram.sql
---- a/migrations/0002_search_trigram.sql	1969-12-31 21:00:00.000000000 -0300
-+++ b/migrations/0002_search_trigram.sql	2026-09-25 01:14:17.653983225 -0300
+diff --git c/migrations/0002_search_trigram.sql i/migrations/0002_search_trigram.sql
+new file mode 100644
+index 0000000..63c5d2a
+--- /dev/null
++++ i/migrations/0002_search_trigram.sql
 @@ -0,0 +1,3 @@
-+-- Trigram index: lets ILIKE '%term%' use an index instead of scanning every row.
++-- Índice de trigramas: deixa o ILIKE '%termo%' usar um índice em vez de ler todas as linhas.
 +CREATE EXTENSION IF NOT EXISTS pg_trgm;
 +CREATE INDEX products_name_trgm_idx ON products USING gin (name gin_trgm_ops);

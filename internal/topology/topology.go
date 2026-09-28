@@ -125,17 +125,17 @@ func (t Topology) Validate() error {
 	var errs []error
 	fail := func(format string, a ...any) { errs = append(errs, fmt.Errorf(format, a...)) }
 	if t.APIVersion != APIVersion || t.Kind != "Topology" {
-		fail("apiVersion/kind must be %s/Topology", APIVersion)
+		fail("apiVersion/kind precisam ser %s/Topology", APIVersion)
 	}
 	c := t.Components
 	size := func(kind Kind, s Size) {
 		if _, ok := Catalog[kind].Sizes[s]; !ok {
-			fail("%s.size: %q is not one of %v", kind, s, Catalog[kind].sizeNames())
+			fail("%s.size: %q não é um destes: %v", kind, s, Catalog[kind].sizeNames())
 		}
 	}
 	between := func(field string, v, lo, hi int) {
 		if v < lo || v > hi {
-			fail("%s: %d is outside [%d, %d]", field, v, lo, hi)
+			fail("%s: %d está fora de [%d, %d]", field, v, lo, hi)
 		}
 	}
 	size(KindNginx, c.Nginx.Size)
@@ -150,15 +150,15 @@ func (t Topology) Validate() error {
 	case "postgres":
 	case "pgbouncer":
 		if c.PgBouncer == nil {
-			fail("app.database: pgbouncer is not in the topology (add components.pgbouncer)")
+			fail("app.database: o pgbouncer não está na topologia (acrescente components.pgbouncer)")
 		}
 	default:
-		fail("app.database: %q is not postgres or pgbouncer", c.App.Database)
+		fail("app.database: %q não é postgres nem pgbouncer", c.App.Database)
 	}
 	if b := c.PgBouncer; b != nil {
 		size(KindPgBouncer, b.Size)
 		if b.PoolMode != "transaction" && b.PoolMode != "session" {
-			fail("pgbouncer.poolMode: %q is not transaction or session", b.PoolMode)
+			fail("pgbouncer.poolMode: %q não é transaction nem session", b.PoolMode)
 		}
 		between("pgbouncer.defaultPoolSize", b.DefaultPoolSize, 1, 200)
 		between("pgbouncer.maxClientConn", b.MaxClientConn, 10, 2000)

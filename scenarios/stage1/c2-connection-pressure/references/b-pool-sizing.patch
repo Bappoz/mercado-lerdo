@@ -1,7 +1,8 @@
-diff --git a/topology.yaml b/topology.yaml
---- a/topology.yaml
-+++ b/topology.yaml
-@@ -10,7 +10,7 @@
+diff --git c/topology.yaml i/topology.yaml
+index 332ae13..915c243 100644
+--- c/topology.yaml
++++ i/topology.yaml
+@@ -10,7 +10,7 @@ components:
      size: S
      replicas: 3
      database: postgres

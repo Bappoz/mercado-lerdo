@@ -1,4 +1,4 @@
-// Package store holds every SQL statement the Mercado Lerdo API runs.
+// Package store reúne todo o SQL que a API do Mercado Lerdo executa.
 package store
 
 import (
@@ -7,15 +7,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ErrNotFound is returned when a single-row lookup finds nothing.
-var ErrNotFound = errors.New("store: not found")
+// ErrNotFound é devolvido quando a busca de uma linha não encontra nada.
+var ErrNotFound = errors.New("store: não encontrado")
 
-// Store wraps the connection pool.
+// Store envolve o pool de conexões.
 type Store struct {
 	pool *pgxpool.Pool
 }
 
-// New returns a Store backed by pool.
+// New devolve um Store sobre pool.
 func New(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }

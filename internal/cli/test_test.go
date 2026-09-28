@@ -23,7 +23,7 @@ func TestWriteMatrix(t *testing.T) {
 	if mismatches != 1 || flips != 1 || cells != 3 {
 		t.Errorf("mismatches=%d flips=%d cells=%d, want 1/1/3\n%s", mismatches, flips, cells, b.String())
 	}
-	if !strings.Contains(b.String(), "PASS INCONCLUSIVE") || !strings.Contains(b.String(), "UNEXPECTED") {
+	if !strings.Contains(b.String(), "PASS INCONCLUSIVE") || !strings.Contains(b.String(), "INESPERADO") {
 		t.Errorf("matrix output:\n%s", b.String())
 	}
 }

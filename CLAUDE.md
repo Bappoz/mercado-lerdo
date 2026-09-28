@@ -2,7 +2,7 @@
 
 ## Stack
 Go 1.27 (plataforma e app demo) · React + Vite + TS em `web/` (Node 22), embutida no binário · Docker (sandbox) · k6 · Prometheus · SQLite (`modernc.org/sqlite`).
-Docs em PT-BR; código, comentários, logs e commits em inglês.
+Tudo o que o jogador lê é PT-BR: docs, textos dos cenários, saída da CLI e da UI, relatórios e o `nexora/` inteiro (comentários, mensagens de erro e de log; identificadores, campos JSON e variáveis de ambiente ficam em inglês). A plataforma (`internal/`, `cmd/`) mantém comentários, logs e commits em inglês; o que ela mostra ao jogador é traduzido na apresentação.
 
 ## Comandos
 ```bash

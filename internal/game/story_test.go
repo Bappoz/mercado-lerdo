@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -85,7 +86,7 @@ func TestEvalStoryIsIdempotent(t *testing.T) {
 	if again := evalStory([]scenario.StoryEvent{ev}, s, time.Now(), func() bool { return false }); again != nil {
 		t.Errorf("a fired event fired again: %+v", again)
 	}
-	v := storyView([]scenario.StoryEvent{ev}, s.Story)
+	v := storyView([]scenario.StoryEvent{ev}, s.Story, nil)
 	if len(v.Messages) != 1 || v.Messages[0].From != "Otávio (financeiro)" || v.Deadline != nil {
 		t.Errorf("view = %+v", v)
 	}
@@ -98,12 +99,32 @@ func TestStoryViewDeadline(t *testing.T) {
 		{ID: "b", Kind: "emergencia", From: "jessica", Title: "B", Text: "x", At: &scenario.StoryAt{Phase: "incident"}, Goal: "store_up", Within: 5 * time.Minute, Met: "m", Missed: "n"},
 	}
 	marks := map[string]play.StoryMark{"a": {FiredAt: t0}, "b": {FiredAt: t0}}
-	if d := storyView(evs, marks).Deadline; d == nil || d.ID != "b" {
+	if d := storyView(evs, marks, nil).Deadline; d == nil || d.ID != "b" {
 		t.Errorf("the most urgent deadline = %+v, want b", d)
 	}
 	marks["b"] = play.StoryMark{FiredAt: t0, MetAt: t0.Add(time.Minute)}
-	v := storyView(evs, marks)
+	v := storyView(evs, marks, nil)
 	if v.Deadline == nil || v.Deadline.ID != "a" || len(v.Messages) != 3 {
 		t.Errorf("after b was met: %+v", v)
+	}
+}
+
+func TestStoryReplyQuotesTheBaseline(t *testing.T) {
+	t0 := time.Now()
+	ev := scenario.StoryEvent{ID: "olhar", Kind: "pedido", From: "alvaro", Title: "T", Text: "x", At: &scenario.StoryAt{Phase: "calm"}, Goal: "view_pulse", Met: "Guarda esses números.\n\n{{baseline}}\n"}
+	marks := map[string]play.StoryMark{"olhar": {FiredAt: t0, MetAt: t0}}
+	b := &play.Baseline{At: t0, Signals: play.Signals{
+		Endpoints: []play.Endpoint{{Name: "search", RPS: 12, ErrorRate: 0.001, P95s: 0.042}},
+		CPU:       map[string]float64{"postgres": 0.22, "app": 0.08},
+	}}
+	reply := storyView([]scenario.StoryEvent{ev}, marks, b).Messages[1].Text
+	for _, want := range []string{"Guarda esses números.", "**search**: p95 42 ms · 12.0 req/s · 0.1% de erros", "app 8% · postgres 22%"} {
+		if !strings.Contains(reply, want) {
+			t.Errorf("reply %q lacks %q", reply, want)
+		}
+	}
+	// Without a baseline the placeholder goes away, not the reply.
+	if got := storyView([]scenario.StoryEvent{ev}, marks, nil).Messages[1].Text; got != "Guarda esses números." {
+		t.Errorf("reply without numbers = %q", got)
 	}
 }

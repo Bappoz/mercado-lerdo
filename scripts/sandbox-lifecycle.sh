@@ -16,7 +16,7 @@ echo "== up"
 before=$(runs)
 $sesim sandbox up >"$tmp/up.out" 2>"$tmp/up.err"; code=$?
 check "sandbox up succeeds" test "$code" = 0
-run=$(awk '/^sandbox .* ready$/ {print $2}' "$tmp/up.out")
+run=$(awk '/^sandbox .* pronta$/ {print $2}' "$tmp/up.out")
 app=$(awk '/app:/ {print $2}' "$tmp/up.out")
 echo "  run=$run app=$app"
 

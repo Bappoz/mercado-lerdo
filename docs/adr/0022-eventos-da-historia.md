@@ -24,6 +24,8 @@ O universo do Mercado Lerdo (`docs/product/universe.md` §6) pede que o chefe e 
    - opcionalmente, um **objetivo** de um conjunto fechado (`test_pass`, `store_up`, `deploy`, `view_pulse`, `view_support`), com `within` (prazo) e as respostas `met` e `missed`.
 
    `ValidateStory` recusa gatilho duplo ou ausente, objetivo desconhecido, prazo sem resposta, emergência sem prazo e elogio ou notícia que peçam algo.
+
+   Os textos aceitam `{{baseline}}`, que vira os números da produção na primeira olhada do dia calmo com tráfego (`Session.Baseline`, gravado por `status` e pelo Pulse), ou some quando não há. Acrescentado depois de um playtest do autor: o Álvaro pedia para guardar os números sem mostrar nenhum.
 2. **Avaliado na leitura, sem relógio próprio** (`game.Story`):
    - a UI chama a cada leitura do estado, e a CLI no fim de `next`, `status`, `check`, `test`, `deploy`, `hint` e `support`, e no novo `sesim inbox`;
    - a função pura `evalStory(eventos, sessão, agora, loja no ar?)` dispara o que venceu e fecha objetivos cumpridos ou prazos passados;

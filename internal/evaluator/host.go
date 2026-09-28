@@ -57,12 +57,12 @@ func excuseSlowHost(o scenario.Objective, r ObjectiveResult, h *HostCheck) Objec
 	stretched.Below = new(*o.Below * h.Slowdown)
 	if Judge(stretched, r.Values).Verdict == Fail {
 		r.Verdict = Fail
-		r.Reason = fmt.Sprintf("fails even with the threshold stretched %.1fx for this slower machine", h.Slowdown)
+		r.Reason = fmt.Sprintf("reprova mesmo com o limite esticado %.1fx para esta máquina mais lenta", h.Slowdown)
 		return r
 	}
 	r.Verdict = Inconclusive
 	h.Excused = true
-	r.Reason = fmt.Sprintf("the machine ran %.1fx slower than the scenarios were calibrated for (database probe %.0f ms, limit %.0f ms)",
+	r.Reason = fmt.Sprintf("a máquina rodou %.1fx mais devagar do que a calibração dos cenários (teste do banco: %.0f ms; limite: %.0f ms)",
 		h.Slowdown, h.ProbeMS, h.LimitMS)
 	return r
 }

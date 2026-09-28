@@ -1,4 +1,4 @@
--- Mercado Lerdo initial schema.
+-- Schema inicial do Mercado Lerdo.
 
 CREATE TABLE users (
     id            bigserial PRIMARY KEY,

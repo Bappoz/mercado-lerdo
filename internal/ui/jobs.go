@@ -146,7 +146,7 @@ func (s *Server) run(j *Job) {
 			lab = &r
 		}
 	default:
-		err = fmt.Errorf("unknown job %q", j.Kind)
+		err = fmt.Errorf("operação desconhecida %q", j.Kind)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -193,6 +193,25 @@ func (h *JobLog) WithAttrs([]slog.Attr) slog.Handler { return h }
 // WithGroup implements slog.Handler.
 func (h *JobLog) WithGroup(string) slog.Handler { return h }
 
+// stepWords are the sandbox's steps as the player reads them.
+var stepWords = map[string]string{
+	"create":         "criar a sandbox",
+	"build app":      "compilar o app",
+	"start postgres": "subir o Postgres",
+	"seed template":  "preparar o banco original",
+	"reset data":     "restaurar os dados",
+	"start services": "subir os serviços",
+}
+
+// logWords are the other records a job can show; the logs themselves stay in English.
+var logWords = map[string]string{
+	"collected orphaned sandboxes":                          "Sandboxes órfãs removidas",
+	"db cpu query failed":                                   "Não consegui medir a CPU do banco nesta execução",
+	"db probe failed":                                       "O teste de velocidade do banco falhou nesta execução",
+	"could not restart the story's traffic":                 "Não consegui religar o tráfego do dia",
+	"could not reload the session saved by another process": "Não consegui recarregar o progresso salvo por outra janela",
+}
+
 // describe words the records the player sees while waiting.
 func describe(r slog.Record) string {
 	attrs := map[string]string{}
@@ -202,12 +221,24 @@ func describe(r slog.Record) string {
 	})
 	switch r.Message {
 	case "sandbox step":
-		return fmt.Sprintf("ok: %s (%s ms)", attrs["step"], attrs["ms"])
+		step := attrs["step"]
+		if w, ok := stepWords[step]; ok {
+			step = w
+		}
+		return fmt.Sprintf("ok: %s (%s ms)", step, attrs["ms"])
 	case "production test run":
 		return fmt.Sprintf("Execução %s de %s…", attrs["run"], attrs["of"])
+	case "deploy":
+		return attrs["step"]
+	case "fault":
+		return fmt.Sprintf("Derrubando %s (aos %s)…", attrs["crash"], attrs["after"])
 	}
 	var b strings.Builder
-	b.WriteString(r.Message)
+	if w, ok := logWords[r.Message]; ok {
+		b.WriteString(w)
+	} else {
+		b.WriteString(r.Message)
+	}
 	for k, v := range attrs {
 		if k == "run" || k == "id" {
 			continue // internal identifiers

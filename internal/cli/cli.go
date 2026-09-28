@@ -4,46 +4,48 @@ package cli
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/buildinfo"
 	"github.com/Bappoz/software-engineering-simulator/internal/workload"
 )
 
-const usage = `sesim — Software Engineering Simulator (working name)
+const usage = `sesim — Mercado Lerdo, o simulador de engenharia de software
 
-Usage:
-  sesim <command> [flags]
+Uso:
+  sesim <comando> [opções]
 
-Playing (output in PT-BR):
-  play           start (or resume) the scenario: workspace, stack, briefing, traffic
-  next           end the calm phase; the incident starts
-  status         production signals now (traffic, errors, latency, CPU)
-  check          Quick Check: apply your workspace and measure ~45 s (indicative)
-  test           Production Test (graded); in a game, shows the debrief on PASS
-  hint           the next hint (5 levels)
-  shell          terminal inside the store's network
-  deploy         ship the workspace (code, migrations, topology.yaml, nginx config)
-  topology       the workspace's topology, its modeled cost and pending changes
-  support        customer complaints of the last 10 minutes
-  inbox          messages from the team (requests, scoldings, emergencies) and the open deadline
-  profile        your career: level, experience, salary balance and statement
-  lab            load experiment against production, ungraded (--profile --rate --duration --crash)
-  campaign       the stage's missions and what you completed
-  advance        after a PASS, move to the next scenario (--canonical: start from its canonical state)
-  docs [c]       the component catalog, or one component's page
-  install <c>    add an optional component to topology.yaml (deploy applies it)
-  stop           stop the background traffic (--down: also destroy the sandbox)
-  ui             LerdOS: the same game in the browser (127.0.0.1 only)
+Para jogar:
+  play           começa (ou retoma) o cenário: workspace, loja, briefing e tráfego
+  next           encerra a fase calma; o incidente começa
+  status         os sinais da produção agora (tráfego, erros, latência, CPU)
+  check          Quick Check: aplica o seu workspace e mede ~45 s (indicativo)
+  test           Production Test (o que vale); numa partida, mostra o debrief no PASS
+  hint           a próxima dica (5 níveis)
+  shell          terminal dentro da rede da loja
+  deploy         coloca o workspace em produção (código, migrações, topology.yaml, nginx)
+  topology       a topologia do workspace, o custo modelado e as mudanças pendentes
+  support        reclamações dos clientes nos últimos 10 minutos
+  inbox          mensagens do pessoal (pedidos, broncas, emergências) e o prazo aberto
+  profile        a sua carreira: nível, experiência, saldo do salário e extrato
+  lab            experimento de carga contra a produção, sem nota (--profile --rate --duration --crash)
+  campaign       as missões do stage e o que você já concluiu
+  advance        depois de um PASS, segue para o próximo cenário (--canonical: a partir do estado oficial)
+  docs [c]       o catálogo de componentes, ou a página de um componente
+  install <c>    acrescenta um componente opcional ao topology.yaml (o deploy aplica)
+  stop           para o tráfego de fundo (--down: também desliga a loja)
+  ui             LerdOS: o mesmo jogo no navegador (só em 127.0.0.1)
 
-Tools:
-  sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes via the Docker API
-  scenario verify  run the broken start and every reference; report unexpected verdicts
-  load-summary     read a k6 summary (JSON) on stdin and print per-endpoint stats
-  dev              developer commands for the local dev stack
-  version          print the binary version
-  help             print this help
+Ferramentas:
+  sandbox          up | ls | exec | down <run> | gc [--all]: sandboxes pela API do Docker
+  scenario verify  roda o início quebrado e cada solução de referência; aponta vereditos inesperados
+  load-summary     lê um resumo do k6 (JSON) na entrada padrão e mostra números por endpoint
+  dev              comandos de desenvolvimento da stack local
+  version          mostra a versão do binário
+  help             mostra esta ajuda
 `
 
 // Run executes the command in args (without the program name) and returns the exit code.
@@ -104,7 +106,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runInstall(ctx, args[1:], stdout, stderr)
 	case "scenario":
 		if len(args) < 2 || args[1] != "verify" {
-			fmt.Fprintln(stderr, "usage: sesim scenario verify [flags]")
+			fmt.Fprintln(stderr, "uso: sesim scenario verify [opções]")
 			return 2
 		}
 		return runScenarioVerify(ctx, args[2:], stdout, stderr)
@@ -116,7 +118,45 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		fmt.Fprint(stdout, usage)
 		return 0
 	default:
-		fmt.Fprintf(stderr, "sesim: unknown command %q\n\n%s", args[0], usage)
+		fmt.Fprintf(stderr, "sesim: comando desconhecido %q\n\n%s", args[0], usage)
 		return 2
 	}
+}
+
+// ptFlags makes fs report parse errors and print its options in PT-BR: the
+// flag package writes its own messages in English.
+func ptFlags(fs *flag.FlagSet, stderr io.Writer) {
+	fs.SetOutput(flagErrors{stderr})
+	fs.Usage = func() {
+		fmt.Fprintf(stderr, "Opções de sesim %s:\n", fs.Name())
+		fs.VisitAll(func(f *flag.Flag) {
+			fmt.Fprintf(stderr, "  -%-12s %s", f.Name, f.Usage)
+			if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
+				fmt.Fprintf(stderr, " (padrão: %s)", f.DefValue)
+			}
+			fmt.Fprintln(stderr)
+		})
+	}
+}
+
+// flagErrors translates the flag package's parse errors on their way out.
+type flagErrors struct{ w io.Writer }
+
+var flagWords = strings.NewReplacer(
+	"flag provided but not defined: ", "opção desconhecida: ",
+	"flag needs an argument: ", "falta o valor da opção ",
+	"invalid boolean value ", "valor inválido ",
+	"invalid boolean flag ", "opção inválida ",
+	"invalid value ", "valor inválido ",
+	" for flag ", " para a opção ",
+	" for -", " para -",
+	"parse error", "não é um valor válido",
+	"value out of range", "valor fora do intervalo",
+)
+
+func (e flagErrors) Write(p []byte) (int, error) {
+	if _, err := flagWords.WriteString(e.w, string(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

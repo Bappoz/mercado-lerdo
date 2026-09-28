@@ -1,7 +1,8 @@
-diff --git a/topology.yaml b/topology.yaml
---- a/topology.yaml
-+++ b/topology.yaml
-@@ -8,9 +8,9 @@
+diff --git c/topology.yaml i/topology.yaml
+index f92b09b..332ae13 100644
+--- c/topology.yaml
++++ i/topology.yaml
+@@ -8,9 +8,9 @@ components:
      size: S
    app:
      size: S

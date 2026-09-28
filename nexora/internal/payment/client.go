@@ -1,4 +1,4 @@
-// Package payment talks to the external payment gateway.
+// Package payment conversa com o gateway de pagamento externo.
 package payment
 
 import (
@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-// Client charges customers through the gateway's HTTP API.
+// Client cobra os clientes pela API HTTP do gateway.
 type Client struct {
 	baseURL string
 	http    *http.Client
 }
 
-// NewClient returns a client for the gateway at baseURL.
+// NewClient devolve um cliente para o gateway em baseURL.
 func NewClient(baseURL string, timeout time.Duration) *Client {
 	return &Client{baseURL: baseURL, http: &http.Client{Timeout: timeout}}
 }
@@ -27,15 +27,15 @@ type chargeRequest struct {
 	AmountCents int    `json:"amount_cents"`
 }
 
-// Charge asks the gateway to charge amountCents for orderRef.
+// Charge pede ao gateway para cobrar amountCents por orderRef.
 func (c *Client) Charge(ctx context.Context, orderRef string, amountCents int) error {
 	body, err := json.Marshal(chargeRequest{OrderRef: orderRef, AmountCents: amountCents})
 	if err != nil {
-		return fmt.Errorf("payment: encode: %w", err)
+		return fmt.Errorf("payment: codificar: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/charge", bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("payment: request: %w", err)
+		return fmt.Errorf("payment: requisição: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
@@ -45,7 +45,7 @@ func (c *Client) Charge(ctx context.Context, orderRef string, amountCents int) e
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("payment: gateway returned %s", resp.Status)
+		return fmt.Errorf("payment: o gateway respondeu %s", resp.Status)
 	}
 	return nil
 }

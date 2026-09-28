@@ -19,11 +19,11 @@ import (
 // runUI: sesim ui — LerdOS, the game in the browser.
 func runUI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	ptFlags(fs, stderr)
 	var f gameFlags
 	f.register(fs)
-	addr := fs.String("addr", "127.0.0.1:0", "loopback address to listen on (port 0 = any free port)")
-	noOpen := fs.Bool("no-open", false, "do not open the browser")
+	addr := fs.String("addr", "127.0.0.1:0", "endereço local em que o LerdOS escuta (porta 0 = qualquer porta livre)")
+	noOpen := fs.Bool("no-open", false, "não abre o navegador")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

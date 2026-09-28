@@ -26,9 +26,9 @@ type gameFlags struct {
 }
 
 func (f *gameFlags) register(fs *flag.FlagSet) {
-	fs.StringVar(&f.root, "root", ".", "repository root")
-	fs.StringVar(&f.scenario, "scenario", "", "scenario pack directory (default: the workspace's current scenario, or C1 for a new game)")
-	fs.StringVar(&f.workspace, "workspace", defaultWorkspace, "your workspace (a copy of the app you edit)")
+	fs.StringVar(&f.root, "root", ".", "raiz do repositório do jogo")
+	fs.StringVar(&f.scenario, "scenario", "", "diretório do pacote do cenário (padrão: o cenário atual do workspace, ou o C1 numa partida nova)")
+	fs.StringVar(&f.workspace, "workspace", defaultWorkspace, "o seu workspace (a cópia do app que você edita)")
 }
 
 func (f gameFlags) open(ctx context.Context, log *slog.Logger) (*game.Game, error) {
@@ -46,7 +46,7 @@ type terminal struct {
 // missing session is an error.
 func openGame(ctx context.Context, name string, args []string, stdout, stderr io.Writer, needSession bool) (*terminal, int) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	ptFlags(fs, stderr)
 	var f gameFlags
 	f.register(fs)
 	if err := fs.Parse(args); err != nil {
@@ -224,6 +224,9 @@ func runStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 	sig.Write(stdout, nil)
 	t.g.Event("status_viewed", map[string]any{"phase": string(t.g.Session().Phase)})
+	if err := t.g.RecordBaseline(ctx, &sig); err != nil {
+		return t.fail(err)
+	}
 	if err := t.g.MarkViewed("pulse"); err != nil {
 		return t.fail(err)
 	}
@@ -284,7 +287,7 @@ func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return t.fail(game.ErrNotRunning)
 	}
 	t.g.Event("shell_opened", nil)
-	fmt.Fprintln(stdout, "Terminal na rede da loja (psql já conectado ao banco). `exit` para sair.")
+	fmt.Fprintln(stdout, "Terminal na rede da loja: `psql` abre o banco (já autenticado); `exit` sai.")
 	if err := t.g.Shell(ctx, os.Stdin, stdout, stderr); err != nil {
 		return t.fail(err)
 	}

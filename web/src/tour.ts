@@ -40,7 +40,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: "terminal",
     target: { app: "terminal" },
-    text: "O **Terminal** abre um shell dentro da rede da loja, com o `psql` já conectado ao banco. Investigar é aqui.",
+    text: "O **Terminal** abre um shell dentro da rede da loja; digite `psql` para entrar no banco (já autenticado). Investigar é aqui.",
   },
   {
     id: "support",

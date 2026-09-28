@@ -1,4 +1,4 @@
-// Package auth handles password hashing and session tokens.
+// Package auth cuida do hash de senhas e dos tokens de sessão.
 package auth
 
 import (
@@ -13,18 +13,18 @@ import (
 	"strings"
 )
 
-// Iterations is the PBKDF2 work factor used for new hashes.
+// Iterations é o fator de trabalho do PBKDF2 usado nos hashes novos.
 const Iterations = 100_000
 
 const keyLen = 32
 
-var errMalformed = errors.New("auth: malformed password hash")
+var errMalformed = errors.New("auth: hash de senha malformado")
 
-// HashPassword returns "pbkdf2-sha256$<iterations>$<salt>$<key>" (base64url, no padding).
+// HashPassword devolve "pbkdf2-sha256$<iterations>$<salt>$<key>" (base64url, sem padding).
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("auth: salt: %w", err)
+		return "", fmt.Errorf("auth: sal: %w", err)
 	}
 	return hashWithSalt(password, salt, Iterations)
 }
@@ -32,13 +32,13 @@ func HashPassword(password string) (string, error) {
 func hashWithSalt(password string, salt []byte, iterations int) (string, error) {
 	key, err := pbkdf2.Key(sha256.New, password, salt, iterations, keyLen)
 	if err != nil {
-		return "", fmt.Errorf("auth: derive key: %w", err)
+		return "", fmt.Errorf("auth: derivar a chave: %w", err)
 	}
 	enc := base64.RawURLEncoding
 	return fmt.Sprintf("pbkdf2-sha256$%d$%s$%s", iterations, enc.EncodeToString(salt), enc.EncodeToString(key)), nil
 }
 
-// VerifyPassword reports whether password matches the encoded hash.
+// VerifyPassword diz se password confere com o hash codificado.
 func VerifyPassword(password, encoded string) (bool, error) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 4 || parts[0] != "pbkdf2-sha256" {
@@ -59,12 +59,12 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	}
 	got, err := pbkdf2.Key(sha256.New, password, salt, iterations, len(want))
 	if err != nil {
-		return false, fmt.Errorf("auth: derive key: %w", err)
+		return false, fmt.Errorf("auth: derivar a chave: %w", err)
 	}
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }
 
-// NewToken returns a random, URL-safe session token.
+// NewToken devolve um token de sessão aleatório, seguro para URL.
 func NewToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

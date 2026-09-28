@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Credentials is what login needs to check a password.
+// Credentials é o que o login precisa para conferir uma senha.
 type Credentials struct {
 	UserID       int64
 	PasswordHash string
 }
 
-// CredentialsByEmail looks up a user's password hash.
+// CredentialsByEmail busca o hash da senha de um usuário.
 func (s *Store) CredentialsByEmail(ctx context.Context, email string) (Credentials, error) {
 	var c Credentials
 	err := s.pool.QueryRow(ctx, `SELECT id, password_hash FROM users WHERE email = $1`, email).
@@ -24,23 +24,23 @@ func (s *Store) CredentialsByEmail(ctx context.Context, email string) (Credentia
 		return Credentials{}, ErrNotFound
 	}
 	if err != nil {
-		return Credentials{}, fmt.Errorf("credentials by email: %w", err)
+		return Credentials{}, fmt.Errorf("credenciais por e-mail: %w", err)
 	}
 	return c, nil
 }
 
-// CreateSession stores a session token for userID.
+// CreateSession grava um token de sessão para userID.
 func (s *Store) CreateSession(ctx context.Context, token string, userID int64, ttl time.Duration) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + $3::interval)`,
 		token, userID, ttl.String())
 	if err != nil {
-		return fmt.Errorf("create session: %w", err)
+		return fmt.Errorf("criar a sessão: %w", err)
 	}
 	return nil
 }
 
-// UserBySession resolves a non-expired session token to its user id.
+// UserBySession traduz um token de sessão válido no id do usuário.
 func (s *Store) UserBySession(ctx context.Context, token string) (int64, error) {
 	var userID int64
 	err := s.pool.QueryRow(ctx,
@@ -49,7 +49,7 @@ func (s *Store) UserBySession(ctx context.Context, token string) (int64, error) 
 		return 0, ErrNotFound
 	}
 	if err != nil {
-		return 0, fmt.Errorf("user by session: %w", err)
+		return 0, fmt.Errorf("usuário pela sessão: %w", err)
 	}
 	return userID, nil
 }
