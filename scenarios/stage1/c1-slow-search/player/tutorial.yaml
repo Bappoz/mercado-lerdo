@@ -1,0 +1,151 @@
+# C1 is the first day: Tabby guides the whole mission and her help is free
+# (ADR-0024). Two questions make the player think before being told.
+# Placeholders name each view's tools ({{status}}, {{shell}}…); never write
+# a CLI command here.
+
+- id: conhecer-o-normal
+  phase: calm
+  kind: guia
+  text: |
+    Oi! Eu sou a Tabby, e hoje eu te acompanho do começo ao fim. A minha ajuda neste primeiro dia é por conta da casa.
+
+    Primeiro passo: conhecer o normal da loja. Confira {{status}} e repare em quatro coisas: quantas requisições chegam, quanto tempo a busca leva (o p95), se há erros e quanto de CPU cada container usa.
+  goal: view_pulse
+  done: Isso. Esses são os números de um dia tranquilo. Guarde na cabeça (ou nas Notas); quando der ruim, é com eles que você compara.
+
+- id: abrir-o-terminal
+  phase: calm
+  kind: guia
+  text: |
+    Agora abra {{shell}}. Ele é um terminal dentro da rede da loja: é daqui que você conversa com o banco.
+  goal: open_shell
+  done: Terminal aberto.
+
+- id: primeira-consulta
+  phase: calm
+  kind: guia
+  text: |
+    No terminal, digite `psql` e aperte Enter: você entra no banco, já autenticado. Então experimente:
+
+        SELECT count(*) FROM orders;
+
+    Isso responde o primeiro pedido do Álvaro: quantos pedidos a loja já recebeu. Para sair do banco, `\q`.
+
+    Quando tiver visto o número, me avise.
+  goal: continue
+  done: >-
+    Você acabou de fazer a sua primeira consulta em produção. Com cuidado, sempre: o banco é o coração da loja.
+
+- id: ler-o-codigo
+  phase: calm
+  kind: guia
+  text: |
+    Agora abra o seu workspace no editor:
+
+        {{workspace}}
+
+    A busca (`GET /search`) mora em `internal/store/products.go`, na função `SearchProducts`. Leia com calma: esse é o código que o Kleber deixou, e agora ele é seu. O `API.md` diz o que a busca promete.
+
+    Quando tiver lido, me avise.
+  goal: continue
+  done: Com isso, o terceiro pedido do Álvaro está respondido.
+
+- id: comecar-o-expediente
+  phase: calm
+  kind: guia
+  text: |
+    A loja está calma, mas não vai ficar assim. Quando se sentir em casa, {{start_day}}. A partir daí o movimento sobe e alguma coisa vai piorar; {{status}} mostra o que muda.
+  goal: next
+
+- id: quem-esta-no-teto
+  phase: incident
+  kind: pergunta
+  text: |
+    Chegou gente, e a loja ficou lenta. Antes de mexer em qualquer coisa, a primeira pergunta de toda investigação:
+
+    **Quem está no teto de CPU?** Compare {{status}} de agora com o normal que você viu.
+  goal: answer
+  choices:
+    - {id: a, text: "o app (o serviço Go)"}
+    - {id: b, text: "o nginx (a porta de entrada)"}
+    - {id: c, text: "o postgres (o banco de dados)"}
+  answer: c
+  wrong: >-
+    Esse ainda tem folga. Olhe de novo a CPU de cada container: quem encosta em 100% do próprio limite?
+  help: A CPU de cada container aparece em relação ao próprio limite (no Pulse, num gráfico; no terminal, numa barra). Procure quem chegou perto de 100% quando o movimento chegou.
+  done: Isso, o banco. O app está folgado, então o tempo está sendo gasto dentro do Postgres. A próxima pergunta é qual trabalho está pesando nele.
+
+- id: qual-consulta
+  phase: incident
+  kind: guia
+  text: |
+    O Postgres guarda estatísticas de cada consulta que roda. No terminal, entre no `psql` e rode:
+
+        SELECT calls, round(mean_exec_time) AS ms,
+               left(regexp_replace(query, '\s+', ' ', 'g'), 110) AS consulta
+        FROM pg_stat_statements
+        ORDER BY total_exec_time DESC
+        LIMIT 5;
+
+    A primeira linha é a consulta que mais consumiu o banco, somando todas as vezes que rodou (`calls` é quantas vezes, `ms` é a média de cada uma). As linhas `<insufficient privilege>` são de outros usuários do banco: pode ignorar.
+  goal: query_stats
+  done: A primeira linha é a busca, com `name ILIKE ...`. Sozinha, ela consome quase todo o tempo do banco.
+
+- id: o-plano
+  phase: incident
+  kind: guia
+  text: |
+    Agora pergunte ao Postgres **como** ele executa essa busca. Ainda no `psql`:
+
+        EXPLAIN ANALYZE SELECT id FROM products WHERE name ILIKE '%lamp%' ORDER BY created_at DESC LIMIT 20;
+
+    Procure a linha com `Seq Scan`.
+  goal: explain
+  done: "`Seq Scan` quer dizer que ele leu a tabela inteira: 100 mil produtos a cada busca, dezenas de buscas por segundo. É por isso que a CPU do banco não dá conta."
+
+- id: por-que-nao-um-indice-comum
+  phase: incident
+  kind: pergunta
+  text: |
+    Pense antes de mexer. Um índice comum (B-tree) na coluna `name` resolveria essa busca?
+
+    **Por que não?**
+  goal: answer
+  choices:
+    - {id: a, text: "porque a tabela products não tem nenhum índice"}
+    - {id: b, text: "porque o termo pode estar no meio do nome ('%lamp%'), e o índice comum só ajuda a achar o começo"}
+    - {id: c, text: "porque o Postgres está com pouca memória"}
+  answer: b
+  wrong: Não é isso. Pense num dicionário, que é um índice em ordem alfabética. Dá para achar rápido todas as palavras que *contêm* "lamp" no meio?
+  help: Um índice B-tree é como um dicionário, em ordem alfabética. Ótimo para achar o que *começa* com algo. E quando o termo pode estar em qualquer posição do nome?
+  done: >-
+    Exatamente. O Postgres tem um índice que entende "contém": o de **trigramas** (extensão `pg_trgm`), que indexa pedaços de 3 letras de cada nome. E ele funciona com `ILIKE`.
+
+- id: a-migracao
+  phase: incident
+  kind: guia
+  text: |
+    Mudança no banco entra por **migração**, um arquivo no workspace aplicado a cada deploy. Crie `migrations/0002_indice_busca.sql` com:
+
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        CREATE INDEX products_name_trgm_idx ON products USING gin (name gin_trgm_ops);
+
+    Só rodar isso no `psql` não vale: o teste de produção recria o banco do zero, e só o que está no workspace sobrevive.
+  goal: add_migration
+  done: Migração criada.
+
+- id: o-termometro
+  phase: incident
+  kind: guia
+  text: |
+    Veja o efeito com {{check}}: ele aplica o seu workspace (a migração entra aqui) e mede o tráfego de agora. Compare o p95 da busca com o de antes.
+  goal: quick_check
+  done: Viu a diferença? O Quick Check é só um termômetro, mas já dá para sentir a busca voltando.
+
+- id: o-teste-que-vale
+  phase: incident
+  kind: guia
+  text: |
+    Agora o que vale: {{test}}. Ele recria o banco, aplica as suas migrações e mede três vezes sob o movimento forte. Leva uns 4 minutos; eu espero com você.
+  goal: test_pass
+  done: Passou! Você resolveu o seu primeiro incidente. O debrief na Caixa de entrada mostra outras soluções que também passariam, e o preço de cada uma. A partir da próxima missão, eu só dou dicas quando você pedir.

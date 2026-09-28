@@ -25,6 +25,7 @@ Para jogar:
   check          Quick Check: aplica o seu workspace e mede ~45 s (indicativo)
   test           Production Test (o que vale); numa partida, mostra o debrief no PASS
   hint           a próxima dica (5 níveis)
+  tabby          o que a Tabby diz no treinamento (ok | ajuda | responder <letra>)
   shell          terminal dentro da rede da loja
   deploy         coloca o workspace em produção (código, migrações, topology.yaml, nginx)
   topology       a topologia do workspace, o custo modelado e as mudanças pendentes
@@ -92,6 +93,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runProfile(ctx, args[1:], stdout, stderr)
 	case "inbox":
 		return runInbox(ctx, args[1:], stdout, stderr)
+	case "tabby":
+		return runTabby(ctx, args[1:], stdout, stderr)
 	case "support":
 		return runSupport(ctx, args[1:], stdout, stderr)
 	case "lab":

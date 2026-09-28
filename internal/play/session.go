@@ -59,6 +59,8 @@ type Session struct {
 	// Baseline is production as the player first saw it in the calm phase:
 	// the "normal" the story asks them to keep for later.
 	Baseline *Baseline `json:"baseline,omitempty"`
+	// Tutorial is the guided mode's progress, by step (ADR-0024).
+	Tutorial map[string]TutorialMark `json:"tutorial,omitempty"`
 	// The career (ADR-0023): what the player bought during this scenario,
 	// how many lab runs it had, and the modeled cost against the budget at the PASS.
 	Purchases []career.Purchase `json:"purchases,omitempty"`
@@ -72,6 +74,18 @@ type StoryMark struct {
 	FiredAt  time.Time `json:"fired_at"`
 	MetAt    time.Time `json:"met_at,omitzero"`
 	MissedAt time.Time `json:"missed_at,omitzero"`
+}
+
+// TutorialMark is one tutorial step's progress.
+type TutorialMark struct {
+	StartedAt time.Time `json:"started_at"`
+	DoneAt    time.Time `json:"done_at,omitzero"`
+	SkippedAt time.Time `json:"skipped_at,omitzero"` // a calm step the incident overtook
+	// Base is the goal's counter when the step started: "run it now", not "ever ran it".
+	Base    int64     `json:"base,omitempty"`
+	OKAt    time.Time `json:"ok_at,omitzero"`    // the player said "continuar"
+	HelpAt  time.Time `json:"help_at,omitzero"`  // the player asked for help
+	Answers []string  `json:"answers,omitempty"` // every choice tried, in order
 }
 
 // Baseline is a snapshot of production and when it was taken.

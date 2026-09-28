@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Bappoz/software-engineering-simulator/internal/game"
@@ -33,15 +34,17 @@ import (
 // Words name the game's tools in the scenario's texts as LerdOS shows them
 // (the terminal's are play.CLIWords).
 var Words = map[string]string{
-	"status":  "o **Pulse**",
-	"shell":   "o **Terminal**",
-	"check":   "o **Quick Check** (app Testes)",
-	"test":    "o **Production Test** (app Testes)",
-	"hint":    "a **Tabby** (pedir dica)",
-	"next":    "clique em **Começar o expediente**, aqui embaixo",
-	"deploy":  "o **Deploy**",
-	"support": "o **Suporte**",
-	"lab":     "o **Laboratório de carga**",
+	"status": "o **Pulse**",
+	"shell":  "o **Terminal**",
+	"check":  "o **Quick Check** (app Testes)",
+	"test":   "o **Production Test** (app Testes)",
+	"hint":   "a **Tabby** (pedir dica)",
+	"next":   "clique em **Começar o expediente**, aqui embaixo",
+	// start_day is next as Tabby says it, away from the welcome mail.
+	"start_day": "clique em **Começar o expediente**, no fim do e-mail de boas-vindas do Álvaro",
+	"deploy":    "o **Deploy**",
+	"support":   "o **Suporte**",
+	"lab":       "o **Laboratório de carga**",
 	// Where the player reads the topology and the catalog.
 	"architecture": "o app **Arquitetura**",
 	"docs":         "o app **Docs**",
@@ -68,6 +71,8 @@ type Server struct {
 	job         *Job
 	nextJob     int
 	lastTickets []game.Ticket // shown while a job runs (tickets)
+
+	measuring atomic.Bool // a baseline is being measured (viewed)
 }
 
 // New creates the server. ctx bounds every job it starts.
@@ -122,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/install", s.install)
 	api.HandleFunc("POST /api/next", s.next)
 	api.HandleFunc("POST /api/hint", s.hint)
+	api.HandleFunc("POST /api/tutorial", s.tutorial)
 	api.HandleFunc("POST /api/stop", s.stop)
 	api.HandleFunc("GET /api/pulse", s.pulse)
 	api.HandleFunc("GET /api/tickets", s.tickets)
@@ -217,16 +223,17 @@ type HintView struct {
 }
 
 type stateView struct {
-	Scenario   map[string]string `json:"scenario"`
-	Session    *play.Session     `json:"session"` // nil before the first start
-	Running    bool              `json:"running"`
-	Messages   []Message         `json:"messages"`
-	Hints      []HintView        `json:"hints"`
-	HintsTotal int               `json:"hints_total"`
-	Job        *Job              `json:"job"`
-	LastTest   any               `json:"last_test"`
-	Deadline   *game.Deadline    `json:"deadline"` // the most urgent open request of the story
-	Career     *careerView       `json:"career"`   // nil before the first game (ADR-0023)
+	Scenario   map[string]string  `json:"scenario"`
+	Session    *play.Session      `json:"session"` // nil before the first start
+	Running    bool               `json:"running"`
+	Messages   []Message          `json:"messages"`
+	Hints      []HintView         `json:"hints"`
+	HintsTotal int                `json:"hints_total"`
+	Job        *Job               `json:"job"`
+	LastTest   any                `json:"last_test"`
+	Deadline   *game.Deadline     `json:"deadline"` // the most urgent open request of the story
+	Career     *careerView        `json:"career"`   // nil before the first game (ADR-0023)
+	Tutorial   *game.TutorialView `json:"tutorial"` // nil when the scenario has no guided mode (ADR-0024)
 }
 
 // careerView is the career at a glance: the top bar, Tabby's hint price.
@@ -283,6 +290,10 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 			cv.Next, cv.NextXP = prof.Next.Title, prof.Next.XP
 		}
 		v.Career = cv
+		if v.Tutorial, err = s.g.Tutorial(r.Context(), Words, !s.busy()); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
 		for _, h := range s.g.Hints() {
 			v.Hints = append(v.Hints, HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)})
 		}
@@ -347,6 +358,40 @@ func (s *Server) hint(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"hint": HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)}})
+}
+
+// tutorial takes the player's answer to Tabby in the guided mode: "ok"
+// (continuar), "help" or "answer" with a choice.
+func (s *Server) tutorial(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Action string `json:"action"`
+		Choice string `json:"choice"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.g.HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	var err error
+	right := false
+	switch body.Action {
+	case "ok":
+		err = s.g.TutorialOK(r.Context())
+	case "help":
+		err = s.g.TutorialHelp(r.Context())
+	case "answer":
+		right, err = s.g.TutorialAnswer(r.Context(), body.Choice)
+	default:
+		err = fmt.Errorf("ação desconhecida %q", body.Action)
+	}
+	if err != nil {
+		writeError(w, http.StatusConflict, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"right": right})
 }
 
 func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
@@ -540,15 +585,19 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 		s.g.Event("debrief_viewed", props)
 	case "pulse", "support":
 		s.g.Event(map[string]string{"pulse": "status_viewed", "support": "support_viewed"}[body.What], props)
-		if body.What == "pulse" {
-			// The numbers are a nicety of the story; a store without data yet must not fail the view.
-			if err := s.g.RecordBaseline(r.Context(), nil); err != nil {
-				s.log.Warn("baseline not recorded", "err", err)
-			}
-		}
 		if err := s.g.MarkViewed(body.What); err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
+		}
+		// Measuring takes seconds: the view is recorded now, the numbers
+		// later, one measurement at a time, on the server's lifetime.
+		if body.What == "pulse" && s.measuring.CompareAndSwap(false, true) {
+			go func() {
+				defer s.measuring.Store(false)
+				if err := s.g.RecordBaseline(s.ctx, nil); err != nil {
+					s.log.Warn("baseline not recorded", "err", err)
+				}
+			}()
 		}
 	default:
 		writeError(w, http.StatusBadRequest, fmt.Errorf("tela desconhecida %q", body.What))

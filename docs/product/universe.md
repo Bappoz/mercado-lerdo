@@ -26,7 +26,7 @@
 | **Jéssica** | suporte (a primeira contratada) | direta, cita os clientes pelo nome, não aceita "está funcionando aqui" | reclamações (app Suporte), `#geral` |
 | **Otávio** | financeiro, meio período | seco, planilha na mão; fala em reais e em "runway" | orçamento da empresa; salário, bônus e aumentos do jogador |
 | **Kleber** | o freelancer da primeira versão | ausente; aparece em comentários, commits antigos e, mais tarde, em pessoa | o código herdado e os bugs plantados |
-| **Tabby** | gata listrada (daí o nome: *tabby* é o padrão de listras) que apareceu no coworking num dia de chuva e ficou; vive no LerdOS | calma e curiosa; nunca entrega a resposta pronta, aponta onde olhar | treinamento do primeiro dia, dicas, comentários |
+| **Tabby** | gata listrada (daí o nome: *tabby* é o padrão de listras) que apareceu no coworking num dia de chuva e ficou; vive no LerdOS | calma e curiosa; nunca entrega a resposta pronta, aponta onde olhar (menos no C1, o treinamento, em que conduz a missão inteira) | treinamento do primeiro dia, a missão-tutorial (C1), dicas, comentários |
 | **Bia** *(Stage 2)* | primeira PM | organizada, traduz pedido do Álvaro em requisito | pedidos com prazo |
 | **Rafa** *(Stage 2)* | júnior que você mentora | ansioso, erra de boa-fé | missões em que você revisa o trabalho de alguém |
 | **Dra. Helena Prado** *(Stage 3)* | investidora do conselho | fria, faz perguntas de risco | metas de disponibilidade e custo |
@@ -69,7 +69,7 @@ Nove níveis, **Júnior I–III, Pleno I–III, Sênior I–III**, e **Staff** c
 - salário mensal por nível, pago a cada missão concluída;
 - **bônus** por resultado da missão: nenhum pedido perdido, custo abaixo do orçamento, poucas dicas, prazo de emergência cumprido;
 - **aumento** a cada promoção; o Otávio anuncia por e-mail;
-- **compras pessoais:** dica da Tabby (a primeira de cada missão é grátis) e experimentos extras no Laboratório (3 por missão são por conta da casa). Chegam depois: curso (desbloqueia uma página avançada no Docs) e visões de observabilidade (log de consultas lentas, rastreamento). É gastar consciente: informação em troca de dinheiro;
+- **compras pessoais:** dica da Tabby (a primeira de cada missão é grátis; no C1, o treinamento, todas são) e experimentos extras no Laboratório (3 por missão são por conta da casa). Chegam depois: curso (desbloqueia uma página avançada no Docs) e visões de observabilidade (log de consultas lentas, rastreamento). É gastar consciente: informação em troca de dinheiro;
 - sem saldo, o Otávio adianta o salário: o dinheiro nunca impede uma dica.
 
 ## 5. Arco de missões
@@ -131,5 +131,5 @@ Implementado na etapa 3 (ADR-0022): cada pacote declara os seus em `player/event
 
 - PT-BR, frases curtas, sem jargão sem explicação. Personagens falam como gente: o Álvaro exagera, a Jéssica é concreta, o Otávio fala de dinheiro.
 - A marca é **Mercado Lerdo**, no masculino: "o Mercado Lerdo caiu", "a loja", "o site". O computador é o **LerdOS**.
-- Nenhum texto do jogo entrega a solução. Quem aponta o caminho é a Tabby, uma dica por vez.
+- Nenhum texto do jogo entrega a solução. Quem aponta o caminho é a Tabby, uma dica por vez. A exceção é o C1: ele é o treinamento, e a Tabby conduz a missão inteira, parando em duas perguntas para o jogador pensar (ADR-0024).
 - Números que aparecem na história (usuários, tráfego, orçamento) precisam bater com o cenário: o `scenario.yaml` é a fonte.

@@ -91,3 +91,12 @@ func TestMoney(t *testing.T) {
 		}
 	}
 }
+
+func TestTutorialHintsKeepTheBonus(t *testing.T) {
+	done := time.Now()
+	tut := Compute(done, []Mission{{ID: "c1", DoneAt: done, Hints: 5, Tutorial: true}}, nil).Payslips[0]
+	plain := Compute(done, []Mission{{ID: "c1", DoneAt: done, Hints: 0}}, nil).Payslips[0]
+	if tut.Total != plain.Total || tut.XP != plain.XP {
+		t.Errorf("a tutorial's hints cost the bonus: %+v vs %+v", tut, plain)
+	}
+}

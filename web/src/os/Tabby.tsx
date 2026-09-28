@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type GameState, type Hint } from "../api.ts";
+import { api, type GameState, type Hint, type TutorialView } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
 import { money } from "../money.ts";
 import { tabbyMood, tabbyTip } from "../tabby.ts";
@@ -64,12 +64,15 @@ export function Tabby({
     const r = await busy(() => api<{ hint: Hint | null }>("POST", "/api/hint"));
     if (r?.hint) setView({ kind: "hint", hint: r.hint });
   };
+  const tutorial = (body: { action: "ok" | "help" | "answer"; choice?: string }) =>
+    void busy(() => api("POST", "/api/tutorial", body));
 
   return (
     <aside className="tabby" aria-label="Tabby, a assistente" ref={self}>
       {view.kind !== "none" && (
         <div className="bubble" role="status">
-          {view.kind === "tip" && <p>{tip.text}</p>}
+          {view.kind === "tip" &&
+            (tip.tutorial ? <TutorialStep t={tip.tutorial} onAct={tutorial} /> : <p>{tip.text}</p>)}
           {view.kind === "hint" && (
             <>
               <p className="bubble-kind">
@@ -89,7 +92,25 @@ export function Tabby({
             </ol>
           )}
           <div className="bubble-actions">
-            {canHint && (
+            {view.kind === "tip" && tip.tutorial?.continue && (
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => tutorial({ action: "ok" })}
+              >
+                Continuar
+              </button>
+            )}
+            {view.kind === "tip" && tip.tutorial?.can_help && (
+              <button
+                type="button"
+                className="btn small ghost"
+                onClick={() => tutorial({ action: "help" })}
+              >
+                Me ajuda
+              </button>
+            )}
+            {canHint && !tip.tutorial && (
               <button type="button" className="btn small" onClick={() => void askHint()}>
                 {hints.length === 0 ? "Pedir uma dica" : "Próxima dica"}
                 {state?.career &&
@@ -118,7 +139,7 @@ export function Tabby({
               Ok
             </button>
           </div>
-          {canHint && hints.length === 0 && (
+          {canHint && !tip.tutorial && hints.length === 0 && (
             <p className="muted small">
               A primeira dica de cada missão é grátis; as seguintes saem do seu salário. Sem saldo,
               o Otávio adianta.
@@ -135,5 +156,53 @@ export function Tabby({
         <TabbySprite pose={pose} />
       </button>
     </aside>
+  );
+}
+
+/** One step of the guided mode (ADR-0024): what Tabby says, and the answers she offers. */
+function TutorialStep({
+  t,
+  onAct,
+}: {
+  t: TutorialView;
+  onAct: (body: { action: "answer"; choice: string }) => void;
+}) {
+  return (
+    <div className="tutorial-step">
+      <p className="bubble-kind">
+        Treinamento · passo {t.index} de {t.total}
+        {t.kind === "pergunta" && " · pense antes"}
+      </p>
+      {t.before && (
+        <div className="tutorial-before">
+          <Markdown source={t.before} />
+        </div>
+      )}
+      <Markdown source={t.text} />
+      {t.choices && (
+        <div className="tutorial-choices">
+          {t.choices.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="btn small ghost"
+              onClick={() => onAct({ action: "answer", choice: c.id })}
+            >
+              {c.id}) {c.text}
+            </button>
+          ))}
+        </div>
+      )}
+      {t.wrong && (
+        <div className="warn-text">
+          <Markdown source={t.wrong} />
+        </div>
+      )}
+      {t.help && (
+        <div className="tutorial-help">
+          <Markdown source={t.help} />
+        </div>
+      )}
+    </div>
   );
 }
