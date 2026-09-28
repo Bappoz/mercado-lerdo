@@ -48,7 +48,7 @@ type ObjectiveResult struct {
 func Judge(o scenario.Objective, values []float64) ObjectiveResult {
 	r := ObjectiveResult{ID: o.ID, Dimension: o.Dimension, Measure: o.Measure, Values: values, Median: median(values)}
 	if len(values) == 0 {
-		r.Verdict, r.Reason = Inconclusive, "no measurement"
+		r.Verdict, r.Reason = Inconclusive, "sem medição"
 		return r
 	}
 	var good, bad func(v float64) bool
@@ -64,7 +64,7 @@ func Judge(o scenario.Objective, values []float64) ObjectiveResult {
 		good = func(v float64) bool { return v >= l*(1+o.Margin) || (o.Margin == 0 && v >= l) }
 		bad = func(v float64) bool { return v < l*(1-o.Margin) }
 	default:
-		r.Verdict, r.Reason = Inconclusive, "objective has no threshold"
+		r.Verdict, r.Reason = Inconclusive, "o objetivo não tem limite"
 		return r
 	}
 	switch {
@@ -74,7 +74,7 @@ func Judge(o scenario.Objective, values []float64) ObjectiveResult {
 		r.Verdict = Fail
 	default:
 		r.Verdict = Inconclusive
-		r.Reason = fmt.Sprintf("runs %v straddle the threshold (%s, margin %.0f%%)", values, r.Rule, o.Margin*100)
+		r.Reason = fmt.Sprintf("as execuções %v ficaram dos dois lados do limite (%s, margem de %.0f%%)", values, r.Rule, o.Margin*100)
 	}
 	return r
 }

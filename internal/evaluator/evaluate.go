@@ -123,7 +123,7 @@ func Evaluate(ctx context.Context, env Env, pack *scenario.Pack, workspace strin
 		if res.DropCause() == workload.GeneratorLimited {
 			// The generator fell behind: client-side numbers are not trustworthy.
 			run.Values = map[string]float64{}
-			run.Note = "generator could not sustain the rate; load measurements discarded"
+			run.Note = "o gerador de carga não sustentou a taxa; as medições de carga foram descartadas"
 		}
 		select {
 		case <-ctx.Done():
@@ -232,25 +232,54 @@ func dropName(d workload.Drops) string {
 	}
 }
 
+// dimensionNames are the dimensions as the player reads them (the Testes app
+// uses the same words).
+var dimensionNames = map[string]string{
+	"correctness":  "corretude",
+	"latency":      "latência",
+	"availability": "disponibilidade",
+	"resources":    "recursos",
+	"cost":         "custo",
+	"integrity":    "integridade",
+}
+
+func dimensionName(d string) string {
+	if n, ok := dimensionNames[d]; ok {
+		return n
+	}
+	return d
+}
+
+// dropWords says why load was dropped, for the table (the report keeps dropName).
+var dropWords = map[string]string{
+	"system-saturated":  "sistema saturado",
+	"generator-limited": "gerador no limite",
+	"none":              "—",
+}
+
 // WriteTable prints a human-readable report.
 func (r Report) WriteTable(w io.Writer) {
-	fmt.Fprintf(w, "scenario %s@%s · workspace %s · %s\n\n", r.Scenario, r.Version, r.Workspace, r.Finished.Sub(r.Started).Round(time.Second))
-	fmt.Fprintf(w, "%-8s %14s %12s %12s %10s  %s\n", "run", "search p95", "errors", "db cpu p90", "db probe", "drops")
+	fmt.Fprintf(w, "cenário %s@%s · workspace %s · %s\n\n", r.Scenario, r.Version, r.Workspace, r.Finished.Sub(r.Started).Round(time.Second))
+	fmt.Fprintf(w, "%-9s %14s %12s %16s %15s  %s\n", "execução", "p95 da busca", "erros", "CPU do banco p90", "teste do banco", "carga descartada")
 	for i, run := range r.Runs {
 		probe := "—"
 		if run.ProbeMS > 0 {
 			probe = fmt.Sprintf("%.0f ms", run.ProbeMS)
 		}
-		fmt.Fprintf(w, "%-8d %14s %12s %12s %10s  %s %s\n", i+1, fmtVal(run.Values, "search_p95_ms", "%.1f ms"),
-			fmtVal(run.Values, "error_rate", "%.2f%%", 100), fmtVal(run.Values, "db_cpu_p90", "%.0f%%", 100), probe, run.Drops, run.Note)
+		drops := dropWords[run.Drops]
+		if drops == "" {
+			drops = run.Drops
+		}
+		fmt.Fprintf(w, "%-9d %14s %12s %16s %15s  %s %s\n", i+1, fmtVal(run.Values, "search_p95_ms", "%.1f ms"),
+			fmtVal(run.Values, "error_rate", "%.2f%%", 100), fmtVal(run.Values, "db_cpu_p90", "%.0f%%", 100), probe, drops, run.Note)
 	}
-	fmt.Fprintf(w, "\noracle: %d/%d cases passed\n", r.Oracle.Passed, r.Oracle.Cases)
+	fmt.Fprintf(w, "\noráculo de corretude: %d de %d casos certos\n", r.Oracle.Passed, r.Oracle.Cases)
 	for _, f := range r.Oracle.Failures {
 		fmt.Fprintf(w, "  - %s\n", f)
 	}
-	fmt.Fprintf(w, "\n%-14s %-13s %-30s %s\n", "dimension", "verdict", "rule", "median")
+	fmt.Fprintf(w, "\n%-16s %-13s %-30s %s\n", "dimensão", "veredito", "regra", "mediana")
 	for _, o := range r.Objectives {
-		fmt.Fprintf(w, "%-14s %-13s %-30s %.4g\n", o.Dimension, o.Verdict, o.Rule, o.Median)
+		fmt.Fprintf(w, "%-16s %-13s %-30s %.4g\n", dimensionName(o.Dimension), o.Verdict, o.Rule, o.Median)
 		if o.Reason != "" {
 			fmt.Fprintf(w, "  %s\n", o.Reason)
 		}
@@ -262,9 +291,9 @@ func (r Report) WriteTable(w io.Writer) {
 	slices.Sort(dims)
 	var parts []string
 	for _, d := range dims {
-		parts = append(parts, d+"="+string(r.Dimensions[d]))
+		parts = append(parts, dimensionName(d)+"="+string(r.Dimensions[d]))
 	}
-	fmt.Fprintf(w, "\nresult: %s\n", strings.Join(parts, " "))
+	fmt.Fprintf(w, "\nresultado: %s\n", strings.Join(parts, " "))
 }
 
 func fmtVal(vals map[string]float64, key, format string, scale ...float64) string {
@@ -292,7 +321,7 @@ func needsLedger(objectives []scenario.Objective) bool {
 func reconcileRun(ctx context.Context, env Env, runID string, settle time.Duration) (Integrity, error) {
 	l, ok := env.(Ledger)
 	if !ok {
-		return Integrity{}, errors.New("this sandbox cannot read the payment ledger")
+		return Integrity{}, errors.New("esta sandbox não consegue ler o registro de cobranças")
 	}
 	select {
 	case <-ctx.Done():
@@ -327,7 +356,7 @@ func injectFaults(ctx context.Context, env Env, faults []scenario.Fault, log *sl
 	}
 	c, ok := env.(Crasher)
 	if !ok {
-		out <- errors.New("this sandbox cannot inject faults")
+		out <- errors.New("esta sandbox não consegue injetar falhas")
 		return func() {}, out
 	}
 	ctx, cancel := context.WithCancel(ctx)

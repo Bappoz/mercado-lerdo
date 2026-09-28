@@ -89,7 +89,7 @@ func (s *Server) Listen(addr string) (net.Listener, error) {
 		return nil, fmt.Errorf("ui: %w", err)
 	}
 	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() || ip.To4() == nil {
-		return nil, fmt.Errorf("ui: refusing to listen on %s: only 127.0.0.0/8 is allowed", host)
+		return nil, fmt.Errorf("ui: não vou escutar em %s: só 127.0.0.0/8 é permitido", host)
 	}
 	var lc net.ListenConfig
 	ln, err := lc.Listen(s.ctx, "tcp4", addr)
@@ -145,7 +145,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.hosts[r.Host] {
-			http.Error(w, "forbidden host", http.StatusForbidden)
+			http.Error(w, "host não permitido", http.StatusForbidden)
 			return
 		}
 		h := w.Header()
@@ -163,7 +163,7 @@ func (s *Server) requireToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || !s.validToken(got) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, "não autorizado", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -177,7 +177,7 @@ func (s *Server) validToken(t string) bool {
 // files serves the SPA; unknown paths get index.html (client-side routes).
 func (s *Server) files(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "método não permitido", http.StatusMethodNotAllowed)
 		return
 	}
 	name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
@@ -188,7 +188,7 @@ func (s *Server) files(w http.ResponseWriter, r *http.Request) {
 		name = "index.html"
 	}
 	if _, err := fs.Stat(s.static, "index.html"); err != nil {
-		http.Error(w, "LerdOS was not built into this binary: run `just build`.", http.StatusServiceUnavailable)
+		http.Error(w, "O LerdOS não foi embutido neste binário: rode `just build`.", http.StatusServiceUnavailable)
 		return
 	}
 	if strings.HasPrefix(name, "assets/") {
@@ -551,7 +551,7 @@ func (s *Server) viewed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		writeError(w, http.StatusBadRequest, fmt.Errorf("unknown view %q", body.What))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("tela desconhecida %q", body.What))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -696,7 +696,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		http.Error(w, "encode: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "codificar: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

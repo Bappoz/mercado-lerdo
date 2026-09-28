@@ -85,12 +85,12 @@ func TestDropCause(t *testing.T) {
 func TestWriteTableExplainsDrops(t *testing.T) {
 	var b strings.Builder
 	Result{DroppedIterations: 3, MaxVUs: 70, VUCap: 70}.WriteTable(&b)
-	if !strings.Contains(b.String(), "SATURATED") {
+	if !strings.Contains(b.String(), "SATURADO") {
 		t.Errorf("missing saturation note:\n%s", b.String())
 	}
 	b.Reset()
 	Result{DroppedIterations: 3, MaxVUs: 10, VUCap: 70}.WriteTable(&b)
-	if !strings.Contains(b.String(), "generator fell behind") {
+	if !strings.Contains(b.String(), "o gerador ficou para trás") {
 		t.Errorf("missing generator warning:\n%s", b.String())
 	}
 }

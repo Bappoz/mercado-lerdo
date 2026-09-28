@@ -165,9 +165,10 @@ func TestDescribe(t *testing.T) {
 		r    slog.Record
 		want string
 	}{
-		{rec("sandbox step", "run", "r1", "step", "build app", "ms", 1200), "ok: build app (1200 ms)"},
+		{rec("sandbox step", "run", "r1", "step", "build app", "ms", 1200), "ok: compilar o app (1200 ms)"},
 		{rec("production test run", "run", 2, "of", 3, "id", "x"), "Execução 2 de 3…"},
-		{rec("db cpu query failed", "run", 1), "db cpu query failed"},
+		{rec("db cpu query failed", "run", 1), "Não consegui medir a CPU do banco nesta execução"},
+		{rec("something new", "k", "v"), "something new k=v"},
 	} {
 		if got := describe(tt.r); got != tt.want {
 			t.Errorf("describe = %q, want %q", got, tt.want)

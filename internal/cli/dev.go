@@ -12,12 +12,12 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/telemetry"
 )
 
-const devUsage = `Usage: sesim dev <command> [flags]
+const devUsage = `Uso: sesim dev <comando> [opções]
 
-Developer commands for the local dev stack (deploy/dev).
+Comandos de desenvolvimento para a stack local (deploy/dev).
 
-Commands:
-  container-stats   sample container resources from Docker and push them to Prometheus (OTLP)
+Comandos:
+  container-stats   amostra os recursos dos containers no Docker e envia ao Prometheus (OTLP)
 `
 
 func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -29,18 +29,18 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "container-stats":
 		return runContainerStats(ctx, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "sesim dev: unknown command %q\n\n%s", args[0], devUsage)
+		fmt.Fprintf(stderr, "sesim dev: comando desconhecido %q\n\n%s", args[0], devUsage)
 		return 2
 	}
 }
 
 func runContainerStats(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("container-stats", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	label := fs.String("label", "com.docker.compose.project=nexora-dev", "sample containers with this label (key=value)")
-	url := fs.String("otlp", "http://127.0.0.1:9090/api/v1/otlp/v1/metrics", "OTLP/HTTP metrics endpoint")
-	interval := fs.Duration("interval", 2*time.Second, "sampling interval")
-	once := fs.Bool("once", false, "print one sample to stdout instead of pushing")
+	fs := flag.NewFlagSet("dev container-stats", flag.ContinueOnError)
+	ptFlags(fs, stderr)
+	label := fs.String("label", "com.docker.compose.project=nexora-dev", "amostra os containers com este label (chave=valor)")
+	url := fs.String("otlp", "http://127.0.0.1:9090/api/v1/otlp/v1/metrics", "endpoint de métricas OTLP/HTTP")
+	interval := fs.Duration("interval", 2*time.Second, "intervalo de amostragem")
+	once := fs.Bool("once", false, "imprime uma amostra na saída em vez de enviar")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -65,7 +65,7 @@ func runContainerStats(ctx context.Context, args []string, stdout, stderr io.Wri
 	}
 
 	pusher := telemetry.Pusher{URL: *url, Service: "sesim"}
-	fmt.Fprintf(stderr, "sesim: pushing container stats for %s to %s every %s (Ctrl-C to stop)\n", *label, *url, *interval)
+	fmt.Fprintf(stderr, "sesim: enviando os recursos dos containers de %s para %s a cada %s (Ctrl-C para parar)\n", *label, *url, *interval)
 	tick := time.NewTicker(*interval)
 	defer tick.Stop()
 	for {

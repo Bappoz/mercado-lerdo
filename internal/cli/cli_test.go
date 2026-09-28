@@ -16,14 +16,14 @@ func TestRun(t *testing.T) {
 		wantStdout string
 		wantStderr string
 	}{
-		{name: "no arguments", args: nil, wantCode: 2, wantStderr: "Usage:"},
+		{name: "no arguments", args: nil, wantCode: 2, wantStderr: "Uso:"},
 		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "sesim "},
 		{name: "--version", args: []string{"--version"}, wantCode: 0, wantStdout: "sesim "},
-		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Playing (output in PT-BR):"},
+		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Para jogar:"},
 		{name: "load-summary bad input", args: []string{"load-summary"}, stdin: "nope", wantCode: 1, wantStderr: "decode k6 summary"},
 		{name: "dev without command", args: []string{"dev"}, wantCode: 2, wantStderr: "container-stats"},
-		{name: "dev unknown", args: []string{"dev", "fly"}, wantCode: 2, wantStderr: `unknown command "fly"`},
-		{name: "unknown", args: []string{"fly"}, wantCode: 2, wantStderr: `unknown command "fly"`},
+		{name: "dev unknown", args: []string{"dev", "fly"}, wantCode: 2, wantStderr: `comando desconhecido "fly"`},
+		{name: "unknown", args: []string{"fly"}, wantCode: 2, wantStderr: `comando desconhecido "fly"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

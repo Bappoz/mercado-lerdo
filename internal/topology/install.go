@@ -13,7 +13,7 @@ import (
 )
 
 // ErrInstalled means the component is already in the topology.
-var ErrInstalled = errors.New("topology: already installed")
+var ErrInstalled = errors.New("topology: já está instalado")
 
 // Install adds the optional component k to src (the text of topology.yaml)
 // with the catalog's defaults, keeping the player's comments and order.
@@ -21,7 +21,7 @@ var ErrInstalled = errors.New("topology: already installed")
 func Install(src []byte, k Kind) ([]byte, error) {
 	e, ok := Catalog[k]
 	if !ok || !e.Optional || e.Snippet == "" {
-		return nil, fmt.Errorf("topology: %s cannot be installed", k)
+		return nil, fmt.Errorf("topology: %s não pode ser instalado", k)
 	}
 	t, err := Parse(src)
 	if err != nil {
@@ -36,11 +36,11 @@ func Install(src []byte, k Kind) ([]byte, error) {
 	}
 	comps := mapValue(doc.Content[0], "components")
 	if comps == nil || comps.Kind != yaml.MappingNode {
-		return nil, errors.New("topology: components is not a mapping")
+		return nil, errors.New("topology: components não é um mapa")
 	}
 	var add yaml.Node
 	if err := yaml.Unmarshal([]byte(e.Snippet), &add); err != nil {
-		return nil, fmt.Errorf("topology: catalog snippet: %w", err)
+		return nil, fmt.Errorf("topology: trecho do catálogo: %w", err)
 	}
 	key, val := add.Content[0].Content[0], add.Content[0].Content[1]
 	key.HeadComment = fmt.Sprintf("%s — instalado pelo app Docs. Aplique com um deploy.", e.Name)
@@ -53,7 +53,7 @@ func Install(src []byte, k Kind) ([]byte, error) {
 		return nil, fmt.Errorf("topology: %w", err)
 	}
 	if _, err := Parse(out.Bytes()); err != nil {
-		return nil, fmt.Errorf("topology: install produced an invalid file: %w", err)
+		return nil, fmt.Errorf("topology: a instalação gerou um arquivo inválido: %w", err)
 	}
 	return out.Bytes(), nil
 }
@@ -101,7 +101,7 @@ func Set(src []byte, fields map[string]int) ([]byte, error) {
 		comp, field, ok := strings.Cut(path, ".")
 		m := mapValue(comps, comp)
 		if !ok || m == nil || m.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("topology: no component for %q", path)
+			return nil, fmt.Errorf("topology: nenhum componente para %q", path)
 		}
 		val := strconv.Itoa(v)
 		if n := mapValue(m, field); n != nil {
@@ -119,7 +119,7 @@ func Set(src []byte, fields map[string]int) ([]byte, error) {
 		return nil, fmt.Errorf("topology: %w", err)
 	}
 	if _, err := Parse(out.Bytes()); err != nil {
-		return nil, fmt.Errorf("topology: the change produced an invalid file: %w", err)
+		return nil, fmt.Errorf("topology: a mudança gerou um arquivo inválido: %w", err)
 	}
 	return out.Bytes(), nil
 }

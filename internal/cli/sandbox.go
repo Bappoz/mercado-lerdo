@@ -13,16 +13,16 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/stack"
 )
 
-const sandboxUsage = `Usage: sesim sandbox <command> [flags]
+const sandboxUsage = `Uso: sesim sandbox <comando> [opções]
 
-Manage the game's sandboxes created through the Docker Engine API (no compose).
+Gerencia as sandboxes do jogo, criadas pela API do Docker Engine (sem compose).
 
-Commands:
-  up     create a sandbox for a workspace and print how to reach it
-  ls     list sandboxes on this machine
-  exec   run a command in a component: exec <run> <component> -- <cmd...>
-  down   destroy a sandbox and verify nothing is left: down <run>
-  gc     destroy orphaned sandboxes (--all: every sandbox)
+Comandos:
+  up     cria uma sandbox para um workspace e mostra como acessá-la
+  ls     lista as sandboxes desta máquina
+  exec   roda um comando num componente: exec <run> <componente> -- <cmd...>
+  down   destrói uma sandbox e confere que nada ficou para trás: down <run>
+  gc     destrói as sandboxes órfãs (--all: todas)
 `
 
 func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -46,21 +46,21 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	switch args[0] {
 	case "up":
 		fs := flag.NewFlagSet("sandbox up", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		root := fs.String("root", ".", "repository root")
-		ws := fs.String("workspace", "nexora", "the app to run")
+		ptFlags(fs, stderr)
+		root := fs.String("root", ".", "raiz do repositório do jogo")
+		ws := fs.String("workspace", "nexora", "o app a rodar")
 		if err := fs.Parse(args[1:]); err != nil {
 			return 2
 		}
 		// A previous crash may have left a half-built run behind.
 		if gone, err := stack.GC(ctx, d, reg, false); err == nil && len(gone) > 0 {
-			fmt.Fprintf(stdout, "collected orphaned sandboxes: %v\n", gone)
+			fmt.Fprintf(stdout, "sandboxes órfãs removidas: %v\n", gone)
 		}
 		log := slog.New(slog.NewTextHandler(stderr, nil))
 		s, err := stack.Up(ctx, d, reg, stack.Options{Root: *root, Workspace: *ws}, log)
 		if err != nil {
 			if s != nil {
-				fmt.Fprintf(stderr, "sesim: sandbox %s failed; `sesim sandbox down %s` removes it\n", s.Run, s.Run)
+				fmt.Fprintf(stderr, "sesim: a sandbox %s falhou; `sesim sandbox down %s` a remove\n", s.Run, s.Run)
 			}
 			return fail(err)
 		}
@@ -72,7 +72,7 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		if err != nil {
 			return fail(err)
 		}
-		fmt.Fprintf(stdout, "sandbox %s ready\n  app:        %s\n  prometheus: %s\n", s.Run, nginx, prom)
+		fmt.Fprintf(stdout, "sandbox %s pronta\n  app:        %s\n  prometheus: %s\n", s.Run, nginx, prom)
 		return 0
 
 	case "ls":
@@ -85,7 +85,7 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 			ids = append(ids, r)
 		}
 		slices.Sort(ids)
-		fmt.Fprintf(stdout, "%-14s %-9s %-10s %-9s %s\n", "run", "state", "containers", "running", "workspace")
+		fmt.Fprintf(stdout, "%-14s %-9s %-10s %-9s %s\n", "run", "estado", "containers", "rodando", "workspace")
 		for _, r := range ids {
 			rec, _ := reg.Get(r)
 			state, ws := "unknown", ""
@@ -101,7 +101,7 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 	case "exec":
 		if len(args) < 5 || args[3] != "--" {
-			fmt.Fprintln(stderr, "usage: sesim sandbox exec <run> <component> -- <cmd...>")
+			fmt.Fprintln(stderr, "uso: sesim sandbox exec <run> <componente> -- <cmd...>")
 			return 2
 		}
 		res, err := d.Exec(ctx, sandbox.RunID(args[1]), args[2], 1, args[4:], nil)
@@ -114,31 +114,31 @@ func runSandbox(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 	case "down":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, "usage: sesim sandbox down <run>")
+			fmt.Fprintln(stderr, "uso: sesim sandbox down <run>")
 			return 2
 		}
 		if err := stack.Down(ctx, d, reg, sandbox.RunID(args[1])); err != nil {
 			return fail(err)
 		}
-		fmt.Fprintf(stdout, "sandbox %s destroyed; no resources left\n", args[1])
+		fmt.Fprintf(stdout, "sandbox %s destruída; nenhum recurso ficou para trás\n", args[1])
 		return 0
 
 	case "gc":
 		fs := flag.NewFlagSet("sandbox gc", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		all := fs.Bool("all", false, "destroy every sandbox, not only orphans")
+		ptFlags(fs, stderr)
+		all := fs.Bool("all", false, "destrói todas as sandboxes, não só as órfãs")
 		if err := fs.Parse(args[1:]); err != nil {
 			return 2
 		}
 		gone, err := stack.GC(ctx, d, reg, *all)
-		fmt.Fprintf(stdout, "collected %d sandbox(es): %v\n", len(gone), gone)
+		fmt.Fprintf(stdout, "%d sandbox(es) removida(s): %v\n", len(gone), gone)
 		if err != nil {
 			return fail(err)
 		}
 		return 0
 
 	default:
-		fmt.Fprintf(stderr, "sesim sandbox: unknown command %q\n\n%s", args[0], sandboxUsage)
+		fmt.Fprintf(stderr, "sesim sandbox: comando desconhecido %q\n\n%s", args[0], sandboxUsage)
 		return 2
 	}
 }

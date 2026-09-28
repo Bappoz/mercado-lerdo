@@ -44,7 +44,7 @@ func TestParseRejects(t *testing.T) {
 		{"too many replicas", strings.Replace(base(""), "replicas: 1", "replicas: 9", 1), "app.replicas"},
 		{"max_connections too high", strings.Replace(base(""), "maxConnections: 50", "maxConnections: 5000", 1), "maxConnections"},
 		{"more connections than size S has memory for", strings.Replace(base(""), "maxConnections: 50", "maxConnections: 100", 1), "[20, 50]"},
-		{"pgbouncer target without pgbouncer", strings.Replace(base(""), "database: postgres", "database: pgbouncer", 1), "not in the topology"},
+		{"pgbouncer target without pgbouncer", strings.Replace(base(""), "database: postgres", "database: pgbouncer", 1), "não está na topologia"},
 		{"bad pool mode", base("  pgbouncer: {size: S, poolMode: statement, defaultPoolSize: 20, maxClientConn: 100}\n"), "poolMode"},
 		{"wrong apiVersion", strings.Replace(base(""), "v0alpha1", "v9", 1), "apiVersion"},
 	}

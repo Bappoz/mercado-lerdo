@@ -124,7 +124,7 @@ func runDocs(_ context.Context, args []string, stdout, stderr io.Writer) int {
 // runInstall: add an optional component to the workspace's topology.yaml.
 func runInstall(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		fmt.Fprintln(stderr, "usage: sesim install <component> [flags]")
+		fmt.Fprintln(stderr, "uso: sesim install <componente> [opções]")
 		return 2
 	}
 	k := topology.Kind(args[0])
@@ -169,14 +169,14 @@ func runSupport(ctx context.Context, args []string, stdout, stderr io.Writer) in
 // runLab: an ungraded load experiment against production as it is now.
 func runLab(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("lab", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	ptFlags(fs, stderr)
 	var f gameFlags
 	f.register(fs)
 	var p game.LabParams
-	fs.StringVar(&p.Profile, "profile", "rush", "load profile: "+strings.Join(game.LabProfiles, ", "))
-	fs.IntVar(&p.Rate, "rate", 40, "requests per second at peak (1-150)")
-	fs.IntVar(&p.Duration, "duration", 40, "seconds at peak, after a 10 s ramp (20-120)")
-	fs.BoolVar(&p.Crash, "crash", false, "crash the app's first instance halfway")
+	fs.StringVar(&p.Profile, "profile", "rush", "perfil de carga: "+strings.Join(game.LabProfiles, ", "))
+	fs.IntVar(&p.Rate, "rate", 40, "requisições por segundo no pico (1 a 150)")
+	fs.IntVar(&p.Duration, "duration", 40, "segundos no pico, depois de 10 s de rampa (20 a 120)")
+	fs.BoolVar(&p.Crash, "crash", false, "derruba a primeira instância do app no meio")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

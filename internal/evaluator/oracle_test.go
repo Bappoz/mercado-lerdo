@@ -42,13 +42,13 @@ func TestCheckSearch(t *testing.T) {
 		wantErr string
 	}{
 		{"correct: substring matches, newest first", c, resp(testCatalog[0], testCatalog[1], testCatalog[3]), ""},
-		{"whole-word search misses a substring match", c, resp(testCatalog[0], testCatalog[1]), "got 2 results, want 3"},
-		{"wrong order", c, resp(testCatalog[1], testCatalog[0], testCatalog[3]), "result 0 created_at"},
-		{"non-matching result", c, resp(testCatalog[0], testCatalog[2], testCatalog[3]), "does not contain the term"},
+		{"whole-word search misses a substring match", c, resp(testCatalog[0], testCatalog[1]), "veio 2 resultados, esperado 3"},
+		{"wrong order", c, resp(testCatalog[1], testCatalog[0], testCatalog[3]), "o resultado 0 tem created_at"},
+		{"non-matching result", c, resp(testCatalog[0], testCatalog[2], testCatalog[3]), "não contém o termo"},
 		{"limit applies to the newest", scenario.OracleCase{Q: "lamp", Limit: 1}, resp(testCatalog[0]), ""},
 		{"case-insensitive", scenario.OracleCase{Q: "OAK", Limit: 20}, resp(testCatalog[0], testCatalog[2]), ""},
 		{"no match", scenario.OracleCase{Q: "drone", Limit: 20}, resp(), ""},
-		{"prefix search is not contains", scenario.OracleCase{Q: "oak", Limit: 20}, resp(), "got 0 results, want 2"},
+		{"prefix search is not contains", scenario.OracleCase{Q: "oak", Limit: 20}, resp(), "veio 0 resultados, esperado 2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

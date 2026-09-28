@@ -132,19 +132,19 @@ func ParseK6Summary(r io.Reader) (Result, error) {
 
 // WriteTable prints a human-readable summary.
 func (r Result) WriteTable(w io.Writer) {
-	fmt.Fprintf(w, "duration %s · peak rate %d/s · iterations %d · dropped %d · VUs %d/%d\n\n",
+	fmt.Fprintf(w, "duração %s · pico de %d/s · iterações %d · descartadas %d · VUs %d/%d\n\n",
 		r.Duration.Round(time.Second), r.PeakRate, r.Iterations, r.DroppedIterations, r.MaxVUs, r.VUCap)
-	fmt.Fprintf(w, "%-10s %8s %8s %9s %9s %9s %9s %9s\n", "endpoint", "reqs", "fail%", "p50", "p90", "p95", "p99", "max")
+	fmt.Fprintf(w, "%-10s %8s %8s %9s %9s %9s %9s %9s\n", "endpoint", "reqs", "falhas%", "p50", "p90", "p95", "p99", "max")
 	for _, e := range r.Endpoints {
 		fmt.Fprintf(w, "%-10s %8d %7.2f%% %9s %9s %9s %9s %9s\n", e.Name, e.Requests, e.FailRate()*100,
 			fmtDur(e.P50), fmtDur(e.P90), fmtDur(e.P95), fmtDur(e.P99), fmtDur(e.Max))
 	}
 	switch r.DropCause() {
 	case SystemSaturated:
-		fmt.Fprintf(w, "\nSATURATED: all %d VUs were waiting on the system; %d arrivals were never served.\n",
+		fmt.Fprintf(w, "\nSATURADO: os %d VUs estavam todos esperando o sistema; %d chegadas nunca foram atendidas.\n",
 			r.VUCap, r.DroppedIterations)
 	case GeneratorLimited:
-		fmt.Fprintf(w, "\nWARNING: %d iterations dropped while VUs were free — the generator fell behind; results are not trustworthy.\n",
+		fmt.Fprintf(w, "\nATENÇÃO: %d iterações descartadas com VUs livres — o gerador ficou para trás; os resultados não são confiáveis.\n",
 			r.DroppedIterations)
 	}
 }

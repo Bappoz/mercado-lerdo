@@ -62,14 +62,14 @@ func CheckSearch(cat Catalog, c scenario.OracleCase, got SearchResponse) error {
 	want = want[:min(len(want), c.Limit)]
 
 	if len(got.Products) != len(want) {
-		return fmt.Errorf("q=%q: got %d results, want %d", c.Q, len(got.Products), len(want))
+		return fmt.Errorf("q=%q: veio %d resultados, esperado %d", c.Q, len(got.Products), len(want))
 	}
 	for i, p := range got.Products {
 		if !strings.Contains(strings.ToLower(p.Name), q) {
-			return fmt.Errorf("q=%q: result %d %q does not contain the term", c.Q, i, p.Name)
+			return fmt.Errorf("q=%q: o resultado %d %q não contém o termo", c.Q, i, p.Name)
 		}
 		if p.CreatedAt.Unix() != want[i].Unix() {
-			return fmt.Errorf("q=%q: result %d created_at %s, want %s (wrong order or missing a newer match)",
+			return fmt.Errorf("q=%q: o resultado %d tem created_at %s, esperado %s (ordem errada ou faltou um resultado mais novo)",
 				c.Q, i, p.CreatedAt.UTC().Format(time.RFC3339), want[i].UTC().Format(time.RFC3339))
 		}
 	}
@@ -121,7 +121,7 @@ func probe(ctx context.Context, hc *http.Client, baseURL string, cat Catalog, c 
 	var got SearchResponse
 	// The player's app writes this body: a runaway one must not exhaust the host.
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxOracleBody)).Decode(&got); err != nil {
-		return fmt.Errorf("q=%q: decode: %w", c.Q, err)
+		return fmt.Errorf("q=%q: decodificar: %w", c.Q, err)
 	}
 	return CheckSearch(cat, c, got)
 }
