@@ -284,7 +284,7 @@ func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return t.fail(game.ErrNotRunning)
 	}
 	t.g.Event("shell_opened", nil)
-	fmt.Fprintln(stdout, "Terminal na rede da loja (psql já conectado ao banco). `exit` para sair.")
+	fmt.Fprintln(stdout, "Terminal na rede da loja: `psql` abre o banco (já autenticado); `exit` sai.")
 	if err := t.g.Shell(ctx, os.Stdin, stdout, stderr); err != nil {
 		return t.fail(err)
 	}
