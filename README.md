@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/logo.png" alt="Mercado Lerdo" width="480"></p>
+
 # Mercado Lerdo
 
 Jogo para aprender engenharia de software operando um sistema **real**: você recebe uma aplicação rodando, vê ela degradar sob carga, investiga com métricas, logs e terminal, muda o código ou a infraestrutura e prova a correção com um teste objetivo. Várias soluções podem estar certas.
@@ -10,6 +12,8 @@ bin/sesim play                              # o mesmo jogo no terminal
 bin/sesim campaign                          # missões do stage e o resultado de cada uma
 bin/sesim advance [--canonical]             # depois do PASS: próximo cenário com o seu código (ou do início oficial)
 ```
+
+No navegador, o jogo abre num menu: continue a última partida, comece outra (até 3 saves: `workspace`, `workspace-2` e `workspace-3`; no terminal, `--workspace workspace-2`) ou apague uma. Toda partida nova começa com a abertura, que conta a história do Mercado Lerdo.
 
 Você é a primeira pessoa de engenharia do **Mercado Lerdo**, o marketplace dos pequenos vendedores (*"Sem pressa. Com quem faz."*), e herda um sistema feito às pressas. O **LerdOS** é o computador da empresa, e cada app é uma forma de agir sobre o sistema real:
 

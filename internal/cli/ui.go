@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/Bappoz/software-engineering-simulator/internal/game"
 	"github.com/Bappoz/software-engineering-simulator/internal/ui"
 	"github.com/Bappoz/software-engineering-simulator/web"
 )
@@ -46,6 +47,14 @@ func runUI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	jobLog.Attach(srv)
+	saves, err := ui.SaveSlots(f.workspace)
+	if err != nil {
+		fmt.Fprintln(stderr, "sesim:", err)
+		return 1
+	}
+	srv.WithSaves(f.root, saves, func(ctx context.Context, ws string) (*game.Game, error) {
+		return game.Open(ctx, game.Options{Root: f.root, Workspace: ws, Log: slog.New(jobLog)})
+	})
 	if g.Running() {
 		if err := g.WatchStats(ctx); err != nil {
 			log.Warn("container stats unavailable; the dashboard will miss CPU", "err", err)

@@ -388,3 +388,21 @@ export interface Pulse {
   errors: Series[];
   cpu: Series[];
 }
+
+/** One slot of the save menu (ADR-0025). */
+export interface SaveView {
+  slot: number;
+  current: boolean;
+  empty: boolean;
+  scenario?: string;
+  phase?: Phase;
+  missions: number;
+  level?: string;
+  balance: number;
+  played_at?: string;
+}
+
+export interface Saves {
+  saves: SaveView[];
+  max: number;
+}
