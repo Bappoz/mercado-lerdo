@@ -32,13 +32,13 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 		_ = c.Close(websocket.StatusPolicyViolation, "não autorizado")
 		return
 	}
-	tty, err := s.g.Terminal(ctx, 80, 24)
+	tty, err := s.gm().Terminal(ctx, 80, 24)
 	if err != nil {
 		_ = c.Close(websocket.StatusInternalError, truncate(err.Error(), 120))
 		return
 	}
-	s.g.Event("shell_opened", map[string]any{"view": "web"})
-	if err := s.g.MarkViewed("shell"); err != nil {
+	s.gm().Event("shell_opened", map[string]any{"view": "web"})
+	if err := s.gm().MarkViewed("shell"); err != nil {
 		s.log.Warn("shell view not recorded", "err", err)
 	}
 

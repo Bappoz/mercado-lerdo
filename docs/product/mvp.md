@@ -173,6 +173,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 12c | Eventos do chefe: pedidos, broncas, emergências com prazo, elogios e notícias declarados no cenário (`player/events.yaml`), avaliados na leitura; C1–C3 com história própria (ADR-0022) | feito |
 | 12d | Perfil e carreira: Júnior I → Sênior III, salário em R$ por missão, bônus pelos resultados (emergências, pedidos, dicas, economia), promoções, dicas e experimentos extras pagos com o salário; app Perfil e `sesim profile` (ADR-0023) | feito |
 | 12e | C1 como treinamento: a Tabby conduz a missão inteira em 12 passos (`player/tutorial.yaml`), com duas perguntas de múltipla escolha para pensar; ajuda de graça; balão na UI e `sesim tabby` no terminal (ADR-0024) | feito |
+| 12f | Menu de título: até 3 saves (continuar, nova partida, apagar), abertura com a história da empresa em 8 cenas, logo no favicon, na barra do topo e no README (ADR-0025) | feito |
 
 ## 9. Decisões tomadas (2026-09-24)
 

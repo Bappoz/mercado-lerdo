@@ -69,7 +69,7 @@ func (s *Server) say(line string) {
 
 func (s *Server) startJob(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if kind != "play" && !s.g.HasSession() {
+		if kind != "play" && !s.gm().HasSession() {
 			writeError(w, http.StatusConflict, game.ErrNoSession)
 			return
 		}
@@ -121,28 +121,28 @@ func (s *Server) run(j *Job) {
 	)
 	switch j.Kind {
 	case "play":
-		if _, err = s.g.Start(ctx, s.say); err == nil {
-			err = s.g.WatchStats(ctx)
+		if _, err = s.gm().Start(ctx, s.say); err == nil {
+			err = s.gm().WatchStats(ctx)
 		}
 	case "check":
 		var r game.CheckResult
-		if r, err = s.g.Check(ctx, s.say); err == nil {
+		if r, err = s.gm().Check(ctx, s.say); err == nil {
 			check = &r
 		}
 	case "test":
 		var r game.TestResult
-		if r, err = s.g.Test(ctx, 0, s.say); err == nil {
+		if r, err = s.gm().Test(ctx, 0, s.say); err == nil {
 			test = &r
 		}
 	case "deploy":
-		if deploy, err = s.g.Deploy(ctx, s.say); err == nil && deploy == nil {
+		if deploy, err = s.gm().Deploy(ctx, s.say); err == nil && deploy == nil {
 			deploy = []stack.Change{}
 		}
 	case "advance":
-		_, err = s.g.Advance(ctx, j.canonical, s.say)
+		_, err = s.gm().Advance(ctx, j.canonical, s.say)
 	case "lab":
 		var r game.LabResult
-		if r, err = s.g.Lab(ctx, j.labParams, s.say); err == nil {
+		if r, err = s.gm().Lab(ctx, j.labParams, s.say); err == nil {
 			lab = &r
 		}
 	default:
