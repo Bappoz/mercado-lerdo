@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Bappoz/software-engineering-simulator/internal/career"
 	"github.com/Bappoz/software-engineering-simulator/internal/evaluator"
 	"github.com/Bappoz/software-engineering-simulator/internal/events"
 	"github.com/Bappoz/software-engineering-simulator/internal/play"
@@ -492,7 +491,7 @@ func (g *Game) RecordBaseline(ctx context.Context, sig *play.Signals) error {
 		return nil
 	}
 	if sig == nil {
-		got, err := g.Signals(ctx, 30*time.Second)
+		got, err := g.Signals(ctx, 10*time.Second) // the window of `sesim status`
 		if err != nil {
 			return err
 		}
@@ -516,7 +515,7 @@ func (g *Game) Hint() (scenario.Hint, bool, error) {
 	if !ok {
 		return h, false, nil
 	}
-	price := career.HintPrice(s.HintsShown + 1)
+	price := g.hintPrice(s.HintsShown + 1)
 	item := fmt.Sprintf("Dica %d · %s", h.Level, g.Pack().Manifest.Metadata.Title) // outside update: it holds g.mu
 	if err := g.update(func(s *play.Session) {
 		s.HintsShown++

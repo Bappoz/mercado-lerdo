@@ -45,6 +45,8 @@ type Mission struct {
 	EmergenciesMissed int
 	RequestsMet       int
 	Cost, Budget      float64 // the modeled monthly cost at the PASS and its limit (0: unknown)
+	// Tutorial missions teach with free help: their hints never cost the no-hint bonus (ADR-0024).
+	Tutorial bool
 }
 
 // Purchase is something the player bought with their salary.
@@ -119,7 +121,7 @@ func pay(m Mission, salary int) ([]Line, int) {
 		bonus(plural(n, "Bônus: pedido atendido", "Bônus: %d pedidos atendidos"), 5*n, 20*n)
 	}
 	switch {
-	case m.Hints == 0:
+	case m.Hints == 0 || m.Tutorial:
 		bonus("Bônus: sem nenhuma dica", 15, 40)
 	case m.Hints <= 2:
 		bonus("Bônus: poucas dicas", 5, 15)

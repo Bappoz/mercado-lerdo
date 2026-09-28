@@ -124,6 +124,7 @@ func runNext(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err := t.printDoc(ctx, t.g.Phase().Briefing); err != nil {
 		return t.fail(err)
 	}
+	t.tellStory(ctx)
 	return 0
 }
 
@@ -141,6 +142,106 @@ func (t *terminal) tellStory(ctx context.Context) {
 		}
 	}
 	printDeadline(t.stdout, v.Deadline)
+	t.tellTutorial(ctx)
+}
+
+// tellTutorial prints Tabby's step when it has just begun (ADR-0024);
+// `sesim tabby` prints it at any time.
+func (t *terminal) tellTutorial(ctx context.Context) {
+	v, err := t.g.Tutorial(ctx, play.CLIWords, true)
+	if err != nil {
+		fmt.Fprintln(t.stderr, "sesim: treinamento:", err)
+		return
+	}
+	if v != nil && v.New {
+		printTutorial(t.stdout, v)
+	}
+}
+
+func printTutorial(w io.Writer, v *game.TutorialView) {
+	if v.Done {
+		fmt.Fprintf(w, "\n── Tabby · treinamento concluído\n")
+		if v.Before != "" {
+			fmt.Fprintln(w, v.Before)
+		}
+		return
+	}
+	if v.Step == "" {
+		fmt.Fprintln(w, "\n── Tabby · treinamento: o próximo passo começa com o incidente.")
+		return
+	}
+	fmt.Fprintf(w, "\n── Tabby · treinamento, passo %d de %d\n", v.Index, v.Total)
+	if v.Before != "" {
+		fmt.Fprintf(w, "%s\n\n", v.Before)
+	}
+	fmt.Fprintln(w, v.Text)
+	for _, c := range v.Choices {
+		fmt.Fprintf(w, "  %s) %s\n", c.ID, c.Text)
+	}
+	if v.Wrong != "" {
+		fmt.Fprintf(w, "\n%s\n", v.Wrong)
+	}
+	if v.Help != "" {
+		fmt.Fprintf(w, "\nAjuda da Tabby: %s\n", v.Help)
+	}
+	switch {
+	case len(v.Choices) > 0:
+		fmt.Fprintln(w, "\nResponda com `sesim tabby responder <letra>`.")
+	case v.Continue:
+		fmt.Fprintln(w, "\nPara avisar a Tabby: `sesim tabby ok`.")
+	}
+	if v.CanHelp {
+		fmt.Fprintln(w, "Travou? `sesim tabby ajuda`.")
+	}
+}
+
+// runTabby: what Tabby says in the guided mode, and the player's answers to her.
+func runTabby(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	action, choice := "", ""
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		action, args = args[0], args[1:]
+	}
+	if action == "responder" {
+		if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+			fmt.Fprintln(stderr, "uso: sesim tabby responder <letra>")
+			return 2
+		}
+		choice, args = args[0], args[1:]
+	}
+	if !slices.Contains([]string{"", "ok", "ajuda", "responder"}, action) {
+		fmt.Fprintln(stderr, "uso: sesim tabby [ok | ajuda | responder <letra>]")
+		return 2
+	}
+	t, code := openGame(ctx, "tabby", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	var err error
+	switch action {
+	case "ok":
+		err = t.g.TutorialOK(ctx)
+	case "ajuda":
+		err = t.g.TutorialHelp(ctx)
+	case "responder":
+		var right bool
+		if right, err = t.g.TutorialAnswer(ctx, choice); err == nil && right {
+			fmt.Fprintln(stdout, "Isso!")
+		}
+	}
+	if err != nil {
+		return t.fail(err)
+	}
+	v, err := t.g.Tutorial(ctx, play.CLIWords, true)
+	if err != nil {
+		return t.fail(err)
+	}
+	if v == nil {
+		fmt.Fprintln(stdout, "Este cenário não tem treinamento. Se travar, `sesim hint` dá uma dica por vez.")
+		return 0
+	}
+	printTutorial(stdout, v)
+	return 0
 }
 
 func printStoryMessage(w io.Writer, m game.StoryMessage) {
@@ -287,6 +388,9 @@ func runShell(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return t.fail(game.ErrNotRunning)
 	}
 	t.g.Event("shell_opened", nil)
+	if err := t.g.MarkViewed("shell"); err != nil {
+		return t.fail(err)
+	}
 	fmt.Fprintln(stdout, "Terminal na rede da loja: `psql` abre o banco (já autenticado); `exit` sai.")
 	if err := t.g.Shell(ctx, os.Stdin, stdout, stderr); err != nil {
 		return t.fail(err)

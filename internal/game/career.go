@@ -28,7 +28,7 @@ func (g *Game) Profile() career.Profile {
 	}
 	if s.Phase == play.Completed {
 		p := g.Pack()
-		missions = append(missions, missionOf(p.Events, p.Manifest.Metadata.ID, p.Manifest.Metadata.Title, s.DoneAt, s.HintsShown, s.Story, s.PassCost, s.Budget))
+		missions = append(missions, missionOf(p, p.Manifest.Metadata.ID, p.Manifest.Metadata.Title, s.DoneAt, s.HintsShown, s.Story, s.PassCost, s.Budget))
 	}
 	buys = append(buys, s.Purchases...)
 	return career.Compute(hired, missions, buys)
@@ -41,18 +41,22 @@ func (g *Game) careerMission(dir, id, title string, done time.Time, hints int, m
 	if err != nil && !filepath.IsAbs(dir) {
 		p, err = scenario.Load(filepath.Join(g.Root, dir))
 	}
-	var events []scenario.StoryEvent
-	if err == nil {
-		events = p.Events
-	} else {
+	if err != nil {
+		p = nil
 		g.log.Warn("career: cannot read a finished scenario's story; no story bonus for it", "scenario", dir, "err", err)
 	}
-	return missionOf(events, id, title, done, hints, marks, cost, budget)
+	return missionOf(p, id, title, done, hints, marks, cost, budget)
 }
 
-func missionOf(events []scenario.StoryEvent, id, title string, done time.Time, hints int, marks map[string]play.StoryMark, cost, budget float64) career.Mission {
+// missionOf is a finished mission as the career sees it; p (nil when it
+// cannot be read) tells emergencies from requests, and whether it was a tutorial.
+func missionOf(p *scenario.Pack, id, title string, done time.Time, hints int, marks map[string]play.StoryMark, cost, budget float64) career.Mission {
 	m := career.Mission{ID: id, Title: title, DoneAt: done, Hints: hints, Cost: cost, Budget: budget}
-	for _, e := range events {
+	if p == nil {
+		return m
+	}
+	m.Tutorial = len(p.Tutorial) > 0
+	for _, e := range p.Events {
 		mark := marks[e.ID]
 		switch {
 		case e.Kind == "emergencia" && !mark.MetAt.IsZero():
@@ -67,7 +71,15 @@ func missionOf(events []scenario.StoryEvent, id, title string, done time.Time, h
 }
 
 // NextHintPrice is what the next hint of this mission costs.
-func (g *Game) NextHintPrice() int { return career.HintPrice(g.Session().HintsShown + 1) }
+func (g *Game) NextHintPrice() int { return g.hintPrice(g.Session().HintsShown + 1) }
+
+// hintPrice is career.HintPrice, except in a tutorial, where Tabby's help is free (ADR-0024).
+func (g *Game) hintPrice(n int) int {
+	if g.IsTutorial() {
+		return 0
+	}
+	return career.HintPrice(n)
+}
 
 // NextLabPrice is what the next lab experiment of this mission costs.
 func (g *Game) NextLabPrice() int { return career.LabPrice(g.Session().LabRuns + 1) }

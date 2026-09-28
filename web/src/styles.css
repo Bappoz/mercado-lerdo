@@ -1591,3 +1591,27 @@ pre.diff {
 .pill.career {
   font-variant-numeric: tabular-nums;
 }
+
+/* Tabby's guided mode (ADR-0024) */
+.tutorial-before {
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  margin-bottom: 8px;
+}
+.tutorial-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.tutorial-choices .btn {
+  text-align: left;
+  white-space: normal;
+}
+.tutorial-help {
+  background: var(--chip-bg);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+}

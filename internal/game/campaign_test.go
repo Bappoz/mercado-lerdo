@@ -216,14 +216,14 @@ func TestProfileFollowsTheCampaign(t *testing.T) {
 	if p := g.Profile(); p.Balance != career.SigningBonus || p.Level.Title != "Júnior I" || len(p.Payslips) != 0 {
 		t.Fatalf("first day: %+v", p)
 	}
-	// Two hints: the first is free, the second costs.
+	// C1 is the tutorial (ADR-0024): every hint is free.
 	for range 2 {
 		if _, ok, err := g.Hint(); !ok || err != nil {
 			t.Fatalf("hint: %v %v", ok, err)
 		}
 	}
-	if p := g.Profile(); p.Balance != career.SigningBonus-career.HintPrice(2) {
-		t.Errorf("after two hints: balance %d", p.Balance)
+	if p := g.Profile(); p.Balance != career.SigningBonus || g.NextHintPrice() != 0 {
+		t.Errorf("after two hints in the tutorial: balance %d, next hint %d", p.Balance, g.NextHintPrice())
 	}
 	// The emergency of C1 met, then the PASS.
 	now := time.Now().UTC()
@@ -237,8 +237,8 @@ func TestProfileFollowsTheCampaign(t *testing.T) {
 	if len(p.Payslips) != 1 {
 		t.Fatalf("payslips %+v", p.Payslips)
 	}
-	// Júnior I, 4000: +20 % emergency, +5 % few hints, +10 % savings.
-	if got := p.Payslips[0].Total; got != 4000+800+200+400 {
+	// Júnior I, 4000: +20 % emergency, +15 % no hints (the tutorial's are free), +10 % savings.
+	if got := p.Payslips[0].Total; got != 4000+800+600+400 {
 		t.Errorf("C1 paid %d", got)
 	}
 	if _, err := g.Advance(ctx, false, func(string) {}); err != nil {
@@ -248,7 +248,7 @@ func TestProfileFollowsTheCampaign(t *testing.T) {
 	if after.Balance != p.Balance || after.XP != p.XP || len(after.Payslips) != 1 {
 		t.Errorf("the career changed on advancing: before %+v, after %+v", p, after)
 	}
-	if g.NextHintPrice() != 0 {
-		t.Error("the first hint of the next mission is free again")
+	if g.IsTutorial() || g.NextHintPrice() != 0 || g.hintPrice(2) != career.HintPrice(2) {
+		t.Error("after the tutorial, the first hint is free and the next ones cost again")
 	}
 }

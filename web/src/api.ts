@@ -317,6 +317,23 @@ export interface GameState {
   last_test: Report | null;
   deadline: Deadline | null;
   career: CareerView | null;
+  tutorial: TutorialView | null;
+}
+
+/** Tabby's guided mode (ADR-0024): the step she waits on. */
+export interface TutorialView {
+  step: string; // "" once every step is behind
+  index: number;
+  total: number;
+  kind: "guia" | "pergunta" | "";
+  before?: string; // what she says about the step just done
+  text: string;
+  help?: string; // once asked for
+  can_help: boolean;
+  choices?: { id: string; text: string }[];
+  wrong?: string; // after a wrong answer
+  continue: boolean;
+  done: boolean;
 }
 
 /** The career at a glance (ADR-0023); money in whole reais. */
