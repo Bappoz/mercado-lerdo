@@ -75,6 +75,13 @@ export function tabbyTip(s: GameState | null): Tip {
       }
     );
   }
+  // With the clock stopped to read (ADR-0026), nothing of the story is urgent.
+  if (s.clock.paused) {
+    return {
+      id: "clock-paused",
+      text: "O relógio da história está parado: leia com calma, nenhuma mensagem chega e nenhum prazo corre. Para voltar, é só retomar lá em cima (um deploy, um check ou um teste também retomam).",
+    };
+  }
   const d = s.deadline;
   if (d) {
     const until = new Date(d.until).toLocaleTimeString("pt-BR", {
@@ -88,11 +95,17 @@ export function tabbyTip(s: GameState | null): Tip {
   }
   if (failed) return failed;
   switch (s.session.phase) {
-    case "calm":
+    case "calm": {
+      const n = s.reading.length;
+      const reading =
+        n > 0
+          ? ` Separei ${n} ${n === 1 ? "leitura" : "leituras"} para esta missão no Docs; dá para parar o relógio enquanto você lê.`
+          : "";
       return {
         id: "calm",
-        text: "Dia tranquilo. Dê uma volta: o Pulse mostra a produção, e no Terminal o `psql` abre o banco. Anote o que parecer normal: vai servir de comparação.",
+        text: `Dia tranquilo. Dê uma volta: o Pulse mostra a produção, e no Terminal o \`psql\` abre o banco. Anote o que parecer normal: vai servir de comparação.${reading}`,
       };
+    }
     case "completed":
       return {
         id: "done",

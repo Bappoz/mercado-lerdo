@@ -29,6 +29,8 @@ type Pack struct {
 	Events   []StoryEvent // player.events; none when the pack has no story events
 	// Tutorial is player.tutorial: the guided mode (ADR-0024); empty for the others.
 	Tutorial []TutorialStep
+	// Reading is player.reading: the documentation Tabby recommends (ADR-0026).
+	Reading []Reading
 }
 
 // Manifest is scenario.yaml.
@@ -133,6 +135,8 @@ type Player struct {
 	Events        string `yaml:"events"` // optional: the story's events (ADR-0022)
 	// Tutorial is optional: Tabby guides the whole mission, and hints are free (ADR-0024).
 	Tutorial string `yaml:"tutorial"`
+	// Reading is optional: the documentation Tabby recommends for the mission (ADR-0026).
+	Reading string `yaml:"reading"`
 }
 
 // Phase is one step of the story: a briefing and the background traffic.
@@ -228,6 +232,14 @@ func Load(dir string) (*Pack, error) {
 			}
 			if err := ValidateTutorial(p.Tutorial); err != nil {
 				return nil, fmt.Errorf("scenario %s: %s: %w", dir, pl.Tutorial, err)
+			}
+		}
+		if pl.Reading != "" {
+			if err := readYAML(filepath.Join(dir, pl.Reading), &p.Reading); err != nil {
+				return nil, err
+			}
+			if err := ValidateReading(p.Reading); err != nil {
+				return nil, fmt.Errorf("scenario %s: %s: %w", dir, pl.Reading, err)
 			}
 		}
 	}

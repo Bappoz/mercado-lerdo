@@ -27,14 +27,14 @@ Você é a primeira pessoa de engenharia do **Mercado Lerdo**, o marketplace dos
 | Arquitetura | o `topology.yaml`: componentes, réplicas, tamanhos e custo contra o orçamento |
 | Deploy | coloca o workspace em produção (código, migrações, topologia, `nginx/default.conf`) |
 | Lab | laboratório de carga: ensaie tráfego (e a queda de uma instância) antes do teste que vale |
-| Docs | catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia |
+| Docs | as leituras que a Tabby recomenda para a missão (documentação de verdade; dá para parar o relógio da história enquanto você lê) e o catálogo de componentes; instalar uma ferramenta é um clique que edita a topologia. No terminal: `sesim reading`, `sesim clock` e `sesim docs` |
 | Suporte | reclamações dos clientes, tiradas do que eles viveram de fato: erros, lentidão, cobrança sem pedido |
 | Git | o que você mudou (desde o último commit ou desde o início do cenário), histórico da campanha e commit |
 | Perfil | a sua carreira no Mercado Lerdo: nível (Júnior I a Sênior III), experiência, salário, bônus e o extrato do que o salário pagou (dicas extras, experimentos no Lab). No terminal: `sesim profile` |
 | Notas | anotações da investigação |
-| Configurações | escolha entre três temas e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
+| Configurações | escolha entre três temas e dez papéis de parede (com a marca, no estilo de um Windows antigo) e ajuste de cores, moldura, texto, animações e pelagem da Tabby |
 
-A Tabby, a gata do escritório, conduz o treinamento do primeiro dia (ela anda pelo LerdOS mostrando cada app) e a primeira missão inteira, de graça: o C1 é um tutorial, que só para em duas perguntas para você pensar (no terminal, `sesim tabby`). Da segunda missão em diante, ela dá uma dica por vez quando você pede.
+A Tabby, a gata do escritório, conduz o treinamento do primeiro dia (ela anda pelo LerdOS mostrando cada app) e a primeira missão inteira, de graça: o C1 é um tutorial, que só para em duas perguntas para você pensar (no terminal, `sesim tabby`; `sesim tabby passo` relê um passo que ficou para trás). O balão dela fica aberto enquanto você trabalha: clique na Tabby para esconder. Da segunda missão em diante, ela dá uma dica por vez quando você pede.
 
 O código é editado no seu editor, dentro do workspace.
 

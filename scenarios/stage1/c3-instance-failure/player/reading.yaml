@@ -1,0 +1,39 @@
+# What Tabby recommends reading for C3 (ADR-0026): subjects worth understanding,
+# never the diagnosis (that is the hint ladder's, and it costs salary). `why` is
+# in her words; `minutes` is an estimate of the part she points at.
+
+- id: balanceamento
+  title: O nginx como balanceador de carga
+  source: Documentação do nginx
+  url: https://nginx.org/en/docs/http/load_balancing.html
+  lang: en
+  minutes: 15
+  why: |
+    Com mais de uma instância, alguém escolhe quem atende cada pedido e o que fazer quando uma não responde. Leia até a parte de *health checks* (`max_fails`, `fail_timeout`).
+
+- id: idempotencia
+  title: O que é uma operação idempotente
+  source: MDN Web Docs
+  url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+  lang: pt
+  minutes: 5
+  why: |
+    A palavra aparece no e-mail do Álvaro. A definição cabe em um parágrafo e serve para a carreira inteira.
+
+- id: chave
+  title: Requisições idempotentes na prática
+  source: Documentação da Stripe
+  url: https://docs.stripe.com/api/idempotent_requests
+  lang: en
+  minutes: 5
+  why: |
+    Como um gateway de pagamento de verdade usa a `Idempotency-Key`. O gateway do Mercado Lerdo se comporta de um jeito parecido (está no `API.md`).
+
+- id: retries
+  title: Tentar de novo sem fazer duas vezes
+  source: Amazon Builders' Library
+  url: https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/
+  lang: en
+  minutes: 20
+  why: |
+    O que pode dar errado quando um cliente tenta de novo, contado por quem opera sistemas grandes.

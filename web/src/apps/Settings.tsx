@@ -8,8 +8,8 @@ import {
   THEMES,
   type Theme,
   tabbyColors,
-  type Wallpaper,
 } from "../theme.ts";
+import { WALLPAPERS } from "../wallpaper.ts";
 
 type Section = "aparencia" | "sistema";
 
@@ -123,17 +123,29 @@ export function Settings({
               ))}
             </div>
           </fieldset>
+          <fieldset className="choice">
+            <legend>Papel de parede</legend>
+            <div className="walls">
+              {WALLPAPERS.map((w) => (
+                <button
+                  type="button"
+                  key={w.id}
+                  className="wall-card"
+                  aria-pressed={prefs.wallpaper === w.id}
+                  onClick={() => set("wallpaper", w.id)}
+                >
+                  <span className="wall-thumb" aria-hidden="true">
+                    <span
+                      className="wall-desk"
+                      style={cssVars({ ...prefs, wallpaper: w.id }) as React.CSSProperties}
+                    />
+                  </span>
+                  {w.name}
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <div className="settings-grid">
-            <Choice<Wallpaper>
-              label="Papel de parede"
-              value={prefs.wallpaper}
-              onPick={(v) => set("wallpaper", v)}
-              options={[
-                { v: "cena", label: "Cena do tema" },
-                { v: "liso", label: "Liso" },
-                { v: "grade", label: "Grade de pixels" },
-              ]}
-            />
             <fieldset className="choice">
               <legend>Cor de destaque</legend>
               <div className="chips">

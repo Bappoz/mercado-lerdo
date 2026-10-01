@@ -1,0 +1,49 @@
+# What Tabby recommends reading for C1 (ADR-0026): subjects worth understanding,
+# never the diagnosis (that is the tutorial's and the hint ladder's). `why` is
+# in her words; placeholders name each view's tools, as in every player text.
+# `minutes` is an estimate of the part she points at.
+
+- id: sinais
+  title: Os quatro sinais de ouro
+  source: Google · Site Reliability Engineering, cap. 6
+  url: https://sre.google/sre-book/monitoring-distributed-systems/
+  lang: en
+  minutes: 25
+  why: |
+    Tráfego, erros, latência e uso de CPU: o que {{status}} mostra não é por acaso. São os "quatro sinais de ouro" de quem opera sistemas. Leia a seção *The Four Golden Signals* e a seguinte, *Worrying About Your Tail*, que explica por que a gente olha o p95 e não a média.
+
+- id: estatisticas
+  title: "pg_stat_statements: quanto custa cada consulta"
+  source: Documentação do PostgreSQL
+  url: https://www.postgresql.org/docs/current/pgstatstatements.html
+  lang: en
+  minutes: 10
+  why: |
+    O banco anota quantas vezes cada consulta rodou e quanto tempo levou. Repare nas colunas `calls`, `mean_exec_time` e `total_exec_time`: é com elas que se descobre quem está pesando.
+
+- id: explain
+  title: Como ler um plano de execução
+  source: Documentação do PostgreSQL
+  url: https://www.postgresql.org/docs/current/using-explain.html
+  lang: en
+  minutes: 20
+  why: |
+    O `EXPLAIN` mostra o caminho que o banco escolheu para responder uma consulta. A primeira seção (*EXPLAIN Basics*) já basta para distinguir "li a tabela inteira" de "fui direto pelo índice".
+
+- id: indices
+  title: Os tipos de índice do Postgres
+  source: Documentação do PostgreSQL
+  url: https://www.postgresql.org/docs/current/indexes-types.html
+  lang: en
+  minutes: 15
+  why: |
+    Cada tipo de índice responde a um tipo de pergunta. Leia pensando: quais perguntas um B-tree responde rápido, e quais ele não responde?
+
+- id: like
+  title: Índices e buscas com LIKE
+  source: Use The Index, Luke (Markus Winand)
+  url: https://use-the-index-luke.com/sql/where-clause/searching-for-ranges/like-performance-tuning
+  lang: en
+  minutes: 10
+  why: |
+    Por que a posição do curinga (`%`) muda tudo para um índice. É curto, tem desenhos, e vale para qualquer banco.

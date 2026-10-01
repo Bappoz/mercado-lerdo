@@ -78,4 +78,6 @@ Local por padrão (`data-model.md` §3). Exportação só com `sesim telemetry e
 | `story_event` | id, outcome (fired, met, missed) (ADR-0022) | se a história engaja; prazos cumpridos |
 | `scenario_completed` | total_minutes, incident_minutes, tests, checks, hints | H1, H6 |
 | `session_paused` | fase | abandono |
+| `reading_opened` | id, relógio parado ou não (ADR-0026) | se as leituras são usadas; lida junto com a H1 |
+| `clock_paused` / `clock_resumed` | fase / segundos parado (ADR-0026) | se a pausa serve para ler ou para fugir do prazo |
 | `debrief_viewed` | tempo na tela | H3 (proxy fraco; a entrevista é o dado real) |

@@ -37,6 +37,8 @@ function state(over: Partial<GameState>): GameState {
     deadline: null,
     career: null,
     tutorial: null,
+    reading: [],
+    clock: { paused: false },
     ...over,
   };
 }
@@ -77,5 +79,52 @@ describe("tabbyTip in the guided mode", () => {
   it("steps aside once the guided mode is over", () => {
     const over = { ...step, step: "", done: true };
     expect(tabbyTip(state({ tutorial: over, deadline })).id).toBe("deadline-live-da-lu");
+  });
+});
+
+describe("tabbyTip and the recommended reading (ADR-0026)", () => {
+  const reading = [
+    {
+      id: "explain",
+      title: "Como ler um plano",
+      source: "Documentação do PostgreSQL",
+      url: "https://www.postgresql.org/docs/current/using-explain.html",
+      lang: "en" as const,
+      minutes: 20,
+      why: "Para ler o plano.",
+    },
+  ];
+  const calm = {
+    phase: "calm" as const,
+    workspace: "/w",
+    started_at: "",
+    hints_shown: 0,
+    checks: 0,
+    tests: 0,
+  };
+
+  it("points at the reading when a mission starts", () => {
+    expect(tabbyTip(state({ session: calm, reading })).text).toContain("1 leitura");
+    expect(tabbyTip(state({ session: calm })).text).not.toContain("leitura");
+  });
+
+  it("says the clock is stopped instead of counting a deadline", () => {
+    const deadline = {
+      id: "live-da-lu",
+      kind: "emergencia",
+      title: "A Lu vai fazer live",
+      from: "Álvaro (fundador)",
+      goal: "test_pass" as const,
+      until: new Date().toISOString(),
+    };
+    const tip = tabbyTip(
+      state({ deadline, clock: { paused: true, since: new Date().toISOString() } }),
+    );
+    expect(tip.id).toBe("clock-paused");
+  });
+
+  it("keeps leading the guided mode while the clock is stopped", () => {
+    const tip = tabbyTip(state({ tutorial: step, clock: { paused: true } }));
+    expect(tip.tutorial?.step).toBe("quem-esta-no-teto");
   });
 });

@@ -24,6 +24,9 @@ func TestRun(t *testing.T) {
 		{name: "dev without command", args: []string{"dev"}, wantCode: 2, wantStderr: "container-stats"},
 		{name: "dev unknown", args: []string{"dev", "fly"}, wantCode: 2, wantStderr: `comando desconhecido "fly"`},
 		{name: "unknown", args: []string{"fly"}, wantCode: 2, wantStderr: `comando desconhecido "fly"`},
+		{name: "tabby step is a number", args: []string{"tabby", "passo", "dez"}, wantCode: 2, wantStderr: "uso: sesim tabby passo [número]"},
+		{name: "tabby unknown", args: []string{"tabby", "fly"}, wantCode: 2, wantStderr: "passo [número]"},
+		{name: "clock unknown", args: []string{"clock", "fly"}, wantCode: 2, wantStderr: "uso: sesim clock [pause | resume]"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

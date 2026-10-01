@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { api, type GameState, type Hint, type TutorialView } from "../api.ts";
+import { useState } from "react";
+import { api, type GameState, type Hint, type PastStep, type TutorialView } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
 import { money } from "../money.ts";
 import { tabbyMood, tabbyTip } from "../tabby.ts";
@@ -7,7 +7,12 @@ import type { AppId } from "../theme.ts";
 import { TabbySprite } from "./pixel.tsx";
 import { useAnimate, useIdlePose } from "./TabbyActor.tsx";
 
-type View = { kind: "tip" } | { kind: "hint"; hint: Hint } | { kind: "history" } | { kind: "none" };
+type View =
+  | { kind: "tip" }
+  | { kind: "hint"; hint: Hint }
+  | { kind: "history" }
+  | { kind: "past"; at: number } // a step of the guided mode that is behind, by its place in `past`
+  | { kind: "none" };
 
 /**
  * Tabby, the mascot: scripted lines about what is going on, and the
@@ -27,7 +32,6 @@ export function Tabby({
   const tip = tabbyTip(state);
   const [view, setView] = useState<View>({ kind: "tip" });
   const [tipId, setTipId] = useState(tip.id);
-  const self = useRef<HTMLElement>(null);
   const animate = useAnimate(motion);
   // A new situation reopens the bubble (derived during render, not in an effect).
   if (tip.id !== tipId) {
@@ -35,17 +39,8 @@ export function Tabby({
     setView({ kind: "tip" });
   }
 
-  // The bubble floats over the windows: any click elsewhere puts it away, so
-  // it never swallows a click meant for the app under it.
-  const showing = view.kind !== "none";
-  useEffect(() => {
-    if (!showing) return;
-    const onDown = (e: PointerEvent) => {
-      if (!self.current?.contains(e.target as Node)) setView({ kind: "none" });
-    };
-    document.addEventListener("pointerdown", onDown, true);
-    return () => document.removeEventListener("pointerdown", onDown, true);
-  }, [showing]);
+  // The bubble stays while the player works in the windows (what she says is
+  // often something to type there): only Tabby herself, or "Ok", puts it away.
 
   // She talks whenever a new line appears in her bubble.
   const talkKey =
@@ -53,7 +48,9 @@ export function Tabby({
       ? `tip-${tip.id}`
       : view.kind === "hint"
         ? `hint-${view.hint.level}`
-        : view.kind;
+        : view.kind === "past"
+          ? `past-${view.at}`
+          : view.kind;
   const pose = useIdlePose(tabbyMood(state), animate, view.kind === "none" ? "" : talkKey);
 
   const hints = state?.hints ?? [];
@@ -66,9 +63,15 @@ export function Tabby({
   };
   const tutorial = (body: { action: "ok" | "help" | "answer"; choice?: string }) =>
     void busy(() => api("POST", "/api/tutorial", body));
+  // The steps of the guided mode already behind: one may have closed before
+  // the player read it (the migration written early), so she tells it again.
+  const past = state?.tutorial?.past ?? [];
+  const reviewing = view.kind === "past" ? past[view.at] : undefined;
+  // Another game has other steps: back to what she says now.
+  if (view.kind === "past" && !reviewing) setView({ kind: "tip" });
 
   return (
-    <aside className="tabby" aria-label="Tabby, a assistente" ref={self}>
+    <aside className="tabby" aria-label="Tabby, a assistente">
       {view.kind !== "none" && (
         <div className="bubble" role="status">
           {view.kind === "tip" &&
@@ -81,6 +84,7 @@ export function Tabby({
               <Markdown source={view.hint.text} />
             </>
           )}
+          {reviewing && <PastStepView step={reviewing} total={state?.tutorial?.total ?? 0} />}
           {view.kind === "history" && (
             <ol className="hint-history">
               {hints.map((h) => (
@@ -92,6 +96,44 @@ export function Tabby({
             </ol>
           )}
           <div className="bubble-actions">
+            {view.kind === "past" && (
+              <>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  disabled={view.at === 0}
+                  onClick={() => setView({ kind: "past", at: view.at - 1 })}
+                >
+                  ‹ Anterior
+                </button>
+                {view.at < past.length - 1 ? (
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    onClick={() => setView({ kind: "past", at: view.at + 1 })}
+                  >
+                    Próximo ›
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => setView({ kind: "tip" })}
+                  >
+                    Voltar para agora
+                  </button>
+                )}
+              </>
+            )}
+            {view.kind !== "past" && past.length > 0 && (
+              <button
+                type="button"
+                className="btn small ghost"
+                onClick={() => setView({ kind: "past", at: past.length - 1 })}
+              >
+                ‹ Passo anterior
+              </button>
+            )}
             {view.kind === "tip" && tip.tutorial?.continue && (
               <button
                 type="button"
@@ -131,6 +173,11 @@ export function Tabby({
                 Abrir e-mail
               </button>
             )}
+            {state?.session?.phase === "calm" && state.reading.length > 0 && (
+              <button type="button" className="btn small ghost" onClick={() => onOpen("docs")}>
+                Leituras da missão ({state.reading.length})
+              </button>
+            )}
             <button
               type="button"
               className="btn small ghost"
@@ -156,6 +203,23 @@ export function Tabby({
         <TabbySprite pose={pose} />
       </button>
     </aside>
+  );
+}
+
+/** A step of the guided mode that is behind, told again: nothing to answer. */
+function PastStepView({ step, total }: { step: PastStep; total: number }) {
+  return (
+    <div className="tutorial-step">
+      <p className="bubble-kind">
+        Treinamento · passo {step.index} de {total} · {step.skipped ? "pulado" : "revendo"}
+      </p>
+      <Markdown source={step.text} />
+      {step.done && (
+        <div className="tutorial-before">
+          <Markdown source={step.done} />
+        </div>
+      )}
+    </div>
   );
 }
 

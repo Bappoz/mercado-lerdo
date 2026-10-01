@@ -61,12 +61,21 @@ type Session struct {
 	Baseline *Baseline `json:"baseline,omitempty"`
 	// Tutorial is the guided mode's progress, by step (ADR-0024).
 	Tutorial map[string]TutorialMark `json:"tutorial,omitempty"`
+	// Pauses are the stretches the player stopped the story's clock to read
+	// (ADR-0026), oldest first; only the last one may be open.
+	Pauses []Pause `json:"pauses,omitempty"`
 	// The career (ADR-0023): what the player bought during this scenario,
 	// how many lab runs it had, and the modeled cost against the budget at the PASS.
 	Purchases []career.Purchase `json:"purchases,omitempty"`
 	LabRuns   int               `json:"lab_runs,omitempty"`
 	PassCost  float64           `json:"pass_cost,omitempty"`
 	Budget    float64           `json:"budget,omitempty"`
+}
+
+// Pause is a stretch of time the story's clock did not run; To is zero while it lasts.
+type Pause struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to,omitzero"`
 }
 
 // StoryMark is one story event's fate: fired, then met or missed (or neither).

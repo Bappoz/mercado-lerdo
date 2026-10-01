@@ -55,6 +55,8 @@
   kind: guia
   text: |
     A loja está calma, mas não vai ficar assim. Quando se sentir em casa, {{start_day}}. A partir daí o movimento sobe e alguma coisa vai piorar; {{status}} mostra o que muda.
+
+    Antes disso, se quiser entender mais a fundo o que vem pela frente, separei {{reading}}. Não é obrigatório, e dá para parar o relógio enquanto você lê.
   goal: next
 
 - id: quem-esta-no-teto

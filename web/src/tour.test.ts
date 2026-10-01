@@ -102,6 +102,8 @@ describe("the story's deadlines", () => {
       session: { phase: "incident" },
       running: true,
       job: null,
+      reading: [],
+      clock: { paused: false },
       deadline: {
         id: "d",
         kind,

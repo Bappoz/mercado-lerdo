@@ -318,6 +318,25 @@ export interface GameState {
   deadline: Deadline | null;
   career: CareerView | null;
   tutorial: TutorialView | null;
+  reading: Reading[];
+  clock: ClockView;
+}
+
+/** A piece of documentation Tabby recommends for the mission (ADR-0026). */
+export interface Reading {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  lang: "pt" | "en";
+  minutes: number;
+  why: string;
+}
+
+/** The story's clock: the player may stop it to read (ADR-0026). */
+export interface ClockView {
+  paused: boolean;
+  since?: string; // when it stopped
 }
 
 /** Tabby's guided mode (ADR-0024): the step she waits on. */
@@ -334,6 +353,17 @@ export interface TutorialView {
   wrong?: string; // after a wrong answer
   continue: boolean;
   done: boolean;
+  past?: PastStep[]; // the steps behind, oldest first: the player can go back to them
+}
+
+/** A step of the guided mode that is behind, as Tabby said it. */
+export interface PastStep {
+  step: string;
+  index: number;
+  kind: "guia" | "pergunta";
+  text: string;
+  done?: string; // what she said when it was done
+  skipped?: boolean; // a calm step the incident overtook
 }
 
 /** The career at a glance (ADR-0023); money in whole reais. */

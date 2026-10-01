@@ -406,6 +406,9 @@ func (g *Game) Next(ctx context.Context) (bool, error) {
 	if s.Phase != play.Calm {
 		return false, nil
 	}
+	if err := g.ResumeClock(); err != nil {
+		return false, err
+	}
 	now := time.Now().UTC()
 	if err := g.update(func(s *play.Session) { s.Phase, s.IncidentAt = play.Incident, now }); err != nil {
 		return false, err
@@ -550,6 +553,9 @@ func (g *Game) Deploy(ctx context.Context, say Say) ([]stack.Change, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := g.ResumeClock(); err != nil {
+		return nil, err
+	}
 	start := time.Now()
 	changes, err := st.Deploy(ctx, say)
 	if err != nil {
@@ -575,6 +581,9 @@ func (g *Game) Deploy(ctx context.Context, say Say) ([]stack.Change, error) {
 func (g *Game) Check(ctx context.Context, say Say) (CheckResult, error) {
 	st, err := g.requireStack()
 	if err != nil {
+		return CheckResult{}, err
+	}
+	if err := g.ResumeClock(); err != nil {
 		return CheckResult{}, err
 	}
 	start := time.Now()
@@ -619,6 +628,9 @@ type TestResult struct {
 func (g *Game) Test(ctx context.Context, runs int, say Say) (TestResult, error) {
 	st, err := g.requireStack()
 	if err != nil {
+		return TestResult{}, err
+	}
+	if err := g.ResumeClock(); err != nil {
 		return TestResult{}, err
 	}
 	pack := *g.Pack()
