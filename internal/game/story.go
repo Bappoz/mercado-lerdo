@@ -64,9 +64,10 @@ func firesAt(e scenario.StoryEvent, s play.Session, now time.Time) (time.Time, b
 		if start.IsZero() {
 			return time.Time{}, false
 		}
-		at := start.Add(e.At.After)
+		// After counts the story's time, which stops while the clock is paused (ADR-0026).
+		at, ok := clockAdd(s.Pauses, start, e.At.After)
 		// Backfilled when nobody looked while it happened, but never after its phase ended.
-		if at.After(now) || (!end.IsZero() && !at.Before(end)) {
+		if !ok || at.After(now) || (!end.IsZero() && !at.Before(end)) {
 			return time.Time{}, false
 		}
 		return at, true
@@ -127,11 +128,12 @@ func evalStory(events []scenario.StoryEvent, s play.Session, now time.Time, stor
 		if e.Goal == "" || !m.MetAt.IsZero() || !m.MissedAt.IsZero() {
 			continue
 		}
-		deadline := m.FiredAt.Add(e.Within)
-		if done, ok := goalDone(e, s, m.FiredAt, now, storeUp); ok && (e.Within == 0 || !done.After(deadline)) {
+		// While the clock is paused the deadline does not come (ADR-0026).
+		deadline, comes := clockAdd(s.Pauses, m.FiredAt, e.Within)
+		if done, ok := goalDone(e, s, m.FiredAt, now, storeUp); ok && (e.Within == 0 || !comes || !done.After(deadline)) {
 			m.MetAt = done
 			set(e.ID, m)
-		} else if e.Within > 0 && now.After(deadline) {
+		} else if e.Within > 0 && comes && now.After(deadline) {
 			m.MissedAt = deadline
 			set(e.ID, m)
 		}
@@ -155,8 +157,9 @@ func withBaseline(text string, b *play.Baseline) string {
 }
 
 // storyView renders the marks as messages, oldest first, and the most urgent
-// open deadline. baseline fills the texts' {{baseline}}.
-func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark, baseline *play.Baseline) StoryView {
+// open deadline. baseline fills the texts' {{baseline}}; pauses stretch the
+// deadline (while the clock is paused, it is the one it had when it stopped).
+func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark, baseline *play.Baseline, pauses []play.Pause) StoryView {
 	v := StoryView{Messages: []StoryMessage{}}
 	for _, e := range events {
 		m, ok := marks[e.ID]
@@ -171,7 +174,8 @@ func storyView(events []scenario.StoryEvent, marks map[string]play.StoryMark, ba
 		case !m.MissedAt.IsZero():
 			v.Messages = append(v.Messages, StoryMessage{ID: "story-" + e.ID + "-missed", Kind: "reply", From: from, Title: "Re: " + e.Title, Text: withBaseline(e.Missed, baseline), At: m.MissedAt})
 		case e.Within > 0:
-			d := &Deadline{ID: e.ID, Kind: e.Kind, Title: e.Title, From: from, Goal: e.Goal, Until: m.FiredAt.Add(e.Within)}
+			until, _ := clockAdd(frozen(pauses), m.FiredAt, e.Within)
+			d := &Deadline{ID: e.ID, Kind: e.Kind, Title: e.Title, From: from, Goal: e.Goal, Until: until}
 			if v.Deadline == nil || d.Until.Before(v.Deadline.Until) {
 				v.Deadline = d
 			}
@@ -225,7 +229,7 @@ func (g *Game) Story(ctx context.Context) (StoryView, error) {
 			g.Event("story_event", map[string]any{"id": id, "outcome": outcome})
 		}
 	}
-	v := storyView(events, marks, s.Baseline)
+	v := storyView(events, marks, s.Baseline, s.Pauses)
 	for i := range v.Messages {
 		v.Messages[i].New = fresh[v.Messages[i].ID]
 	}

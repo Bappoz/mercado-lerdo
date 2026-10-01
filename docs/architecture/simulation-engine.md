@@ -122,7 +122,7 @@ O esboço acima é de antes da calibração. O formato lido por `internal/scenar
 | `world` | o que acontece fora do sistema do jogador; hoje `paymentLatency: "mediana,p99"` do gateway emulado (ADR-0018) |
 | `test` | perfil k6, taxa, rampa, duração e execuções do Production Test |
 | `objectives` | `measure` + `below`/`atLeast` + `margin` (ADR-0015). Medidas: `oracle_pass_ratio`, `search_p95_ms`, `browse_p95_ms`, `error_rate`, `db_cpu_p90`, `payment_mismatches`, `monthly_cost` (só na dimensão `cost`, ADR-0017) |
-| `player` | workspace-base, fases calma e de crescimento (perfil, taxa, briefing), dicas, debrief e, opcionalmente, `events` (ADR-0022) |
+| `player` | workspace-base, fases calma e de crescimento (perfil, taxa, briefing), dicas, debrief e, opcionalmente, `events` (ADR-0022), `tutorial` (ADR-0024) e `reading` (ADR-0026) |
 | `broken`, `references` | vereditos esperados do início e de cada solução; `sesim scenario verify` confere |
 
 ## 3. Ciclo de vida do cenário

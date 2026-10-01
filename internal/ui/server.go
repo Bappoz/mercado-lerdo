@@ -48,6 +48,8 @@ var Words = map[string]string{
 	// Where the player reads the topology and the catalog.
 	"architecture": "o app **Arquitetura**",
 	"docs":         "o app **Docs**",
+	// What Tabby recommends reading (ADR-0026).
+	"reading": "as **Leituras da missão** (app Docs)",
 }
 
 // Limits on what the browser may send.
@@ -150,6 +152,8 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/next", s.next)
 	api.HandleFunc("POST /api/hint", s.hint)
 	api.HandleFunc("POST /api/tutorial", s.tutorial)
+	api.HandleFunc("POST /api/clock", s.clock)
+	api.HandleFunc("POST /api/reading", s.reading)
 	api.HandleFunc("POST /api/stop", s.stop)
 	api.HandleFunc("GET /api/pulse", s.pulse)
 	api.HandleFunc("GET /api/tickets", s.tickets)
@@ -260,6 +264,8 @@ type stateView struct {
 	Deadline   *game.Deadline     `json:"deadline"` // the most urgent open request of the story
 	Career     *careerView        `json:"career"`   // nil before the first game (ADR-0023)
 	Tutorial   *game.TutorialView `json:"tutorial"` // nil when the scenario has no guided mode (ADR-0024)
+	Reading    []game.ReadingView `json:"reading"`  // what Tabby recommends reading (ADR-0026)
+	Clock      game.ClockView     `json:"clock"`    // the story's clock: the player may stop it to read
 }
 
 // careerView is the career at a glance: the top bar, Tabby's hint price.
@@ -282,6 +288,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 		Messages:   []Message{},
 		Hints:      []HintView{},
 		HintsTotal: len(s.gm().Pack().Hints),
+		Reading:    s.gm().Reading(r.Context(), Words),
 		Job:        s.currentJob(),
 	}
 	if rep := s.gm().LastTest(); rep != nil {
@@ -290,6 +297,7 @@ func (s *Server) state(w http.ResponseWriter, r *http.Request) {
 	if s.gm().HasSession() {
 		sess := s.gm().Session()
 		v.Session = &sess
+		v.Clock = s.gm().Clock()
 		msgs, err := s.messages(r.Context(), sess)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
@@ -418,6 +426,49 @@ func (s *Server) tutorial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"right": right})
+}
+
+// clock stops or runs the story's clock (ADR-0026): the player reads without
+// the story going on. Production is untouched.
+func (s *Server) clock(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Paused bool `json:"paused"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.gm().HasSession() {
+		writeError(w, http.StatusConflict, game.ErrNoSession)
+		return
+	}
+	var err error
+	if body.Paused {
+		err = s.gm().PauseClock()
+	} else {
+		err = s.gm().ResumeClock()
+	}
+	if err != nil {
+		writeError(w, statusOf(err), err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.gm().Clock())
+}
+
+// reading records that the player opened one of the recommended readings.
+func (s *Server) reading(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.gm().OpenedReading(body.ID); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
@@ -751,7 +802,7 @@ var errBusy = errors.New("outra operação ainda está em andamento")
 
 func statusOf(err error) int {
 	switch {
-	case errors.Is(err, game.ErrNotRunning), errors.Is(err, game.ErrNoSession):
+	case errors.Is(err, game.ErrNotRunning), errors.Is(err, game.ErrNoSession), errors.Is(err, game.ErrClockNeedsGame):
 		return http.StatusConflict
 	case errors.Is(err, context.Canceled):
 		return 499 // client went away

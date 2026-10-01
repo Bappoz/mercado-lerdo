@@ -39,6 +39,8 @@ var CLIWords = map[string]string{
 	// Where the player reads the topology and the catalog.
 	"architecture": "`sesim topology`",
 	"docs":         "`sesim docs`",
+	// What Tabby recommends reading (ADR-0026).
+	"reading": "`sesim reading`",
 }
 
 // NextHint returns the next hint after shown ones, or false when none are left.

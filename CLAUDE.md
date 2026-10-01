@@ -41,7 +41,7 @@ Rodar `just check` antes de concluir qualquer mudança. Ferramentas Go fixadas e
 - Mudou `nexora/go.mod`? `just nexora-vendor`, senão o build offline quebra.
 - O código do `nexora/` não comenta os problemas plantados pelos cenários (busca lenta, transação aberta durante o pagamento, idempotência ignorada). É proposital; não "conserte" nem documente no código.
 - `web/dist` é embutido no binário: mudou a UI, `just build` (npm antes do Go). `web/dist/.gitkeep` fica commitado para o `go build` funcionar antes do npm.
-- Textos do cenário usam `{{status}}`, `{{check}}`, `{{test}}`, `{{shell}}`, `{{hint}}`, `{{next}}`: a CLI e a UI trocam pelo nome da ferramenta de cada uma (`play.CLIWords`, `ui.Words`). Não escreva `sesim …` direto no conteúdo.
+- Textos do cenário usam `{{status}}`, `{{check}}`, `{{test}}`, `{{shell}}`, `{{hint}}`, `{{next}}`, `{{reading}}`: a CLI e a UI trocam pelo nome da ferramenta de cada uma (`play.CLIWords`, `ui.Words`). Não escreva `sesim …` direto no conteúdo.
 - A migração automática do Biome trocou `recommended` por `preset: "none"`, que desliga todas as regras. Revise o `biome.json` depois de `biome migrate`.
 - k6: `handleSummary` recebe `setup_data` com tokens (o `traffic.js` apaga; não reverta); `discardResponseBodies` também vale no `setup()` (use `responseType: 'text'`).
 - Redes do dev: `play`, `ingress`, `telemetry` (ADR-0014). Nunca coloque nginx/app/postgres na `telemetry`: o jogador controla a configuração do nginx.

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +142,7 @@ func (t *terminal) tellStory(ctx context.Context) {
 			printStoryMessage(t.stdout, m)
 		}
 	}
-	printDeadline(t.stdout, v.Deadline)
+	printDeadline(t.stdout, v.Deadline, t.g.Clock())
 	t.tellTutorial(ctx)
 }
 
@@ -193,6 +194,9 @@ func printTutorial(w io.Writer, v *game.TutorialView) {
 	if v.CanHelp {
 		fmt.Fprintln(w, "Travou? `sesim tabby ajuda`.")
 	}
+	if len(v.Past) > 0 {
+		fmt.Fprintln(w, "Para rever um passo anterior: `sesim tabby passo`.")
+	}
 }
 
 // runTabby: what Tabby says in the guided mode, and the player's answers to her.
@@ -208,8 +212,17 @@ func runTabby(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		}
 		choice, args = args[0], args[1:]
 	}
-	if !slices.Contains([]string{"", "ok", "ajuda", "responder"}, action) {
-		fmt.Fprintln(stderr, "uso: sesim tabby [ok | ajuda | responder <letra>]")
+	past := 0 // `passo <n>`: the step to read again; 0 lists them
+	if action == "passo" && len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		n, err := strconv.Atoi(args[0])
+		if err != nil || n < 1 {
+			fmt.Fprintln(stderr, "uso: sesim tabby passo [número]")
+			return 2
+		}
+		past, args = n, args[1:]
+	}
+	if !slices.Contains([]string{"", "ok", "ajuda", "responder", "passo"}, action) {
+		fmt.Fprintln(stderr, "uso: sesim tabby [ok | ajuda | responder <letra> | passo [número]]")
 		return 2
 	}
 	t, code := openGame(ctx, "tabby", args, stdout, stderr, true)
@@ -240,20 +253,127 @@ func runTabby(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintln(stdout, "Este cenário não tem treinamento. Se travar, `sesim hint` dá uma dica por vez.")
 		return 0
 	}
+	if action == "passo" {
+		if err := printPastSteps(stdout, v, past); err != nil {
+			return t.fail(err)
+		}
+		return 0
+	}
 	printTutorial(stdout, v)
 	return 0
+}
+
+// printPastSteps prints the step n again, or lists the steps behind when n is 0.
+func printPastSteps(w io.Writer, v *game.TutorialView, n int) error {
+	if len(v.Past) == 0 {
+		fmt.Fprintln(w, "Ainda não há passos para rever: o treinamento está no primeiro.")
+		return nil
+	}
+	if n == 0 {
+		fmt.Fprintln(w, "\n── Tabby · passos do treinamento que já ficaram para trás")
+		for _, p := range v.Past {
+			line, _, _ := strings.Cut(p.Text, "\n")
+			fmt.Fprintf(w, "  %2d  %s\n", p.Index, line)
+		}
+		fmt.Fprintln(w, "\nPara ler um deles de novo: `sesim tabby passo <número>`.")
+		return nil
+	}
+	i := slices.IndexFunc(v.Past, func(p game.PastStep) bool { return p.Index == n })
+	if i < 0 {
+		return fmt.Errorf("o passo %d ainda não ficou para trás; `sesim tabby passo` lista os que dá para rever", n)
+	}
+	p := v.Past[i]
+	fmt.Fprintf(w, "\n── Tabby · treinamento, passo %d de %d (revendo)\n%s\n", p.Index, v.Total, p.Text)
+	if p.Done != "" {
+		fmt.Fprintf(w, "\n%s\n", p.Done)
+	}
+	return nil
 }
 
 func printStoryMessage(w io.Writer, m game.StoryMessage) {
 	fmt.Fprintf(w, "\n── %s · %s · %s\n%s\n", m.At.Local().Format("15:04"), m.From, m.Title, strings.TrimSpace(play.RenderBriefing(m.Text, play.CLIWords)))
 }
 
-func printDeadline(w io.Writer, d *game.Deadline) {
+// printDeadline prints the open deadline; with the story's clock stopped
+// (ADR-0026) it says how much time is left when it runs again.
+func printDeadline(w io.Writer, d *game.Deadline, clock game.ClockView) {
+	if clock.Paused {
+		fmt.Fprintln(w, "\n⏸  O relógio da história está parado: nenhuma mensagem chega e nenhum prazo corre. `sesim clock resume` retoma.")
+	}
 	if d == nil {
+		return
+	}
+	if clock.Paused {
+		left := d.Until.Sub(clock.Since).Round(time.Minute)
+		fmt.Fprintf(w, "⏱  %s (%s): faltam %s quando o relógio voltar. `sesim inbox` mostra o pedido.\n", d.Title, d.From, left)
 		return
 	}
 	left := time.Until(d.Until).Round(time.Minute)
 	fmt.Fprintf(w, "\n⏱  %s (%s): até %s, faltam %s. `sesim inbox` mostra o pedido.\n", d.Title, d.From, d.Until.Local().Format("15:04"), left)
+}
+
+// runReading: the documentation Tabby recommends for the mission (ADR-0026).
+func runReading(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	t, code := openGame(ctx, "reading", args, stdout, stderr, false)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	list := t.g.Reading(ctx, play.CLIWords)
+	if len(list) == 0 {
+		fmt.Fprintln(stdout, "A Tabby não separou leituras para esta missão.")
+		return 0
+	}
+	fmt.Fprintln(stdout, "── Tabby · leituras para esta missão (nenhuma é obrigatória)")
+	for i, r := range list {
+		lang := map[string]string{"pt": "em português", "en": "em inglês"}[r.Lang]
+		fmt.Fprintf(stdout, "\n%d. %s\n   %s · ≈ %d min · %s\n   %s\n", i+1, r.Title, r.Source, r.Minutes, lang, r.URL)
+		for line := range strings.SplitSeq(r.Why, "\n") {
+			fmt.Fprintf(stdout, "   %s\n", line)
+		}
+	}
+	fmt.Fprintln(stdout, "\nPara ler sem perder prazo: `sesim clock pause` para o relógio da história; `sesim clock resume` retoma.")
+	return 0
+}
+
+// runClock: stop or run the story's clock (ADR-0026).
+func runClock(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	action := ""
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		action, args = args[0], args[1:]
+	}
+	if !slices.Contains([]string{"", "pause", "resume"}, action) {
+		fmt.Fprintln(stderr, "uso: sesim clock [pause | resume]")
+		return 2
+	}
+	t, code := openGame(ctx, "clock", args, stdout, stderr, true)
+	if t == nil {
+		return code
+	}
+	defer t.g.Close()
+	var err error
+	switch action {
+	case "pause":
+		err = t.g.PauseClock()
+	case "resume":
+		err = t.g.ResumeClock()
+	}
+	if err != nil {
+		return t.fail(err)
+	}
+	clock := t.g.Clock()
+	if !clock.Paused {
+		fmt.Fprintln(stdout, "O relógio da história está correndo.")
+	}
+	v, err := t.g.Story(ctx)
+	if err != nil {
+		return t.fail(err)
+	}
+	printDeadline(stdout, v.Deadline, clock)
+	if clock.Paused {
+		fmt.Fprintln(stdout, "A loja continua recebendo tráfego: só a história espera. Deploy, check, test e lab retomam o relógio.")
+	}
+	return 0
 }
 
 // runProfile: the player's career: level, experience, balance and statement.
@@ -301,7 +421,7 @@ func runInbox(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	for _, m := range v.Messages {
 		printStoryMessage(stdout, m)
 	}
-	printDeadline(stdout, v.Deadline)
+	printDeadline(stdout, v.Deadline, t.g.Clock())
 	return 0
 }
 

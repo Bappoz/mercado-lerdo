@@ -1,6 +1,7 @@
 package game
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +104,39 @@ func TestTutorialWalksTheMission(t *testing.T) {
 	advance(&s, f, at(20))
 	if v := tutorialView(tutorialSteps, s.Tutorial, func(t string) string { return t }); !v.Done || v.Step != "" || v.Before != "Passou!" {
 		t.Errorf("at the end: %+v", v)
+	}
+}
+
+// A step that closes the moment it starts (the migration written early) is
+// never shown: the player goes back to read it.
+func TestTutorialViewKeepsTheStepsBehind(t *testing.T) {
+	t0 := time.Date(2026, 9, 27, 14, 0, 0, 0, time.UTC)
+	s := play.Session{Phase: play.Calm, StartedAt: t0}
+	advance(&s, facts{}, t0)
+	s.Phase, s.IncidentAt = play.Incident, t0.Add(time.Minute) // skips "pulse" and "code"
+	f := facts{"query_stats": 0, "add_migration": 1}
+	advance(&s, f, t0.Add(2*time.Minute))
+	m := s.Tutorial["who"]
+	m.Answers, m.OKAt = []string{"b"}, t0.Add(3*time.Minute)
+	s.Tutorial["who"] = m
+	advance(&s, f, t0.Add(4*time.Minute))
+	f["query_stats"] = 1
+	advance(&s, f, t0.Add(5*time.Minute))
+	render := func(t string) string { return strings.ReplaceAll(t, "{{status}}", "o Pulse") }
+	v := tutorialView(tutorialSteps, s.Tutorial, render)
+	if v.Step != "test" {
+		t.Fatalf("current step = %q", v.Step)
+	}
+	want := []PastStep{
+		{Step: "pulse", Index: 1, Kind: "guia", Text: "Abra o Pulse.", Skipped: true},
+		{Step: "code", Index: 2, Kind: "guia", Text: "Leia o código em {{workspace}}.", Skipped: true},
+		{Step: "next", Index: 3, Kind: "guia", Text: "Quando quiser, {{next}}."},
+		{Step: "who", Index: 4, Kind: "pergunta", Text: "Quem está no teto?", Done: "Isso: o banco."},
+		{Step: "stats", Index: 5, Kind: "guia", Text: "Rode a consulta."},
+		{Step: "migration", Index: 6, Kind: "guia", Text: "Crie a migração."},
+	}
+	if !slices.Equal(v.Past, want) {
+		t.Errorf("past = %+v\nwant   %+v", v.Past, want)
 	}
 }
 

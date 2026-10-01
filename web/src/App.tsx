@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { api, type Deadline } from "./api.ts";
+import { api, type ClockView, type Deadline } from "./api.ts";
 import { Architecture } from "./apps/Architecture.tsx";
 import { Deploy } from "./apps/Deploy.tsx";
 import { Docs } from "./apps/Docs.tsx";
@@ -51,7 +51,7 @@ const APPS: { id: AppId; title: string; label: string; reading?: boolean }[] = [
   { id: "deploy", title: "Deploy", label: "Deploy", reading: true },
   { id: "git", title: "Git · workspace", label: "Git", reading: true },
   { id: "lab", title: "Laboratório de carga", label: "Lab", reading: true },
-  { id: "docs", title: "Docs · catálogo de componentes", label: "Docs", reading: true },
+  { id: "docs", title: "Docs · leituras e componentes", label: "Docs", reading: true },
   { id: "notes", title: "Notas", label: "Notas", reading: true },
   { id: "profile", title: "Perfil · carreira", label: "Perfil", reading: true },
   { id: "settings", title: "Configurações", label: "Config.", reading: true },
@@ -94,13 +94,23 @@ function usePrefs(onError: (msg: string) => void): [Prefs, (p: Prefs) => void, b
 }
 
 /** Countdown shows how long is left to answer the story's most urgent request. */
-function Countdown({ deadline, onOpen }: { deadline: Deadline; onOpen: () => void }) {
+function Countdown({
+  deadline,
+  clock,
+  onOpen,
+}: {
+  deadline: Deadline;
+  clock: ClockView;
+  onOpen: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const left = Math.max(0, new Date(deadline.until).getTime() - now);
+  // With the clock stopped, the countdown stands where it was (ADR-0026).
+  const at = clock.paused && clock.since ? new Date(clock.since).getTime() : now;
+  const left = Math.max(0, new Date(deadline.until).getTime() - at);
   const mm = String(Math.floor(left / 60000)).padStart(2, "0");
   const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
   const label = deadline.kind === "emergencia" ? "Emergência" : "Pedido";
@@ -112,6 +122,7 @@ function Countdown({ deadline, onOpen }: { deadline: Deadline; onOpen: () => voi
       onClick={onOpen}
     >
       {label} · {mm}:{ss}
+      {clock.paused && " ⏸"}
     </button>
   );
 }
@@ -254,6 +265,7 @@ export function App() {
   }
 
   const busy = state?.job?.running ?? false;
+  const setClock = (paused: boolean) => void game.act(() => api("POST", "/api/clock", { paused }));
   const unread = state?.session
     ? state.messages.filter((m) => !prefs.seen.includes(messageKey(m))).length
     : state
@@ -310,6 +322,10 @@ export function App() {
         return (
           <Docs
             hasSession={state.session !== null}
+            reading={state.reading}
+            clock={state.clock}
+            canPause={state.session?.phase === "calm" || state.session?.phase === "incident"}
+            onClock={setClock}
             onInstalled={(name) =>
               setToast(`${name} está no topology.yaml. Faça um deploy para ligar.`)
             }
@@ -398,7 +414,19 @@ export function App() {
               {state.running ? "Loja no ar" : "Loja desligada"}
             </span>
           )}
-          {state?.deadline && <Countdown deadline={state.deadline} onOpen={() => open("inbox")} />}
+          {state?.clock.paused && (
+            <button
+              type="button"
+              className="pill paused"
+              title="Nenhuma mensagem chega e nenhum prazo corre. A loja continua recebendo tráfego."
+              onClick={() => setClock(false)}
+            >
+              ⏸ Relógio parado · retomar
+            </button>
+          )}
+          {state?.deadline && (
+            <Countdown deadline={state.deadline} clock={state.clock} onOpen={() => open("inbox")} />
+          )}
           {state?.career && (
             <button
               type="button"

@@ -71,6 +71,9 @@ func (g *Game) Lab(ctx context.Context, p LabParams, say Say) (LabResult, error)
 	if err != nil {
 		return LabResult{}, err
 	}
+	if err := g.ResumeClock(); err != nil {
+		return LabResult{}, err
+	}
 	say(fmt.Sprintf("Laboratório: %s até %d req/s por %d s%s. O tráfego do dia pausa.", p.Profile, p.Rate, p.Duration,
 		map[bool]string{true: ", derrubando a instância 1 no meio", false: ""}[p.Crash]))
 	// The first runs of each mission are free; the next ones come out of the salary (ADR-0023).

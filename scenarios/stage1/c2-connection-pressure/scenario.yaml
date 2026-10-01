@@ -35,6 +35,7 @@ player:
   hints: player/hints.yaml
   debrief: player/debrief.md
   events: player/events.yaml
+  reading: player/reading.yaml
 
 objectives:
   - id: search-matches-contract

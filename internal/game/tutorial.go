@@ -137,6 +137,19 @@ type TutorialView struct {
 	Continue bool         `json:"continue"`        // waits for "continuar"
 	Done     bool         `json:"done"`            // every step is behind: the guided mode is over
 	New      bool         `json:"new,omitempty"`   // the step started in this call: tell it once
+	// Past is every step already behind, oldest first: a step can close before
+	// the player read it (the goal was already met), so they can go back to it.
+	Past []PastStep `json:"past,omitempty"`
+}
+
+// PastStep is a step that is behind, as Tabby said it.
+type PastStep struct {
+	Step    string `json:"step"`
+	Index   int    `json:"index"` // 1-based
+	Kind    string `json:"kind"`
+	Text    string `json:"text"`
+	Done    string `json:"done,omitempty"`    // what Tabby said when it was done
+	Skipped bool   `json:"skipped,omitempty"` // a calm step the incident overtook
 }
 
 // ChoiceView is one answer Tabby offers.
@@ -150,11 +163,13 @@ func tutorialView(steps []scenario.TutorialStep, marks map[string]play.TutorialM
 	v := &TutorialView{Total: len(steps)}
 	for i, st := range steps {
 		m := marks[st.ID]
-		if !m.SkippedAt.IsZero() {
-			continue
-		}
-		if !m.DoneAt.IsZero() {
-			v.Before = render(st.Done)
+		if skipped := !m.SkippedAt.IsZero(); skipped || !m.DoneAt.IsZero() {
+			past := PastStep{Step: st.ID, Index: i + 1, Kind: st.Kind, Text: render(st.Text), Skipped: skipped}
+			if !skipped {
+				past.Done = render(st.Done)
+				v.Before = past.Done
+			}
+			v.Past = append(v.Past, past)
 			continue
 		}
 		if m.StartedAt.IsZero() {

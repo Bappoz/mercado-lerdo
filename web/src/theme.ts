@@ -1,8 +1,10 @@
 // Themes are token sets (ADR-0016): every component reads CSS variables, never
 // a theme by name. Personalization overrides tokens on top of the theme.
 
+import { WALLPAPER_IDS, type Wallpaper, wallpaperVars } from "./wallpaper.ts";
+
+export type { Wallpaper };
 export type ThemeId = "nexora98" | "plantao" | "pastel";
-export type Wallpaper = "cena" | "liso" | "grade";
 export type Coat = "laranja" | "cinza" | "frajola";
 export type TextSize = "P" | "M" | "G";
 export type AppId =
@@ -300,7 +302,7 @@ export function normalizePrefs(raw: unknown): Prefs {
   const d = DEFAULT_PREFS;
   return {
     theme: oneOf(r.theme, ["nexora98", "plantao", "pastel"] as const, d.theme),
-    wallpaper: oneOf(r.wallpaper, ["cena", "liso", "grade"] as const, d.wallpaper),
+    wallpaper: oneOf(r.wallpaper, WALLPAPER_IDS, d.wallpaper),
     accent: oneOf(r.accent, [0, 1, 2, 3] as const, d.accent),
     chrome: oneOf(r.chrome, ["pixel", "suave"] as const, d.chrome),
     text: oneOf(r.text, ["P", "M", "G"] as const, d.text),
@@ -354,15 +356,6 @@ export function cssVars(p: Prefs): Record<string, string> {
     "--font-mono": t.fonts.mono,
     "--text-scale": TEXT_SCALE[p.text],
   });
-  switch (p.wallpaper) {
-    case "liso":
-      out["--desk-pattern"] = "none";
-      break;
-    case "grade":
-      out["--desk-pattern"] =
-        "linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px)";
-      out["--desk-pattern-size"] = "16px 16px";
-      break;
-  }
+  Object.assign(out, wallpaperVars(p.wallpaper, { desk: t.vars.desk, grid: t.vars.grid }));
   return out;
 }
