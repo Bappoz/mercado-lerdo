@@ -62,7 +62,7 @@ A campanha não cabe em 90 minutos. Por isso ela é dividida em duas sessões co
 
 As regras do facilitador são as do Playtest #1 (§4). Três acréscimos:
 
-- **Ambiente quebrado:** ajude e anote como bug se a sandbox não subir, se o terminal não conectar ou se um app mostrar erro. A dica do jogo é a Tabby: *"O jogo tem um jeito de te ajudar, se você quiser."*
+- **Ambiente quebrado:** ajude e anote como bug se a sandbox não subir, se o terminal não conectar ou se um app mostrar erro. A dica do jogo é a Slotthy: *"O jogo tem um jeito de te ajudar, se você quiser."*
 - **Tempo:** aos 65 min sem PASS, encerre e vá para a entrevista. A pessoa pode continuar em casa, e isso também conta para a H6.
 - **INCONCLUSIVE que menciona a máquina:** anote como problema de ambiente, não do jogador.
 
@@ -78,7 +78,7 @@ As regras do facilitador são as do Playtest #1 (§4). Três acréscimos:
 | Primeira hipótese **correta** (o banco / a busca) | | |
 | Momento de maior frustração | | o que estava fazendo |
 | Primeira mudança no workspace | | o que mudou |
-| Cada pedido de dica à Tabby | | nível e por quê |
+| Cada pedido de dica à Slotthy | | nível e por quê |
 | Cada Quick Check / Production Test | | resultado; aviso de máquina lenta? |
 | Uso do Lab, do Git ou do Deploy | | para quê |
 | PASS | | |

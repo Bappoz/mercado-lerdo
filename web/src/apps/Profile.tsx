@@ -122,7 +122,7 @@ export function Profile({ career }: { career: CareerView | null }) {
       )}
 
       <p className="muted small">
-        O salário é seu, não da empresa: paga dicas extras da Tabby e experimentos a mais no Lab.
+        O salário é seu, não da empresa: paga dicas extras da Slotthy e experimentos a mais no Lab.
         Cursos e ferramentas de observabilidade chegam nos próximos stages.
       </p>
     </div>

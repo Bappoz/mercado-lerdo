@@ -1,4 +1,4 @@
-# C1 is the first day: Tabby guides the whole mission and her help is free
+# C1 is the first day: Slotthy guides the whole mission and her help is free
 # (ADR-0024). Two questions make the player think before being told.
 # Placeholders name each view's tools ({{status}}, {{shell}}…); never write
 # a CLI command here.
@@ -7,7 +7,7 @@
   phase: calm
   kind: guia
   text: |
-    Oi! Eu sou a Tabby, e hoje eu te acompanho do começo ao fim. A minha ajuda neste primeiro dia é por conta da casa.
+    Oi! Eu sou a Slotthy, e hoje eu te acompanho do começo ao fim. A minha ajuda neste primeiro dia é por conta da casa.
 
     Primeiro passo: conhecer o normal da loja. Confira {{status}} e repare em quatro coisas: quantas requisições chegam, quanto tempo a busca leva (o p95), se há erros e quanto de CPU cada container usa.
   goal: view_pulse

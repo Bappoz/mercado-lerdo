@@ -14,7 +14,7 @@ const SIZES: Size[] = ["S", "M", "L"];
 const LANG: Record<ReadingEntry["lang"], string> = { pt: "em português", en: "em inglês" };
 
 /**
- * Docs: what Tabby recommends reading for the mission (ADR-0026), and the
+ * Docs: what Slotthy recommends reading for the mission (ADR-0026), and the
  * component catalog; optional components install with one click.
  */
 export function Docs({
@@ -222,7 +222,7 @@ function ReadingPage({
         </span>
       </header>
       <div className="md">
-        <h3>Por que a Tabby recomenda</h3>
+        <h3>Por que a Slotthy recomenda</h3>
         <Markdown source={r.why} />
       </div>
       <div className="actions">

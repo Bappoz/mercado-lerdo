@@ -5,7 +5,7 @@ import { WALLPAPER_IDS, type Wallpaper, wallpaperVars } from "./wallpaper.ts";
 
 export type { Wallpaper };
 export type ThemeId = "nexora98" | "plantao" | "pastel";
-export type Coat = "laranja" | "cinza" | "frajola";
+export type Coat = "castanho" | "cinza" | "mel";
 export type TextSize = "P" | "M" | "G";
 export type AppId =
   | "missions"
@@ -30,8 +30,8 @@ export interface Accent {
   dark: string; // pressed/shadow; also the accent as text on the window background
 }
 
-/** Tabby's palette: outline, fur, dark fur, white, eyes, pink. */
-export type TabbyColors = Record<"k" | "o" | "d" | "w" | "e" | "p", string>;
+/** Slotthy's palette: outline, fur, dark fur (the eye patches), light fur (the belly), face, eyes, pink. */
+export type SlotthyColors = Record<"k" | "o" | "d" | "l" | "w" | "e" | "p", string>;
 
 export interface Theme {
   id: ThemeId;
@@ -42,7 +42,7 @@ export interface Theme {
   vars: Record<string, string>; // CSS custom properties, without the leading --
   titleBar: (accent: Accent, app: AppId) => { bg: string; ink: string };
   accents: Accent[];
-  tabby: TabbyColors;
+  slotthy: SlotthyColors;
 }
 
 const nexora98: Theme = {
@@ -110,7 +110,15 @@ const nexora98: Theme = {
     { name: "Musgo", hex: "#3f6b2a", on: "#fff8ec", dark: "#2f501f" },
     { name: "Ameixa", hex: "#7a3b69", on: "#fff8ec", dark: "#5b2c4f" },
   ],
-  tabby: { k: "#2a1d17", o: "#e8984a", d: "#a95a22", w: "#fff3e3", e: "#2a1d17", p: "#e98093" },
+  slotthy: {
+    k: "#2b2670",
+    o: "#9c6b55",
+    d: "#6a4234",
+    l: "#bb8d74",
+    w: "#fbeede",
+    e: "#17133f",
+    p: "#f08fa0",
+  },
 };
 
 const plantao: Theme = {
@@ -178,7 +186,15 @@ const plantao: Theme = {
     { name: "Coral", hex: "#ff8a7a", on: "#12152e", dark: "#ff8a7a" },
     { name: "Lavanda", hex: "#b8a9ff", on: "#12152e", dark: "#b8a9ff" },
   ],
-  tabby: { k: "#0b0d20", o: "#9aa3c9", d: "#5b6391", w: "#e8e6f5", e: "#ffb454", p: "#ff9aa9" },
+  slotthy: {
+    k: "#0b0d20",
+    o: "#8f86b8",
+    d: "#4d4778",
+    l: "#b3abd6",
+    w: "#ece9f8",
+    e: "#0b0d20",
+    p: "#ff9aa9",
+  },
 };
 
 const pastelBars: Record<AppId, string> = {
@@ -263,7 +279,15 @@ const pastel: Theme = {
     { name: "Sálvia", hex: "#b9d7b0", on: "#3b3530", dark: "#4f8a5c" },
     { name: "Lilás", hex: "#d7c7f0", on: "#3b3530", dark: "#7a5fb0" },
   ],
-  tabby: { k: "#3b3530", o: "#f0a35e", d: "#c9743a", w: "#fffaf2", e: "#3b3530", p: "#f28a9b" },
+  slotthy: {
+    k: "#3b3530",
+    o: "#b98a6e",
+    d: "#8a5c45",
+    l: "#d6ab90",
+    w: "#fffaf2",
+    e: "#3b3530",
+    p: "#f28a9b",
+  },
 };
 
 export const THEMES: Theme[] = [nexora98, plantao, pastel];
@@ -287,7 +311,7 @@ export const DEFAULT_PREFS: Prefs = {
   chrome: "pixel",
   text: "M",
   motion: true,
-  coat: "laranja",
+  coat: "castanho",
   seen: [],
   tour: false,
 };
@@ -307,7 +331,7 @@ export function normalizePrefs(raw: unknown): Prefs {
     chrome: oneOf(r.chrome, ["pixel", "suave"] as const, d.chrome),
     text: oneOf(r.text, ["P", "M", "G"] as const, d.text),
     motion: typeof r.motion === "boolean" ? r.motion : d.motion,
-    coat: oneOf(r.coat, ["laranja", "cinza", "frajola"] as const, d.coat),
+    coat: oneOf(r.coat, ["castanho", "cinza", "mel"] as const, d.coat),
     seen: Array.isArray(r.seen)
       ? r.seen.filter((s): s is string => typeof s === "string").slice(-50)
       : [],
@@ -324,13 +348,13 @@ export function accentOf(p: Prefs): Accent {
   return t.accents[p.accent] ?? t.accents[0];
 }
 
-export function tabbyColors(p: Prefs): TabbyColors {
-  const base = themeOf(p).tabby;
+export function slotthyColors(p: Prefs): SlotthyColors {
+  const base = themeOf(p).slotthy;
   switch (p.coat) {
     case "cinza":
-      return { ...base, o: "#9aa3b5", d: "#646b80", w: "#f4f4f6" };
-    case "frajola":
-      return { ...base, k: "#0d0b0a", o: "#2b2624", d: "#1a1716", w: "#fdfbf7", e: "#f2c14e" };
+      return { ...base, o: "#9aa0a8", d: "#5d626c", l: "#bcc1c8", w: "#f4f4f6" };
+    case "mel":
+      return { ...base, o: "#d9a05b", d: "#9a6a34", l: "#ecc48e", w: "#fff6e6" };
     default:
       return base;
   }
@@ -344,8 +368,8 @@ export function cssVars(p: Prefs): Record<string, string> {
   const a = accentOf(p);
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(t.vars)) out[`--${k}`] = v;
-  const tabby = tabbyColors(p);
-  for (const [k, v] of Object.entries(tabby)) out[`--tabby-${k}`] = v;
+  const slotthy = slotthyColors(p);
+  for (const [k, v] of Object.entries(slotthy)) out[`--slotthy-${k}`] = v;
   Object.assign(out, {
     "--accent": a.hex,
     "--on-accent": a.on,

@@ -37,7 +37,7 @@ func TestValidateReading(t *testing.T) {
 	}
 }
 
-// Tabby recommends reading at the start of every mission (ADR-0026).
+// Slotthy recommends reading at the start of every mission (ADR-0026).
 func TestStage1PacksRecommendReading(t *testing.T) {
 	dirs, err := filepath.Glob("../../scenarios/stage1/c*")
 	if err != nil || len(dirs) == 0 {

@@ -38,9 +38,9 @@ var Words = map[string]string{
 	"shell":  "o **Terminal**",
 	"check":  "o **Quick Check** (app Testes)",
 	"test":   "o **Production Test** (app Testes)",
-	"hint":   "a **Tabby** (pedir dica)",
+	"hint":   "a **Slotthy** (pedir dica)",
 	"next":   "clique em **Começar o expediente**, aqui embaixo",
-	// start_day is next as Tabby says it, away from the welcome mail.
+	// start_day is next as Slotthy says it, away from the welcome mail.
 	"start_day": "clique em **Começar o expediente**, no fim do e-mail de boas-vindas do Álvaro",
 	"deploy":    "o **Deploy**",
 	"support":   "o **Suporte**",
@@ -48,7 +48,7 @@ var Words = map[string]string{
 	// Where the player reads the topology and the catalog.
 	"architecture": "o app **Arquitetura**",
 	"docs":         "o app **Docs**",
-	// What Tabby recommends reading (ADR-0026).
+	// What Slotthy recommends reading (ADR-0026).
 	"reading": "as **Leituras da missão** (app Docs)",
 }
 
@@ -264,11 +264,11 @@ type stateView struct {
 	Deadline   *game.Deadline     `json:"deadline"` // the most urgent open request of the story
 	Career     *careerView        `json:"career"`   // nil before the first game (ADR-0023)
 	Tutorial   *game.TutorialView `json:"tutorial"` // nil when the scenario has no guided mode (ADR-0024)
-	Reading    []game.ReadingView `json:"reading"`  // what Tabby recommends reading (ADR-0026)
+	Reading    []game.ReadingView `json:"reading"`  // what Slotthy recommends reading (ADR-0026)
 	Clock      game.ClockView     `json:"clock"`    // the story's clock: the player may stop it to read
 }
 
-// careerView is the career at a glance: the top bar, Tabby's hint price.
+// careerView is the career at a glance: the top bar, Slotthy's hint price.
 type careerView struct {
 	Level     string `json:"level"`
 	Next      string `json:"next,omitempty"`
@@ -394,7 +394,7 @@ func (s *Server) hint(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"hint": HintView{Level: h.Level, Kind: h.Kind, Text: play.RenderBriefing(h.Text, Words)}})
 }
 
-// tutorial takes the player's answer to Tabby in the guided mode: "ok"
+// tutorial takes the player's answer to Slotthy in the guided mode: "ok"
 // (continuar), "help" or "answer" with a choice.
 func (s *Server) tutorial(w http.ResponseWriter, r *http.Request) {
 	var body struct {

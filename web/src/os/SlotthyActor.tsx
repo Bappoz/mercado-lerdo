@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { Mood } from "../tabby.ts";
+import type { Mood } from "../slotthy.ts";
+import { CLIPS, type Clip, type ClipName, nextClip, REST, speakClip } from "../slotthyClips.ts";
 import { walkMs } from "../tour.ts";
-import { type TabbyPose, TabbySprite } from "./pixel.tsx";
+import { type SlotthyPose, SlotthySprite } from "./pixel.tsx";
 
-/** Tabby's size on screen: 24×24 art at scale 4. */
-export const CAT = 96;
+/** Slotthy's size on screen: 32×32 art at scale 3. */
+export const SLOTH = 96;
 
 /** useAnimate is false when the player turned animations off or the system asks for less motion. */
 export function useAnimate(motion: boolean): boolean {
@@ -21,56 +22,62 @@ export function useAnimate(motion: boolean): boolean {
 }
 
 /**
- * useIdlePose brings a sitting Tabby to life: she blinks, swishes her tail
- * and moves her mouth for a moment each time talkKey changes (a new line).
+ * useIdlePose brings a sitting Slotthy to life: she plays one clip after the
+ * other (breathing, blinking, a yawn, a scratch; asleep if left alone) and
+ * speaks each time talkKey changes (a new line).
  */
-export function useIdlePose(mood: Mood, animate: boolean, talkKey: string): TabbyPose {
-  const [flash, setFlash] = useState<"blink" | "sitTail" | null>(null);
-  const [talk, setTalk] = useState({ key: talkKey, at: 0 });
-  const [mouth, setMouth] = useState(false);
-  // A new line starts the talking (derived during render, not in an effect).
-  if (talk.key !== talkKey) setTalk({ key: talkKey, at: Date.now() });
+export function useIdlePose(mood: Mood, animate: boolean, talkKey: string): SlotthyPose {
+  const [pose, setPose] = useState<SlotthyPose>(REST[mood]);
 
   useEffect(() => {
     if (!animate) return;
-    const timers: number[] = [];
-    const every = (ms: number, pose: "blink" | "sitTail", hold: number) =>
-      window.setInterval(() => {
-        setFlash(pose);
-        timers.push(window.setTimeout(() => setFlash(null), hold));
+    let timer = 0;
+    let quiet = 0; // how long since she last spoke
+    const play = (name: ClipName, i: number) => {
+      const clip: Clip = CLIPS[name];
+      const [still, ms] = clip[i];
+      setPose(still);
+      timer = window.setTimeout(() => {
+        quiet += ms;
+        if (i + 1 < clip.length) play(name, i + 1);
+        else play(nextClip(mood, quiet, Math.random()), 0);
       }, ms);
-    const ids = [every(4300, "blink", 150), every(7100, "sitTail", 480)];
-    return () => {
-      for (const id of ids) clearInterval(id);
-      for (const id of timers) clearTimeout(id);
     };
-  }, [animate]);
+    play(talkKey ? speakClip(mood, talkKey) : nextClip(mood, 0, Math.random()), 0);
+    return () => clearTimeout(timer);
+  }, [mood, animate, talkKey]);
+
+  return animate ? pose : REST[mood];
+}
+
+/** useLoop plays a clip over and over while on; off, it is the clip's first still. */
+function useLoop(name: ClipName, on: boolean): SlotthyPose {
+  const [i, setI] = useState(0);
+  const clip: Clip = CLIPS[name];
 
   useEffect(() => {
-    if (!animate || !talk.key || talk.at === 0) return;
-    const id = window.setInterval(() => setMouth((m) => !m), 170);
-    const stop = window.setTimeout(() => {
-      clearInterval(id);
-      setMouth(false);
-    }, 1400);
-    return () => {
-      clearInterval(id);
-      clearTimeout(stop);
+    if (!on) return;
+    const frames: Clip = CLIPS[name];
+    let n = 0;
+    let timer = 0;
+    const step = () => {
+      setI(n);
+      timer = window.setTimeout(step, frames[n % frames.length][1]);
+      n++;
     };
-  }, [talk, animate]);
+    step();
+    return () => clearTimeout(timer);
+  }, [name, on]);
 
-  if (mouth) return mood === "happy" ? "happy" : "talk";
-  if (flash === "blink") return "blink";
-  if (flash === "sitTail" && mood === "sit") return "sitTail";
-  return mood;
+  return clip[on ? i % clip.length : 0][0];
 }
 
 /**
- * WalkingTabby stands at (x, y) in the viewport. When the position changes
+ * WalkingSlotthy stands at (x, y) in the viewport. When the position changes
  * she walks there, facing the way she goes, and calls onArrive on arrival.
  * Without animation she is simply there.
  */
-export function WalkingTabby({
+export function WalkingSlotthy({
   x,
   y,
   flip,
@@ -90,7 +97,6 @@ export function WalkingTabby({
   onArrive: () => void;
 }) {
   const [walk, setWalk] = useState({ x, y, ms: 0, left: false, n: 0 });
-  const [step, setStep] = useState(false);
   const [arrived, setArrived] = useState(0); // the last walk (walk.n) that ended
   if (walk.x !== x || walk.y !== y) {
     setWalk({
@@ -112,24 +118,20 @@ export function WalkingTabby({
       onArrive();
       return;
     }
-    const id = window.setInterval(() => setStep((s) => !s), 150);
     const done = window.setTimeout(() => {
-      clearInterval(id);
       setArrived(walk.n);
       onArrive();
     }, walk.ms);
-    return () => {
-      clearInterval(id);
-      clearTimeout(done);
-    };
+    return () => clearTimeout(done);
   }, [walk]);
 
-  const pose: TabbyPose = walking ? (step ? "walk2" : "walk1") : pointing ? "point" : idle;
-  // The walk art faces right; the pointing paw is raised on her left.
+  const moving = useLoop(walking ? "walk" : "point", animate && (walking || pointing));
+  const pose: SlotthyPose = walking || pointing ? moving : idle;
+  // The walk art faces right; the pointing arm is raised on her left.
   const mirrored = walking ? walk.left : pointing ? flip : false;
   return (
     <div
-      className="tabby-walker"
+      className="slotthy-walker"
       aria-hidden="true"
       style={{
         left: walk.x,
@@ -137,7 +139,7 @@ export function WalkingTabby({
         transition: walk.ms ? `left ${walk.ms}ms linear, top ${walk.ms}ms linear` : "none",
       }}
     >
-      <TabbySprite pose={pose} flip={mirrored} />
+      <SlotthySprite pose={pose} flip={mirrored} />
     </div>
   );
 }

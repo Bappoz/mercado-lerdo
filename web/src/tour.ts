@@ -1,4 +1,4 @@
-// The first-day training: Tabby walks the new hire around LerdOS, one stop
+// The first-day training: Slotthy walks the new hire around LerdOS, one stop
 // per part of the desktop (docs/product/universe.md). Pure data and geometry;
 // os/Tour.tsx animates it.
 
@@ -6,7 +6,7 @@ import type { AppId } from "./theme.ts";
 
 export interface TourStep {
   id: string;
-  /** What Tabby stands next to: a dock app, the top bar, or nothing (center stage). */
+  /** What Slotthy stands next to: a dock app, the top bar, or nothing (center stage). */
   target: { app: AppId } | "topbar" | null;
   text: string;
 }
@@ -15,7 +15,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: "hello",
     target: null,
-    text: "Oi! Eu sou a **Tabby**, a gata do escritório. Apareci no coworking num dia de chuva e fiquei. Antes do seu primeiro dia no **Mercado Lerdo**, deixa eu te mostrar o LerdOS: é aqui que você vai trabalhar.",
+    text: "Oi! Eu sou a **Slotthy**, a preguiça do escritório. Apareci no coworking num dia de chuva e fiquei. Antes do seu primeiro dia no **Mercado Lerdo**, deixa eu te mostrar o LerdOS: é aqui que você vai trabalhar.",
   },
   {
     id: "topbar",
@@ -99,37 +99,40 @@ export interface Size {
 const MARGIN = 12;
 
 /**
- * placeTabby is where Tabby stands to present target (null: center stage),
+ * placeSlotthy is where Slotthy stands to present target (null: center stage),
  * and whether her sprite is flipped. She stands beside the target, not on
- * it, and her pointing paw (drawn raised on her left) faces it.
+ * it, and her pointing arm (drawn raised on her left) faces it.
  */
-export function placeTabby(
+export function placeSlotthy(
   target: Rect | null,
   vp: Size,
-  cat: Size,
+  sloth: Size,
 ): { x: number; y: number; flip: boolean } {
-  const clampX = (x: number) => Math.min(Math.max(x, MARGIN), vp.w - cat.w - MARGIN);
-  const clampY = (y: number) => Math.min(Math.max(y, MARGIN), vp.h - cat.h - MARGIN);
-  if (!target) return { x: clampX(vp.w / 2 - cat.w / 2), y: clampY(vp.h * 0.42), flip: false };
-  const above = target.y - cat.h - 4;
+  const clampX = (x: number) => Math.min(Math.max(x, MARGIN), vp.w - sloth.w - MARGIN);
+  const clampY = (y: number) => Math.min(Math.max(y, MARGIN), vp.h - sloth.h - MARGIN);
+  if (!target) return { x: clampX(vp.w / 2 - sloth.w / 2), y: clampY(vp.h * 0.42), flip: false };
+  const above = target.y - sloth.h - 4;
   const below = target.y + target.h + 4;
   const y = clampY(above >= MARGIN ? above : below);
   // Stand to the right of the target and point left at it; near the right
   // edge, stand on its left and point right (flipped).
   const right = target.x + target.w * 0.5 + 6;
-  if (right + cat.w + MARGIN <= vp.w) return { x: clampX(right), y, flip: false };
-  return { x: clampX(target.x + target.w * 0.5 - cat.w - 6), y, flip: true };
+  if (right + sloth.w + MARGIN <= vp.w) return { x: clampX(right), y, flip: false };
+  return { x: clampX(target.x + target.w * 0.5 - sloth.w - 6), y, flip: true };
 }
 
-/** placeBubble keeps the speech bubble next to Tabby and on the screen. */
-export function placeBubble(cat: Rect, bubble: Size, vp: Size): { x: number; y: number } {
-  const x = Math.min(Math.max(cat.x + cat.w / 2 - bubble.w / 2, MARGIN), vp.w - bubble.w - MARGIN);
-  const above = cat.y - bubble.h - 10;
-  const y = above >= MARGIN ? above : Math.min(cat.y + cat.h + 10, vp.h - bubble.h - MARGIN);
+/** placeBubble keeps the speech bubble next to Slotthy and on the screen. */
+export function placeBubble(sloth: Rect, bubble: Size, vp: Size): { x: number; y: number } {
+  const x = Math.min(
+    Math.max(sloth.x + sloth.w / 2 - bubble.w / 2, MARGIN),
+    vp.w - bubble.w - MARGIN,
+  );
+  const above = sloth.y - bubble.h - 10;
+  const y = above >= MARGIN ? above : Math.min(sloth.y + sloth.h + 10, vp.h - bubble.h - MARGIN);
   return { x, y: Math.max(y, MARGIN) };
 }
 
-/** walkMs is how long Tabby takes to walk a distance: a steady pace, never a teleport nor a crawl. */
+/** walkMs is how long Slotthy takes to walk a distance: a steady pace, never a teleport nor a crawl. */
 export function walkMs(dx: number, dy: number): number {
   return Math.round(Math.min(Math.max(Math.hypot(dx, dy) / 0.7, 350), 1600));
 }

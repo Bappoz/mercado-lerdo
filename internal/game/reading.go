@@ -8,7 +8,7 @@ import (
 	"github.com/Bappoz/software-engineering-simulator/internal/scenario"
 )
 
-// ReadingView is one piece of documentation Tabby recommends for the mission
+// ReadingView is one piece of documentation Slotthy recommends for the mission
 // (ADR-0026), with her words rendered for the view asking.
 type ReadingView struct {
 	ID      string `json:"id"`
@@ -20,7 +20,7 @@ type ReadingView struct {
 	Why     string `json:"why"`
 }
 
-// Reading is what Tabby recommends reading for this scenario; words names the
+// Reading is what Slotthy recommends reading for this scenario; words names the
 // tools for the view asking. Empty when the scenario recommends nothing.
 func (g *Game) Reading(ctx context.Context, words map[string]string) []ReadingView {
 	list := g.Pack().Reading

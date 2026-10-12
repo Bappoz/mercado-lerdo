@@ -29,7 +29,7 @@ type Pack struct {
 	Events   []StoryEvent // player.events; none when the pack has no story events
 	// Tutorial is player.tutorial: the guided mode (ADR-0024); empty for the others.
 	Tutorial []TutorialStep
-	// Reading is player.reading: the documentation Tabby recommends (ADR-0026).
+	// Reading is player.reading: the documentation Slotthy recommends (ADR-0026).
 	Reading []Reading
 }
 
@@ -133,9 +133,9 @@ type Player struct {
 	Hints         string `yaml:"hints"`
 	Debrief       string `yaml:"debrief"`
 	Events        string `yaml:"events"` // optional: the story's events (ADR-0022)
-	// Tutorial is optional: Tabby guides the whole mission, and hints are free (ADR-0024).
+	// Tutorial is optional: Slotthy guides the whole mission, and hints are free (ADR-0024).
 	Tutorial string `yaml:"tutorial"`
-	// Reading is optional: the documentation Tabby recommends for the mission (ADR-0026).
+	// Reading is optional: the documentation Slotthy recommends for the mission (ADR-0026).
 	Reading string `yaml:"reading"`
 }
 

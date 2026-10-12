@@ -15,7 +15,7 @@ import (
 )
 
 // ErrNoTutorial means the scenario has no guided mode, or it is over.
-var ErrNoTutorial = errors.New("a Tabby não está conduzindo um treinamento agora")
+var ErrNoTutorial = errors.New("a Slotthy não está conduzindo um treinamento agora")
 
 // counterGoals are the goals measured by a counter that must grow while the
 // step is current: "run it now", not "you ran it once".
@@ -122,13 +122,13 @@ func evalTutorial(steps []scenario.TutorialStep, s play.Session, facts tutorialF
 	return changed
 }
 
-// TutorialView is what Tabby says in the guided mode right now.
+// TutorialView is what Slotthy says in the guided mode right now.
 type TutorialView struct {
 	Step     string       `json:"step"`  // "" once every step is done
 	Index    int          `json:"index"` // 1-based
 	Total    int          `json:"total"`
 	Kind     string       `json:"kind"`
-	Before   string       `json:"before,omitempty"` // what Tabby says about the step just done
+	Before   string       `json:"before,omitempty"` // what Slotthy says about the step just done
 	Text     string       `json:"text"`
 	Help     string       `json:"help,omitempty"` // once asked for
 	CanHelp  bool         `json:"can_help"`
@@ -142,17 +142,17 @@ type TutorialView struct {
 	Past []PastStep `json:"past,omitempty"`
 }
 
-// PastStep is a step that is behind, as Tabby said it.
+// PastStep is a step that is behind, as Slotthy said it.
 type PastStep struct {
 	Step    string `json:"step"`
 	Index   int    `json:"index"` // 1-based
 	Kind    string `json:"kind"`
 	Text    string `json:"text"`
-	Done    string `json:"done,omitempty"`    // what Tabby said when it was done
+	Done    string `json:"done,omitempty"`    // what Slotthy said when it was done
 	Skipped bool   `json:"skipped,omitempty"` // a calm step the incident overtook
 }
 
-// ChoiceView is one answer Tabby offers.
+// ChoiceView is one answer Slotthy offers.
 type ChoiceView struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
@@ -263,7 +263,7 @@ func (g *Game) newMigrations(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
-// Tutorial advances the guided mode to now and returns what Tabby says; nil
+// Tutorial advances the guided mode to now and returns what Slotthy says; nil
 // when the scenario has none. words names the tools for the view asking;
 // probe false keeps it off the sandbox while a job measures it.
 func (g *Game) Tutorial(ctx context.Context, words map[string]string, probe bool) (*TutorialView, error) {
@@ -341,12 +341,12 @@ func (g *Game) TutorialOK(ctx context.Context) error {
 		return err
 	}
 	if st.Goal != "continue" {
-		return fmt.Errorf("a Tabby está esperando outra coisa neste passo")
+		return fmt.Errorf("a Slotthy está esperando outra coisa neste passo")
 	}
 	return g.markStep(st.ID, func(m *play.TutorialMark) { m.OKAt = time.Now().UTC() })
 }
 
-// TutorialHelp is the player asking Tabby for help with a question.
+// TutorialHelp is the player asking Slotthy for help with a question.
 func (g *Game) TutorialHelp(ctx context.Context) error {
 	st, err := g.currentStep(ctx)
 	if err != nil {
@@ -370,7 +370,7 @@ func (g *Game) TutorialAnswer(ctx context.Context, choice string) (right bool, e
 		return false, err
 	}
 	if st.Goal != "answer" {
-		return false, fmt.Errorf("a Tabby não fez uma pergunta neste passo")
+		return false, fmt.Errorf("a Slotthy não fez uma pergunta neste passo")
 	}
 	if !slices.ContainsFunc(st.Choices, func(c scenario.Choice) bool { return c.ID == choice }) {
 		return false, fmt.Errorf("resposta desconhecida %q", choice)

@@ -22,7 +22,7 @@ func careerMails(sess play.Session, p career.Profile, mission string) []Message 
 
 **O que o salário paga** (é seu, não da empresa):
 
-- dicas da Tabby: a primeira de cada missão é grátis, as seguintes custam mais a cada uma;
+- dicas da Slotthy: a primeira de cada missão é grátis, as seguintes custam mais a cada uma;
 - horas extras no Laboratório: %d experimentos por missão são por conta da casa.
 
 Ficou sem saldo? Eu adianto o salário. Ninguém fica sem dica por falta de dinheiro. O app **Perfil** mostra o seu nível e o extrato.`,

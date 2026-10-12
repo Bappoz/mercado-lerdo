@@ -1,19 +1,19 @@
-// Tabby's lines: scripted from the game state, never from the scenario's
+// Slotthy's lines: scripted from the game state, never from the scenario's
 // solution. What the scenario wants to reveal lives in its hint ladder, which
-// Tabby hands out only when asked.
+// Slotthy hands out only when asked.
 
 import type { GameState, TutorialView } from "./api.ts";
 
-/** Tabby's mood follows the story: worried in an incident, happy once it is solved. */
+/** Slotthy's mood follows the story: worried in an incident, happy once it is solved. */
 export type Mood = "sit" | "worried" | "happy";
 
-export function tabbyMood(s: GameState | null): Mood {
+export function slotthyMood(s: GameState | null): Mood {
   if (s?.deadline?.kind === "emergencia" || s?.session?.phase === "incident") return "worried";
   if (s?.session?.phase === "completed") return "happy";
   return "sit";
 }
 
-// What each kind of request asks, in Tabby's words: where to look, not the answer.
+// What each kind of request asks, in Slotthy's words: where to look, not the answer.
 const GOAL_TIP: Record<NonNullable<GameState["deadline"]>["goal"], string> = {
   test_pass: "O que conta é o Production Test passar.",
   store_up: "Primeiro, coloque a loja de volta no ar: o Deploy reinicia o app.",
@@ -28,7 +28,7 @@ export interface Tip {
   tutorial?: TutorialView; // the guided mode's step (ADR-0024): the bubble shows it instead of text
 }
 
-export function tabbyTip(s: GameState | null): Tip {
+export function slotthyTip(s: GameState | null): Tip {
   if (!s) return { id: "loading", text: "Ligando o computador…" };
   const job = s.job;
   if (job?.running) {
@@ -64,7 +64,7 @@ export function tabbyTip(s: GameState | null): Tip {
         text: "Isso não deu certo. A mensagem de erro está no app Testes; ela costuma dizer onde olhar.",
       }
     : null;
-  // In the guided mode Tabby leads: her step comes before the story's requests.
+  // In the guided mode Slotthy leads: her step comes before the story's requests.
   const t = s.tutorial;
   if (t?.step) {
     return (

@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-// TutorialStep is one step of a scenario's guided mode (ADR-0024): Tabby says
+// TutorialStep is one step of a scenario's guided mode (ADR-0024): Slotthy says
 // Text until the player does Goal, then Done. A question (kind pergunta) does
 // not say how: Help does, when the player asks; its goal is usually an answer
 // among Choices, and a wrong one gets Wrong back.
@@ -16,11 +16,11 @@ type TutorialStep struct {
 	Kind    string   `yaml:"kind"`  // see TutorialKinds
 	Text    string   `yaml:"text"`
 	Goal    string   `yaml:"goal"` // see TutorialGoals
-	Done    string   `yaml:"done"` // optional: what Tabby says once it is done
+	Done    string   `yaml:"done"` // optional: what Slotthy says once it is done
 	Help    string   `yaml:"help"`
 	Choices []Choice `yaml:"choices"` // goal answer
 	Answer  string   `yaml:"answer"`  // the right choice's id
-	Wrong   string   `yaml:"wrong"`   // what Tabby says to a wrong choice
+	Wrong   string   `yaml:"wrong"`   // what Slotthy says to a wrong choice
 }
 
 // Choice is one answer to a question.
@@ -36,7 +36,7 @@ var (
 		"view_pulse", "view_support", "open_shell", // the player opened a view
 		"query_stats", "explain", // the player's own queries in psql
 		"add_migration", "quick_check", "deploy", "next", "test_pass", // the player's results
-		"continue", "answer", // the player answered Tabby
+		"continue", "answer", // the player answered Slotthy
 	}
 )
 
