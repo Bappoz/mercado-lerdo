@@ -175,6 +175,7 @@ Eventos de produto em JSONL local (esquema em `docs/architecture/observability.m
 | 12e | C1 como treinamento: a Tabby conduz a missão inteira em 12 passos (`player/tutorial.yaml`), com duas perguntas de múltipla escolha para pensar; ajuda de graça; balão na UI e `sesim tabby` no terminal (ADR-0024) | feito |
 | 12f | Menu de título: até 3 saves (continuar, nova partida, apagar), abertura com a história da empresa em 8 cenas, logo no favicon, na barra do topo e no README (ADR-0025) | feito |
 | 12g | Depois do playtest do autor: passos do treinamento revisíveis (`sesim tabby passo`), balão que só a Tabby fecha, leituras recomendadas por missão (`player/reading.yaml`, app Docs, `sesim reading`), relógio da história pausável para ler (`sesim clock`) e sete papéis de parede com a marca (ADR-0026) | feito |
+| 12h | A mascote passa a ser a **Slotthy**, a preguiça da logo, no lugar da gata Tabby: arte 32×32 com 30 quadros tocados em clipes (respirar, piscar, olhar, bocejar, coçar, acenar, cochilar e dormir se ficar sozinha, falar, andar em 4 quadros, apontar); `sesim tabby` vira `sesim slotthy` (ADR-0027) | feito |
 
 ## 9. Decisões tomadas (2026-09-24)
 

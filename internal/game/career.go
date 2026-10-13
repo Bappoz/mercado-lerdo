@@ -76,7 +76,7 @@ func missionOf(p *scenario.Pack, id, title string, done time.Time, hints int, ma
 // NextHintPrice is what the next hint of this mission costs.
 func (g *Game) NextHintPrice() int { return g.hintPrice(g.Session().HintsShown + 1) }
 
-// hintPrice is career.HintPrice, except in a tutorial, where Tabby's help is free (ADR-0024).
+// hintPrice is career.HintPrice, except in a tutorial, where Slotthy's help is free (ADR-0024).
 func (g *Game) hintPrice(n int) int {
 	if g.IsTutorial() {
 		return 0

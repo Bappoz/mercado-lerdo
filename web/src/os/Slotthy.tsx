@@ -2,10 +2,10 @@ import { useState } from "react";
 import { api, type GameState, type Hint, type PastStep, type TutorialView } from "../api.ts";
 import { Markdown } from "../markdown.tsx";
 import { money } from "../money.ts";
-import { tabbyMood, tabbyTip } from "../tabby.ts";
+import { slotthyMood, slotthyTip } from "../slotthy.ts";
 import type { AppId } from "../theme.ts";
-import { TabbySprite } from "./pixel.tsx";
-import { useAnimate, useIdlePose } from "./TabbyActor.tsx";
+import { SlotthySprite } from "./pixel.tsx";
+import { useAnimate, useIdlePose } from "./SlotthyActor.tsx";
 
 type View =
   | { kind: "tip" }
@@ -15,10 +15,10 @@ type View =
   | { kind: "none" };
 
 /**
- * Tabby, the mascot: scripted lines about what is going on, and the
+ * Slotthy, the mascot: scripted lines about what is going on, and the
  * scenario's hint ladder, one rung at a time and only when asked.
  */
-export function Tabby({
+export function Slotthy({
   state,
   busy,
   onOpen,
@@ -29,7 +29,7 @@ export function Tabby({
   onOpen: (app: AppId) => void;
   motion: boolean;
 }) {
-  const tip = tabbyTip(state);
+  const tip = slotthyTip(state);
   const [view, setView] = useState<View>({ kind: "tip" });
   const [tipId, setTipId] = useState(tip.id);
   const animate = useAnimate(motion);
@@ -40,7 +40,7 @@ export function Tabby({
   }
 
   // The bubble stays while the player works in the windows (what she says is
-  // often something to type there): only Tabby herself, or "Ok", puts it away.
+  // often something to type there): only Slotthy herself, or "Ok", puts it away.
 
   // She talks whenever a new line appears in her bubble.
   const talkKey =
@@ -51,7 +51,7 @@ export function Tabby({
         : view.kind === "past"
           ? `past-${view.at}`
           : view.kind;
-  const pose = useIdlePose(tabbyMood(state), animate, view.kind === "none" ? "" : talkKey);
+  const pose = useIdlePose(slotthyMood(state), animate, view.kind === "none" ? "" : talkKey);
 
   const hints = state?.hints ?? [];
   const total = state?.hints_total ?? 0;
@@ -71,7 +71,7 @@ export function Tabby({
   if (view.kind === "past" && !reviewing) setView({ kind: "tip" });
 
   return (
-    <aside className="tabby" aria-label="Tabby, a assistente">
+    <aside className="slotthy" aria-label="Slotthy, a assistente">
       {view.kind !== "none" && (
         <div className="bubble" role="status">
           {view.kind === "tip" &&
@@ -196,11 +196,11 @@ export function Tabby({
       )}
       <button
         type="button"
-        className="tabby-sprite"
-        aria-label={view.kind === "none" ? "Falar com a Tabby" : "Esconder a Tabby"}
+        className="slotthy-sprite"
+        aria-label={view.kind === "none" ? "Falar com a Slotthy" : "Esconder a Slotthy"}
         onClick={() => setView(view.kind === "none" ? { kind: "tip" } : { kind: "none" })}
       >
-        <TabbySprite pose={pose} />
+        <SlotthySprite pose={pose} />
       </button>
     </aside>
   );
@@ -223,7 +223,7 @@ function PastStepView({ step, total }: { step: PastStep; total: number }) {
   );
 }
 
-/** One step of the guided mode (ADR-0024): what Tabby says, and the answers she offers. */
+/** One step of the guided mode (ADR-0024): what Slotthy says, and the answers she offers. */
 function TutorialStep({
   t,
   onAct,

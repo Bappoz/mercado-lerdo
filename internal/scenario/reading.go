@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Reading is one piece of documentation Tabby recommends for a mission
+// Reading is one piece of documentation Slotthy recommends for a mission
 // (ADR-0026): where it is, how long it takes and why it is worth the time, in
 // her words. It names a subject to understand, never the diagnosis: that is
 // the hint ladder's.

@@ -322,7 +322,7 @@ export interface GameState {
   clock: ClockView;
 }
 
-/** A piece of documentation Tabby recommends for the mission (ADR-0026). */
+/** A piece of documentation Slotthy recommends for the mission (ADR-0026). */
 export interface Reading {
   id: string;
   title: string;
@@ -339,7 +339,7 @@ export interface ClockView {
   since?: string; // when it stopped
 }
 
-/** Tabby's guided mode (ADR-0024): the step she waits on. */
+/** Slotthy's guided mode (ADR-0024): the step she waits on. */
 export interface TutorialView {
   step: string; // "" once every step is behind
   index: number;
@@ -356,7 +356,7 @@ export interface TutorialView {
   past?: PastStep[]; // the steps behind, oldest first: the player can go back to them
 }
 
-/** A step of the guided mode that is behind, as Tabby said it. */
+/** A step of the guided mode that is behind, as Slotthy said it. */
 export interface PastStep {
   step: string;
   index: number;

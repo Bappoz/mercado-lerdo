@@ -26,7 +26,7 @@ import { Menu } from "./menu/Menu.tsx";
 import { money } from "./money.ts";
 import { AppBoundary } from "./os/AppBoundary.tsx";
 import { AppIcon } from "./os/pixel.tsx";
-import { Tabby } from "./os/Tabby.tsx";
+import { Slotthy } from "./os/Slotthy.tsx";
 import { Tour } from "./os/Tour.tsx";
 import { useWindows, Window } from "./os/windows.tsx";
 import {
@@ -460,7 +460,7 @@ export function App() {
       {showTour ? (
         <Tour motion={prefs.motion} onDone={endTour} />
       ) : (
-        <Tabby state={state} busy={game.act} onOpen={open} motion={prefs.motion} />
+        <Slotthy state={state} busy={game.act} onOpen={open} motion={prefs.motion} />
       )}
 
       <nav className="dock" aria-label="Apps">

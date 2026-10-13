@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
 import type { GameState } from "./api.ts";
-import { TABBY_FRAMES } from "./os/pixel.tsx";
-import { tabbyMood, tabbyTip } from "./tabby.ts";
-import { placeBubble, placeTabby, TOUR_STEPS, walkMs } from "./tour.ts";
+import { SLOTTHY_FRAMES } from "./os/pixel.tsx";
+import { slotthyMood, slotthyTip } from "./slotthy.ts";
+import { placeBubble, placeSlotthy, TOUR_STEPS, walkMs } from "./tour.ts";
 
 const vp = { w: 1440, h: 900 };
-const cat = { w: 96, h: 96 };
+const sloth = { w: 96, h: 96 };
 
-describe("Tabby's frames", () => {
-  it("are all 24×24 and use only her palette", () => {
-    for (const [pose, rows] of Object.entries(TABBY_FRAMES)) {
-      expect(rows, pose).toHaveLength(24);
+describe("Slotthy's frames", () => {
+  it("are all 32×32 and use only her palette", () => {
+    for (const [pose, rows] of Object.entries(SLOTTHY_FRAMES)) {
+      expect(rows, pose).toHaveLength(32);
       for (const row of rows) {
-        expect(row, pose).toHaveLength(24);
-        expect(row, pose).toMatch(/^[.kodwep]+$/);
+        expect(row, pose).toHaveLength(32);
+        expect(row, pose).toMatch(/^[.kodlwep]+$/);
       }
     }
   });
 });
 
 describe("the first-day training", () => {
-  it("starts and ends with Tabby center stage, and every stop has something to say", () => {
+  it("starts and ends with Slotthy center stage, and every stop has something to say", () => {
     expect(TOUR_STEPS[0].target).toBeNull();
     expect(TOUR_STEPS.at(-1)?.target).toBeNull();
     expect(new Set(TOUR_STEPS.map((s) => s.id)).size).toBe(TOUR_STEPS.length);
@@ -31,44 +31,44 @@ describe("the first-day training", () => {
   });
 });
 
-describe("placeTabby", () => {
+describe("placeSlotthy", () => {
   it("stands center stage when there is nothing to show", () => {
-    const p = placeTabby(null, vp, cat);
-    expect(p.x).toBe(vp.w / 2 - cat.w / 2);
+    const p = placeSlotthy(null, vp, sloth);
+    expect(p.x).toBe(vp.w / 2 - sloth.w / 2);
     expect(p.flip).toBe(false);
   });
 
   it("stands above a dock icon, to its right, pointing left at it", () => {
     const icon = { x: 600, y: 800, w: 60, h: 64 };
-    const p = placeTabby(icon, vp, cat);
-    expect(p.y + cat.h).toBeLessThanOrEqual(icon.y);
+    const p = placeSlotthy(icon, vp, sloth);
+    expect(p.y + sloth.h).toBeLessThanOrEqual(icon.y);
     expect(p.x).toBeGreaterThan(icon.x);
     expect(p.flip).toBe(false);
   });
 
   it("switches sides near the right edge and points the other way", () => {
     const icon = { x: 1380, y: 800, w: 60, h: 64 };
-    const p = placeTabby(icon, vp, cat);
-    expect(p.x + cat.w).toBeLessThanOrEqual(vp.w);
+    const p = placeSlotthy(icon, vp, sloth);
+    expect(p.x + sloth.w).toBeLessThanOrEqual(vp.w);
     expect(p.x).toBeLessThan(icon.x + icon.w / 2);
     expect(p.flip).toBe(true);
   });
 
   it("stands below something at the very top", () => {
     const bar = { x: 0, y: 0, w: vp.w, h: 40 };
-    expect(placeTabby(bar, vp, cat).y).toBeGreaterThanOrEqual(bar.h);
+    expect(placeSlotthy(bar, vp, sloth).y).toBeGreaterThanOrEqual(bar.h);
   });
 });
 
 describe("placeBubble", () => {
-  it("keeps the bubble on the screen next to Tabby", () => {
+  it("keeps the bubble on the screen next to Slotthy", () => {
     const bubble = { w: 360, h: 200 };
     for (const at of [
       { x: 0, y: 0 },
-      { x: vp.w - cat.w, y: 0 },
-      { x: vp.w / 2, y: vp.h - cat.h },
+      { x: vp.w - sloth.w, y: 0 },
+      { x: vp.w / 2, y: vp.h - sloth.h },
     ]) {
-      const b = placeBubble({ ...at, ...cat }, bubble, vp);
+      const b = placeBubble({ ...at, ...sloth }, bubble, vp);
       expect(b.x).toBeGreaterThanOrEqual(0);
       expect(b.y).toBeGreaterThanOrEqual(0);
       expect(b.x + bubble.w).toBeLessThanOrEqual(vp.w);
@@ -85,14 +85,14 @@ describe("walkMs", () => {
   });
 });
 
-describe("tabbyMood", () => {
+describe("slotthyMood", () => {
   const phase = (p: "calm" | "incident" | "completed") =>
     ({ session: { phase: p } }) as unknown as GameState;
   it("follows the story", () => {
-    expect(tabbyMood(null)).toBe("sit");
-    expect(tabbyMood(phase("calm"))).toBe("sit");
-    expect(tabbyMood(phase("incident"))).toBe("worried");
-    expect(tabbyMood(phase("completed"))).toBe("happy");
+    expect(slotthyMood(null)).toBe("sit");
+    expect(slotthyMood(phase("calm"))).toBe("sit");
+    expect(slotthyMood(phase("incident"))).toBe("worried");
+    expect(slotthyMood(phase("completed"))).toBe("happy");
   });
 });
 
@@ -113,10 +113,10 @@ describe("the story's deadlines", () => {
         until: "2026-09-27T18:05:00Z",
       },
     }) as unknown as GameState;
-  it("worry Tabby in an emergency and turn her tip to the request", () => {
+  it("worry Slotthy in an emergency and turn her tip to the request", () => {
     const s = state("emergencia", "store_up");
-    expect(tabbyMood(s)).toBe("worried");
-    const tip = tabbyTip(s);
+    expect(slotthyMood(s)).toBe("worried");
+    const tip = slotthyTip(s);
     expect(tip.id).toBe("deadline-d");
     expect(tip.text).toContain("Álvaro pediu");
     expect(tip.text).toContain("Deploy");

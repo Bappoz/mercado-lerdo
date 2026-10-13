@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { Pixels, TabbySprite } from "../os/pixel.tsx";
+import { Pixels, SlotthySprite } from "../os/pixel.tsx";
 import { CODE, INTRO_LEGEND, LAPTOP, TOWER, YARN } from "./art.ts";
 
 interface Scene {
@@ -48,10 +48,10 @@ const SCENES: Scene[] = [
   },
   {
     place: "Um coworking, hoje",
-    text: "A empresa cabe numa mesa, um sofá e uma gata que apareceu num dia de chuva e ficou. A Tabby.",
+    text: "A empresa cabe numa mesa, um sofá e uma preguiça que apareceu num dia de chuva e ficou. A Slotthy.",
     art: (
       <span className="intro-rain">
-        <TabbySprite pose="sit" scale={10} />
+        <SlotthySprite pose="sit" scale={8} />
       </span>
     ),
   },
@@ -59,7 +59,7 @@ const SCENES: Scene[] = [
     text: "Uns 130 visitantes por dia, e tudo funciona. Por enquanto. O Mercado Lerdo acabou de contratar a primeira pessoa de engenharia:",
     art: (
       <span className="intro-you">
-        <TabbySprite pose="happy" scale={8} />
+        <SlotthySprite pose="happy1" scale={6} />
         <strong className="intro-you-word">você.</strong>
       </span>
     ),

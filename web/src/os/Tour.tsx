@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Markdown } from "../markdown.tsx";
-import { placeBubble, placeTabby, type Rect, TOUR_STEPS, type TourStep } from "../tour.ts";
-import { CAT, useAnimate, WalkingTabby } from "./TabbyActor.tsx";
+import { placeBubble, placeSlotthy, type Rect, TOUR_STEPS, type TourStep } from "../tour.ts";
+import { SLOTH, useAnimate, WalkingSlotthy } from "./SlotthyActor.tsx";
 
 const viewport = () => ({ w: window.innerWidth, h: window.innerHeight });
 
-/** Where Tabby rests between trainings: the corner she sits in (styles.css .tabby). */
+/** Where Slotthy rests between trainings: the corner she sits in (styles.css .slotthy). */
 export const corner = (vp: { w: number; h: number }) => ({
-  x: vp.w - 20 - CAT - 8,
-  y: vp.h - 120 - CAT - 8,
+  x: vp.w - 20 - SLOTH - 8,
+  y: vp.h - 120 - SLOTH - 8,
   flip: false,
 });
 
@@ -22,7 +22,7 @@ function targetRect(step: TourStep): Rect | null {
 }
 
 /**
- * Tour is the first-day training: Tabby walks from her corner to each part of
+ * Tour is the first-day training: Slotthy walks from her corner to each part of
  * LerdOS, points at it and explains it, then walks back. The rest of the
  * desktop is dimmed and does not take clicks until the tour ends or is skipped.
  */
@@ -63,7 +63,7 @@ export function Tour({ motion, onDone }: { motion: boolean; onDone: () => void }
     }
   });
 
-  const stop = !entered || leaving ? corner(vp) : placeTabby(rect, vp, { w: CAT, h: CAT });
+  const stop = !entered || leaving ? corner(vp) : placeSlotthy(rect, vp, { w: SLOTH, h: SLOTH });
   // Arrival is about the place, not the step: two steps can share a stop.
   const there = reached !== null && reached.x === stop.x && reached.y === stop.y;
   const arrived = entered && !leaving && there;
@@ -94,7 +94,7 @@ export function Tour({ motion, onDone }: { motion: boolean; onDone: () => void }
 
   const spot =
     rect && !leaving ? { x: rect.x - 6, y: rect.y - 6, w: rect.w + 12, h: rect.h + 12 } : null;
-  const at = placeBubble({ x: stop.x, y: stop.y, w: CAT, h: CAT }, bubbleSize, vp);
+  const at = placeBubble({ x: stop.x, y: stop.y, w: SLOTH, h: SLOTH }, bubbleSize, vp);
 
   return (
     <div className="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
@@ -103,7 +103,7 @@ export function Tour({ motion, onDone }: { motion: boolean; onDone: () => void }
         className={spot ? "tour-spot" : "tour-spot none"}
         style={spot ? { left: spot.x, top: spot.y, width: spot.w, height: spot.h } : undefined}
       />
-      <WalkingTabby
+      <WalkingSlotthy
         x={stop.x}
         y={stop.y}
         flip={stop.flip}

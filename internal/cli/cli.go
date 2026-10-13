@@ -25,8 +25,8 @@ Para jogar:
   check          Quick Check: aplica o seu workspace e mede ~45 s (indicativo)
   test           Production Test (o que vale); numa partida, mostra o debrief no PASS
   hint           a próxima dica (5 níveis)
-  tabby          o que a Tabby diz no treinamento (ok | ajuda | responder <letra> | passo [n])
-  reading        a documentação que a Tabby recomenda para a missão
+  slotthy          o que a Slotthy diz no treinamento (ok | ajuda | responder <letra> | passo [n])
+  reading        a documentação que a Slotthy recomenda para a missão
   clock          o relógio da história (pause | resume): pare para ler sem perder prazo
   shell          terminal dentro da rede da loja
   deploy         coloca o workspace em produção (código, migrações, topology.yaml, nginx)
@@ -95,8 +95,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runProfile(ctx, args[1:], stdout, stderr)
 	case "inbox":
 		return runInbox(ctx, args[1:], stdout, stderr)
-	case "tabby":
-		return runTabby(ctx, args[1:], stdout, stderr)
+	case "slotthy":
+		return runSlotthy(ctx, args[1:], stdout, stderr)
 	case "reading":
 		return runReading(ctx, args[1:], stdout, stderr)
 	case "clock":

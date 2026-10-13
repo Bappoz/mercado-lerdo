@@ -146,8 +146,8 @@ func (t *terminal) tellStory(ctx context.Context) {
 	t.tellTutorial(ctx)
 }
 
-// tellTutorial prints Tabby's step when it has just begun (ADR-0024);
-// `sesim tabby` prints it at any time.
+// tellTutorial prints Slotthy's step when it has just begun (ADR-0024);
+// `sesim slotthy` prints it at any time.
 func (t *terminal) tellTutorial(ctx context.Context) {
 	v, err := t.g.Tutorial(ctx, play.CLIWords, true)
 	if err != nil {
@@ -161,17 +161,17 @@ func (t *terminal) tellTutorial(ctx context.Context) {
 
 func printTutorial(w io.Writer, v *game.TutorialView) {
 	if v.Done {
-		fmt.Fprintf(w, "\n── Tabby · treinamento concluído\n")
+		fmt.Fprintf(w, "\n── Slotthy · treinamento concluído\n")
 		if v.Before != "" {
 			fmt.Fprintln(w, v.Before)
 		}
 		return
 	}
 	if v.Step == "" {
-		fmt.Fprintln(w, "\n── Tabby · treinamento: o próximo passo começa com o incidente.")
+		fmt.Fprintln(w, "\n── Slotthy · treinamento: o próximo passo começa com o incidente.")
 		return
 	}
-	fmt.Fprintf(w, "\n── Tabby · treinamento, passo %d de %d\n", v.Index, v.Total)
+	fmt.Fprintf(w, "\n── Slotthy · treinamento, passo %d de %d\n", v.Index, v.Total)
 	if v.Before != "" {
 		fmt.Fprintf(w, "%s\n\n", v.Before)
 	}
@@ -183,31 +183,31 @@ func printTutorial(w io.Writer, v *game.TutorialView) {
 		fmt.Fprintf(w, "\n%s\n", v.Wrong)
 	}
 	if v.Help != "" {
-		fmt.Fprintf(w, "\nAjuda da Tabby: %s\n", v.Help)
+		fmt.Fprintf(w, "\nAjuda da Slotthy: %s\n", v.Help)
 	}
 	switch {
 	case len(v.Choices) > 0:
-		fmt.Fprintln(w, "\nResponda com `sesim tabby responder <letra>`.")
+		fmt.Fprintln(w, "\nResponda com `sesim slotthy responder <letra>`.")
 	case v.Continue:
-		fmt.Fprintln(w, "\nPara avisar a Tabby: `sesim tabby ok`.")
+		fmt.Fprintln(w, "\nPara avisar a Slotthy: `sesim slotthy ok`.")
 	}
 	if v.CanHelp {
-		fmt.Fprintln(w, "Travou? `sesim tabby ajuda`.")
+		fmt.Fprintln(w, "Travou? `sesim slotthy ajuda`.")
 	}
 	if len(v.Past) > 0 {
-		fmt.Fprintln(w, "Para rever um passo anterior: `sesim tabby passo`.")
+		fmt.Fprintln(w, "Para rever um passo anterior: `sesim slotthy passo`.")
 	}
 }
 
-// runTabby: what Tabby says in the guided mode, and the player's answers to her.
-func runTabby(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+// runSlotthy: what Slotthy says in the guided mode, and the player's answers to her.
+func runSlotthy(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	action, choice := "", ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		action, args = args[0], args[1:]
 	}
 	if action == "responder" {
 		if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-			fmt.Fprintln(stderr, "uso: sesim tabby responder <letra>")
+			fmt.Fprintln(stderr, "uso: sesim slotthy responder <letra>")
 			return 2
 		}
 		choice, args = args[0], args[1:]
@@ -216,16 +216,16 @@ func runTabby(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if action == "passo" && len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		n, err := strconv.Atoi(args[0])
 		if err != nil || n < 1 {
-			fmt.Fprintln(stderr, "uso: sesim tabby passo [número]")
+			fmt.Fprintln(stderr, "uso: sesim slotthy passo [número]")
 			return 2
 		}
 		past, args = n, args[1:]
 	}
 	if !slices.Contains([]string{"", "ok", "ajuda", "responder", "passo"}, action) {
-		fmt.Fprintln(stderr, "uso: sesim tabby [ok | ajuda | responder <letra> | passo [número]]")
+		fmt.Fprintln(stderr, "uso: sesim slotthy [ok | ajuda | responder <letra> | passo [número]]")
 		return 2
 	}
-	t, code := openGame(ctx, "tabby", args, stdout, stderr, true)
+	t, code := openGame(ctx, "slotthy", args, stdout, stderr, true)
 	if t == nil {
 		return code
 	}
@@ -270,20 +270,20 @@ func printPastSteps(w io.Writer, v *game.TutorialView, n int) error {
 		return nil
 	}
 	if n == 0 {
-		fmt.Fprintln(w, "\n── Tabby · passos do treinamento que já ficaram para trás")
+		fmt.Fprintln(w, "\n── Slotthy · passos do treinamento que já ficaram para trás")
 		for _, p := range v.Past {
 			line, _, _ := strings.Cut(p.Text, "\n")
 			fmt.Fprintf(w, "  %2d  %s\n", p.Index, line)
 		}
-		fmt.Fprintln(w, "\nPara ler um deles de novo: `sesim tabby passo <número>`.")
+		fmt.Fprintln(w, "\nPara ler um deles de novo: `sesim slotthy passo <número>`.")
 		return nil
 	}
 	i := slices.IndexFunc(v.Past, func(p game.PastStep) bool { return p.Index == n })
 	if i < 0 {
-		return fmt.Errorf("o passo %d ainda não ficou para trás; `sesim tabby passo` lista os que dá para rever", n)
+		return fmt.Errorf("o passo %d ainda não ficou para trás; `sesim slotthy passo` lista os que dá para rever", n)
 	}
 	p := v.Past[i]
-	fmt.Fprintf(w, "\n── Tabby · treinamento, passo %d de %d (revendo)\n%s\n", p.Index, v.Total, p.Text)
+	fmt.Fprintf(w, "\n── Slotthy · treinamento, passo %d de %d (revendo)\n%s\n", p.Index, v.Total, p.Text)
 	if p.Done != "" {
 		fmt.Fprintf(w, "\n%s\n", p.Done)
 	}
@@ -312,7 +312,7 @@ func printDeadline(w io.Writer, d *game.Deadline, clock game.ClockView) {
 	fmt.Fprintf(w, "\n⏱  %s (%s): até %s, faltam %s. `sesim inbox` mostra o pedido.\n", d.Title, d.From, d.Until.Local().Format("15:04"), left)
 }
 
-// runReading: the documentation Tabby recommends for the mission (ADR-0026).
+// runReading: the documentation Slotthy recommends for the mission (ADR-0026).
 func runReading(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	t, code := openGame(ctx, "reading", args, stdout, stderr, false)
 	if t == nil {
@@ -321,10 +321,10 @@ func runReading(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	defer t.g.Close()
 	list := t.g.Reading(ctx, play.CLIWords)
 	if len(list) == 0 {
-		fmt.Fprintln(stdout, "A Tabby não separou leituras para esta missão.")
+		fmt.Fprintln(stdout, "A Slotthy não separou leituras para esta missão.")
 		return 0
 	}
-	fmt.Fprintln(stdout, "── Tabby · leituras para esta missão (nenhuma é obrigatória)")
+	fmt.Fprintln(stdout, "── Slotthy · leituras para esta missão (nenhuma é obrigatória)")
 	for i, r := range list {
 		lang := map[string]string{"pt": "em português", "en": "em inglês"}[r.Lang]
 		fmt.Fprintf(stdout, "\n%d. %s\n   %s · ≈ %d min · %s\n   %s\n", i+1, r.Title, r.Source, r.Minutes, lang, r.URL)

@@ -66,9 +66,6 @@ kbd {
   .os[data-motion="on"] .blink {
     animation: blink 1.1s steps(1) infinite;
   }
-  .os[data-motion="on"] .tabby-sprite {
-    animation: bob 2.4s steps(2) infinite;
-  }
   .os[data-motion="on"] .tour-spot {
     transition:
       left 0.35s ease,
@@ -1079,8 +1076,8 @@ table.grid {
   overflow-wrap: anywhere;
 }
 
-/* ---- tabby ---- */
-.tabby {
+/* ---- slotthy ---- */
+.slotthy {
   position: absolute;
   right: 20px;
   bottom: 120px;
@@ -1119,17 +1116,17 @@ table.grid {
   margin: 0;
   padding-left: 20px;
 }
-.tabby-sprite {
+.slotthy-sprite {
   padding: 4px;
   cursor: pointer;
   background: transparent;
   border: 0;
 }
-/* ---- Tabby's art and the first-day training ---- */
-.tabby-art.flip {
+/* ---- Slotthy's art and the first-day training ---- */
+.slotthy-art.flip {
   transform: scaleX(-1);
 }
-.tabby-walker {
+.slotthy-walker {
   position: fixed;
   z-index: 1302;
   pointer-events: none;
@@ -1139,7 +1136,7 @@ table.grid {
   inset: 0;
   z-index: 1200;
 }
-/* Takes every click: the desktop waits while Tabby shows it around. */
+/* Takes every click: the desktop waits while Slotthy shows it around. */
 .tour-veil {
   position: absolute;
   inset: 0;
@@ -1217,7 +1214,7 @@ table.grid {
   .topbar-title {
     display: none;
   }
-  .tabby {
+  .slotthy {
     bottom: 110px;
   }
 }
@@ -1659,7 +1656,7 @@ pre.diff {
   font-variant-numeric: tabular-nums;
 }
 
-/* Tabby's guided mode (ADR-0024) */
+/* Slotthy's guided mode (ADR-0024) */
 .tutorial-before {
   color: var(--muted);
   border-left: 3px solid var(--accent);

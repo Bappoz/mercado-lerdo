@@ -31,7 +31,7 @@ var CLIWords = map[string]string{
 	"test":   "`sesim test`",
 	"hint":   "`sesim hint`",
 	"next":   "rode `sesim next`",
-	// start_day is next as Tabby says it, away from the welcome mail.
+	// start_day is next as Slotthy says it, away from the welcome mail.
 	"start_day": "rode `sesim next`",
 	"deploy":    "`sesim deploy`",
 	"support":   "`sesim support`",
@@ -39,7 +39,7 @@ var CLIWords = map[string]string{
 	// Where the player reads the topology and the catalog.
 	"architecture": "`sesim topology`",
 	"docs":         "`sesim docs`",
-	// What Tabby recommends reading (ADR-0026).
+	// What Slotthy recommends reading (ADR-0026).
 	"reading": "`sesim reading`",
 }
 

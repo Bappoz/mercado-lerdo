@@ -4,10 +4,10 @@ import {
   type Coat,
   cssVars,
   type Prefs,
+  slotthyColors,
   type TextSize,
   THEMES,
   type Theme,
-  tabbyColors,
 } from "../theme.ts";
 import { WALLPAPERS } from "../wallpaper.ts";
 
@@ -79,9 +79,9 @@ export function Settings({
   const theme = THEMES.find((t) => t.id === prefs.theme) ?? THEMES[0];
   const set = <K extends keyof Prefs>(k: K, v: Prefs[K]) => setPrefs({ ...prefs, [k]: v });
   const coats: { v: Coat; label: string }[] = [
-    { v: "laranja", label: "Laranja" },
+    { v: "castanho", label: "Castanho" },
     { v: "cinza", label: "Cinza" },
-    { v: "frajola", label: "Frajola" },
+    { v: "mel", label: "Mel" },
   ];
 
   return (
@@ -183,10 +183,13 @@ export function Settings({
               ]}
             />
             <Choice<Coat>
-              label="Pelagem da Tabby"
+              label="Pelagem da Slotthy"
               value={prefs.coat}
               onPick={(v) => set("coat", v)}
-              options={coats.map((c) => ({ ...c, swatch: tabbyColors({ ...prefs, coat: c.v }).o }))}
+              options={coats.map((c) => ({
+                ...c,
+                swatch: slotthyColors({ ...prefs, coat: c.v }).o,
+              }))}
             />
             <Choice<boolean>
               label="Animações"
